@@ -204,6 +204,21 @@
   .satopt{display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:12px;border-radius:6px} .satopt:hover{background:var(--surface-2)}
   .sheet .sf{display:flex;gap:9px;padding:14px 18px;border-top:1px solid var(--line)} .sheet .sf .btn{flex:1;justify-content:center} .sheet .sf .del{flex:0 0 auto;color:var(--accent);border-color:var(--accent-line)}
   .hint{font-size:11px;color:var(--ink-3)}
+  /* app-styled dropdowns everywhere */
+  select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239C9188' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 11px center;padding-right:32px}
+  .chips{display:flex;flex-wrap:wrap;gap:6px} .chips:empty{display:none}
+  .chip-x{display:inline-flex;align-items:center;gap:5px;background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--accent);border-radius:99px;padding:4px 5px 4px 11px;font-size:11.5px;font-weight:800}
+  .chip-x button{color:var(--accent);font-size:15px;line-height:1;width:18px;height:18px;border-radius:99px} .chip-x button:hover{background:#0001}
+  .ghost-btn{width:100%;justify-content:center;border-style:dashed;color:var(--ink-2);font-weight:700}
+  .satprog{border:1px solid var(--line);border-radius:9px;margin-bottom:7px;overflow:hidden;background:var(--surface)}
+  .satprog>summary{padding:10px 13px;font-weight:800;font-size:12px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:9px}
+  .satprog>summary::-webkit-details-marker{display:none}
+  .satprog>summary::before{content:"›";color:var(--ink-3);transition:.2s;font-weight:800}
+  .satprog[open]>summary::before{transform:rotate(90deg)}
+  .satprog .satopt{padding:9px 13px 9px 30px;border-top:1px solid var(--line);gap:9px}
+  .wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px}
+  .wcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;box-shadow:var(--shadow);cursor:pointer}
+  .wcard .co{font-weight:800;font-size:14.5px} .wcard .ti{font-size:12px;color:var(--ink-2);margin:3px 0 10px} .wcard .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
   .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 17px;border-radius:99px;font-size:12.5px;font-weight:700;opacity:0;transition:.25s;z-index:120;pointer-events:none} .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
   .mobar{display:none}
@@ -253,6 +268,7 @@
       <button class="navitem" data-nav="requirements"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Requirements</button>
       <button class="navitem" data-nav="planner"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Planner</button>
       <button class="navitem" data-nav="transcript"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Transcript</button>
+      <button class="navitem" data-nav="wishlist"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-9.2-8.3C1.1 8.5 2.6 5 6 5c2 0 3.2 1.2 4 2.4C10.8 6.2 12 5 14 5c3.4 0 4.9 3.5 3.2 6.7C19 15.6 12 20 12 20z"/></svg>Wishlist</button>
     </nav>
     <div class="rail-foot">
       <button class="tbtn js-theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Theme</button>
@@ -264,43 +280,52 @@
     <section class="page" id="requirements"></section>
     <section class="page" id="planner"></section>
     <section class="page" id="transcript"></section>
+    <section class="page" id="wishlist"></section>
   </main>
 </div>
 
 <!-- course modal -->
 <div class="modal" id="modal">
   <div class="sheet">
-    <div class="sh"><h3 id="mTitle">Course</h3><button class="x" id="mClose">×</button></div>
+    <div class="sh"><h3 id="mTitle">Course</h3><button class="x" id="mClose" aria-label="Close">×</button></div>
     <div class="sb">
-      <div class="fld"><label>Look up on Cornell roster</label>
-        <div class="lookup"><input id="mLookup" placeholder="e.g. PHIL 2310"><button class="btn" id="mLookupBtn" type="button">Search</button></div>
+      <div class="fld"><label>Code</label>
+        <div class="lookup"><input id="mCode"><button class="btn" id="mLookupBtn" type="button">Search roster</button></div>
         <div class="hint" id="mLookupMsg"></div></div>
+      <div class="fld"><label>Title</label><input id="mTitleIn"></div>
       <div class="frow">
-        <div class="fld"><label>Code</label><input id="mCode" placeholder="PHIL 2200"></div>
-        <div class="fld"><label>Credits</label><input id="mCredits" type="number" step="0.5" inputmode="decimal" placeholder="3"></div>
-      </div>
-      <div class="fld"><label>Title</label><input id="mTitleIn" placeholder="Course title"></div>
-      <div class="frow">
+        <div class="fld"><label>Credits</label><input id="mCredits" type="number" step="0.5" inputmode="decimal"></div>
         <div class="fld"><label>Term</label><select id="mTerm"></select></div>
+      </div>
+      <div class="frow">
         <div class="fld"><label>Status</label><select id="mStatus">
-          <option value="wishlist">Idea / wishlist</option><option value="planned">Planned</option>
+          <option value="wishlist">Wishlist</option><option value="planned">Planned</option>
           <option value="in_progress">In progress</option><option value="completed">Completed</option>
           <option value="transferred">Transferred</option></select></div>
-      </div>
-      <div class="frow">
         <div class="fld"><label>Grade</label><select id="mGrade"></select></div>
-        <div class="fld"><label>Distribution / tags</label><input id="mTags" placeholder="SMR-AS, FWS"></div>
       </div>
+      <div class="fld"><label>Distribution</label>
+        <select id="mDist">
+          <option value="">＋ add a distribution</option>
+          <optgroup label="A&amp;S Distribution">
+            <option>ALC-AS</option><option>BIO-AS</option><option>ETM-AS</option><option>GLC-AS</option><option>HST-AS</option>
+            <option>PHS-AS</option><option>SCD-AS</option><option>SSC-AS</option><option>SDS-AS</option><option>SMR-AS</option>
+          </optgroup>
+          <optgroup label="Other requirement">
+            <option>FWS</option><option>LANG</option><option>PE</option>
+          </optgroup>
+        </select>
+        <div class="chips" id="mTagChips" style="margin-top:8px"></div></div>
       <div class="frow">
-        <div class="fld"><label>Analog of (Cornell course)</label><input id="mAnalog" placeholder="e.g. PHIL 2310"></div>
-        <div class="fld"><label>A&amp;S credit?</label>
-          <label class="chkline" style="padding-top:9px"><input type="checkbox" id="mInAs"> counts as A&amp;S</label></div>
+        <div class="fld"><label>Analog of</label><input id="mAnalog"></div>
+        <div class="fld"><label>A&amp;S course</label><label class="chkline" style="padding-top:9px"><input type="checkbox" id="mInAs"> yes</label></div>
       </div>
-      <div class="fld"><label>Satisfies requirements</label>
-        <div class="satbox" id="mSat"></div></div>
+      <button class="btn ghost-btn" id="mSatToggle" type="button">＋ Map to requirements manually</button>
+      <div id="mSatWrap" style="display:none;margin-top:2px"><div id="mSat"></div></div>
     </div>
     <div class="sf">
       <button class="btn del" id="mDelete" style="display:none">Delete</button>
+      <button class="btn" id="mCancel">Cancel</button>
       <button class="btn primary" id="mSave">Save</button>
     </div>
   </div>
@@ -309,42 +334,43 @@
 <!-- requirement modal -->
 <div class="modal" id="rmodal">
   <div class="sheet">
-    <div class="sh"><h3 id="rTitle">Requirement</h3><button class="x" id="rClose">×</button></div>
+    <div class="sh"><h3 id="rTitle">Requirement</h3><button class="x" id="rClose" aria-label="Close">×</button></div>
     <div class="sb">
       <div class="frow">
         <div class="fld"><label>Program</label><select id="rProg"></select></div>
         <div class="fld"><label>Nested under</label><select id="rParent"></select></div>
       </div>
-      <div class="fld"><label>Name</label><input id="rName" placeholder="e.g. Credits in Arts & Sciences"></div>
+      <div class="fld"><label>Name</label><input id="rName"></div>
       <div class="frow">
         <div class="fld"><label>Type</label><select id="rKind">
           <option value="credits">Credit total</option>
           <option value="courses">Number of courses</option>
           <option value="coverage">Category coverage</option>
           <option value="flag">Checkbox (done / not)</option></select></div>
-        <div class="fld"><label>How many</label><input id="rNeed" type="number" step="0.5" inputmode="decimal" placeholder="e.g. 3"></div>
+        <div class="fld"><label>How many</label><input id="rNeed" type="number" step="0.5" inputmode="decimal"></div>
       </div>
       <div class="fld" id="rMatchWrap"><label>Matches courses by</label>
         <select id="rMatchType">
-          <option value="none">Assign manually (I'll tick courses)</option>
+          <option value="none">Assign manually</option>
           <option value="attribute">A distribution tag</option>
           <option value="subject">A subject + level range</option>
           <option value="codes">Specific course codes</option>
           <option value="scope">A credit pool (A&S / all / grad)</option>
         </select>
       </div>
-      <div class="fld" id="rMV_attribute" style="display:none"><label>Tag</label><input id="rAttr" placeholder="SMR-AS"></div>
+      <div class="fld" id="rMV_attribute" style="display:none"><label>Tag</label><input id="rAttr"></div>
       <div id="rMV_subject" style="display:none">
-        <div class="frow"><div class="fld"><label>Subject</label><input id="rSubj" placeholder="PHIL"></div>
-          <div class="fld"><label>Level min</label><input id="rLmin" type="number" inputmode="numeric" placeholder="3000"></div></div>
-        <div class="frow"><div class="fld"><label>Level max</label><input id="rLmax" type="number" inputmode="numeric" placeholder="4999"></div>
+        <div class="frow"><div class="fld"><label>Subject</label><input id="rSubj"></div>
+          <div class="fld"><label>Level min</label><input id="rLmin" type="number" inputmode="numeric"></div></div>
+        <div class="frow"><div class="fld"><label>Level max</label><input id="rLmax" type="number" inputmode="numeric"></div>
           <div class="fld"><label>Exclude x9xx?</label><label class="chkline" style="padding-top:9px"><input type="checkbox" id="rX9"> yes</label></div></div>
       </div>
-      <div class="fld" id="rMV_codes" style="display:none"><label>Codes (comma separated)</label><input id="rCodes" placeholder="HADM 6205, HADM 6280"></div>
+      <div class="fld" id="rMV_codes" style="display:none"><label>Codes (comma separated)</label><input id="rCodes"></div>
       <div class="fld" id="rMV_scope" style="display:none"><label>Pool</label><select id="rScope"><option value="as">A&amp;S credits</option><option value="all">All undergrad credits</option><option value="grad">Grad credits</option></select></div>
     </div>
     <div class="sf">
       <button class="btn del" id="rDelete" style="display:none">Delete</button>
+      <button class="btn" id="rCancel">Cancel</button>
       <button class="btn primary" id="rSave">Save requirement</button>
     </div>
   </div>
@@ -443,7 +469,9 @@ function reqProgress(req){
   const need=(req.spec&&req.spec.need)||{type:"courses",n:num(req.count_required||req.credits_required||1)};
   if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,need:1,met:done>=1,kind:"flag",courses:[]}; }
   if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope; const courses=scope?[]:matchedFor(req);
-    const cr=scope?creditsScope(scope):courses.reduce((s,e)=>s+num(e.credits),0); return {done:Math.round(cr*10)/10,need:need.n,met:cr>=need.n,kind:"credits",courses}; }
+    const cr=scope?creditsScope(scope):courses.reduce((s,e)=>s+num(e.credits),0);
+    const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
+    return {done:Math.round(cr*10)/10,need:need.n,met:cr>=need.n,kind:"credits",courses,kids}; }
   if(need.type==="coverage"){ const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     const cov=kids.filter(k=>matchedFor(k).length>0).length; return {done:cov,need:need.n,met:cov>=need.n,kind:"coverage",kids}; }
   const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
@@ -487,7 +515,7 @@ function ring(pct,size,met){ const col=met?"var(--ok)":"var(--accent)";
 const barFill=(pct,met)=>`<i class="fill ${met?'ok':'warn'}" style="width:${Math.max(pct,3)}%"></i>`;
 
 /* ---- render ---- */
-function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); showPage(CUR); }
+function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderWishlist(); showPage(CUR); }
 function renderRail(){
   const ug=gpa("undergrad"), gr=gpa("grad");
   $("#railGpas").innerHTML=
@@ -568,15 +596,18 @@ function reqBlocks(prog){
   return tops.map((req,i)=>{
     const r={req,...reqProgress(req)};
     let inner="";
-    if(r.kind==="coverage"||(r.kids&&r.kids.length)){
+    if(r.kind==="coverage"||(r.kids&&r.kids.length&&r.kind!=="credits")){
       inner=r.kids.map(k=>{const kc=matchedFor(k);const met=kc.length>0;
         return `<div class="crow"><span class="cdot dot ${met?'ok':'none'}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join("");
       if(r.kind!=="coverage" && r.done<r.need) inner+=`<div class="crow"><span class="cdot dot none"></span><span class="grow muted">${nf(r.need-r.done)} more needed</span></div>`;
     } else if(r.kind==="flag"){
       inner=`<div class="crow"><span class="cdot dot ${r.met?'ok':'none'}"></span><span class="grow">${r.met?'Recorded as done':'Not recorded yet'}</span></div>`;
     } else if(r.kind==="credits"){
-      const list=r.courses&&r.courses.length?r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${nf(num(e.credits))} cr</span></div>`).join(""):'<div class="crow"><span class="grow muted">Counts credits from your courses.</span></div>';
-      inner=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden">${barFill(Math.min(100,100*r.done/r.need),r.met)}</span></div>${list}`;
+      const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden">${barFill(r.need?Math.min(100,100*r.done/r.need):0,r.met)}</span></div>`;
+      let detail="";
+      if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);return `<div class="crow"><span class="cdot dot ${kc.length?'ok':'none'}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
+      else if(r.courses&&r.courses.length){ detail=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${nf(num(e.credits))} cr</span></div>`).join(""); }
+      inner=bar+detail;
     } else {
       const list=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="pill ${STATUS_CLASS[displayStatus(e)]}">${STATUS_LABEL[displayStatus(e)]}</span></div>`).join("");
       inner=list+(r.done<r.need?`<div class="crow"><span class="cdot dot none"></span><span class="grow muted">${nf(r.need-r.done)} more needed</span></div>`:"");
@@ -613,15 +644,20 @@ function renderPlanner(){
       <div class="body">${rows||'<p class="muted" style="padding:6px 0">Nothing here yet.</p>'}
         <div class="add-in" data-add="${term.id}">＋ add a course to ${esc(term.name)}</div></div></div>`;
   }).join("");
-  const ideasBlock=`<div class="ideas"><div class="ih">💡 Ideas / wishlist</div>
-    <div class="igrid">${ideas.map(e=>`<button class="ichip" data-cid="${e.id}"><span class="code">${esc(e.code||'course')}</span><span class="muted">${nf(num(e.credits))} cr</span></button>`).join("")}
-    <button class="ichip" data-add-wish="1" style="color:var(--accent)">＋ add idea</button></div></div>`;
-  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1><div class="actions"><button class="btn primary" id="addCourseBtn">＋ Add course</button></div></div>${ideasBlock}${cards}`;
+  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1><div class="actions"><button class="btn primary" id="addCourseBtn">＋ Add course</button></div></div>${cards}`;
   $("#addCourseBtn").onclick=()=>openCourse();
   $("#planner").querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;const c=b.closest(".pterm");c.classList.toggle("open");if(c.classList.contains("open"))EXP.add(id);else EXP.delete(id);});
   $("#planner").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
   $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:"planned"}));
-  $("#planner").querySelectorAll("[data-add-wish]").forEach(b=>b.onclick=()=>openCourse(null,{status:"wishlist"}));
+}
+function renderWishlist(){
+  const w=DB.enrollments.filter(e=>e.status==="wishlist");
+  const cards=w.map(e=>`<div class="wcard" data-cid="${e.id}"><div class="co code">${esc(e.code||'Course')}</div><div class="ti">${esc(e.title||'')}</div>
+    <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div></div>`).join("");
+  $("#wishlist").innerHTML=`<div class="phead"><h1>Wishlist</h1><div class="actions"><button class="btn primary" id="addWishBtn">＋ Add</button></div></div>
+    ${cards?`<div class="wgrid">${cards}</div>`:'<p class="muted">Nothing saved yet. Courses you set to <b>Wishlist</b> status show up here.</p>'}`;
+  $("#addWishBtn").onclick=()=>openCourse(null,{status:"wishlist"});
+  $("#wishlist").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
 }
 
 function renderTranscript(){
@@ -656,33 +692,48 @@ function renderTranscript(){
 function termGpa(es){ let q=0,c=0; for(const e of es){ const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue; q+=p*num(e.credits); c+=num(e.credits);} return c?q/c:null; }
 
 /* ---- course modal ---- */
-let EDIT_ID=null;
+let EDIT_ID=null, MTAGS=[];
+const splitList=v=>v.split(",").map(s=>s.trim()).filter(Boolean);
+function renderTagChips(){
+  $("#mTagChips").innerHTML=MTAGS.map((t,i)=>`<span class="chip-x">${esc(t)}<button type="button" data-rmtag="${i}" aria-label="remove">×</button></span>`).join("");
+  $("#mTagChips").querySelectorAll("[data-rmtag]").forEach(b=>b.onclick=()=>{MTAGS.splice(+b.dataset.rmtag,1);renderTagChips();});
+}
+function resetDelBtn(b){ b.dataset.armed=""; b.textContent="Delete"; b.style.background=""; b.style.color=""; }
+function armDel(b,fn){ if(b.dataset.armed!=="1"){ b.dataset.armed="1"; b.textContent="Confirm delete"; b.style.background="var(--accent)"; b.style.color="#fff"; clearTimeout(b._t); b._t=setTimeout(()=>resetDelBtn(b),3000); return; } resetDelBtn(b); fn(); }
 function openCourse(id=null, preset={}){
   EDIT_ID=id; const e=id!=null?DB.enrollments.find(x=>String(x.id)===String(id)):preset;
   $("#mTitle").textContent=id!=null?"Edit course":"Add course";
-  $("#mLookupMsg").textContent=""; $("#mLookup").value="";
+  $("#mLookupMsg").textContent="";
   $("#mCode").value=e.code||""; $("#mTitleIn").value=e.title||""; $("#mCredits").value=e.credits!=null?num(e.credits):"";
   $("#mTerm").innerHTML=`<option value="">— none —</option>`+DB.terms.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join(""); $("#mTerm").value=e.term_id||"";
   $("#mStatus").value=e.status||"planned";
   $("#mGrade").innerHTML=`<option value="">—</option>`+["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"].map(g=>`<option>${g}</option>`).join(""); $("#mGrade").value=e.grade||"";
-  $("#mTags").value=(e.tags||[]).join(", "); $("#mAnalog").value=e.analog_of||"";
+  MTAGS=[...(e.tags||[])]; renderTagChips(); $("#mDist").value="";
+  $("#mAnalog").value=e.analog_of||"";
   $("#mInAs").checked = id==null&&e.in_as===undefined ? true : (e.in_as!==false&&e.in_as!=null);
   const cur=new Set((DB.satisfactions||[]).filter(s=>String(s.enrollment_id)===String(id)).map(s=>s.requirement_id));
   let html="";
-  for(const p of DB.programs){ const rs=DB.requirements.filter(r=>r.program_id===p.id); if(!rs.length) continue;
-    html+=`<div class="satgrp">${esc(p.name)}</div>`+rs.map(r=>`<label class="satopt"><input type="checkbox" data-req="${r.id}" ${cur.has(r.id)?'checked':''}> ${esc(r.name)}</label>`).join(""); }
+  for(const p of DB.programs){ const tops=DB.requirements.filter(r=>r.program_id===p.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort); if(!tops.length) continue;
+    const rows=[]; tops.forEach(r=>{rows.push(r);DB.requirements.filter(x=>x.parent_id===r.id).sort((a,b)=>a.sort-b.sort).forEach(k=>rows.push(k));});
+    const anyHere=rows.some(r=>cur.has(r.id));
+    html+=`<details class="satprog" ${anyHere?'open':''}><summary>${esc(p.name)}</summary>`+
+      rows.map(r=>`<label class="satopt" ${r.parent_id?'style="padding-left:44px"':''}><input type="checkbox" data-req="${r.id}" ${cur.has(r.id)?'checked':''}> ${esc(r.name)}</label>`).join("")+`</details>`;
+  }
   $("#mSat").innerHTML=html;
-  $("#mDelete").style.display=id!=null?"inline-flex":"none";
+  const anyChecked=[...cur].length>0; $("#mSatWrap").style.display=anyChecked?"block":"none"; $("#mSatToggle").textContent=anyChecked?"Requirement mapping":"＋ Map to requirements manually";
+  $("#mDelete").style.display=id!=null?"inline-flex":"none"; resetDelBtn($("#mDelete"));
   $("#modal").classList.add("on");
 }
+$("#mDist").onchange=()=>{ const v=$("#mDist").value; if(v&&!MTAGS.includes(v)){MTAGS.push(v);renderTagChips();} $("#mDist").value=""; };
+$("#mSatToggle").onclick=()=>{ const w=$("#mSatWrap"); w.style.display=w.style.display==="none"?"block":"none"; };
 $("#mClose").onclick=()=>$("#modal").classList.remove("on");
+$("#mCancel").onclick=()=>$("#modal").classList.remove("on");
 $("#modal").addEventListener("click",e=>{ if(e.target===$("#modal")) $("#modal").classList.remove("on"); });
-const splitList=v=>v.split(",").map(s=>s.trim()).filter(Boolean);
 $("#mLookupBtn").onclick=async()=>{
-  const code=$("#mLookup").value.trim(); if(!code) return; const msg=$("#mLookupMsg"); msg.textContent="Searching…";
+  const code=$("#mCode").value.trim(); if(!code) return; const msg=$("#mLookupMsg"); msg.textContent="Searching…";
   try{ const info=await rosterLookup(code); if(!info){ msg.textContent="Not found on recent rosters."; return; }
     $("#mCode").value=code.toUpperCase(); if(info.title)$("#mTitleIn").value=info.title; if(info.credits)$("#mCredits").value=info.credits;
-    if(info.tags&&info.tags.length){ const cur=splitList($("#mTags").value); $("#mTags").value=[...new Set([...cur,...info.tags])].join(", "); }
+    if(info.tags&&info.tags.length){ info.tags.forEach(t=>{if(!MTAGS.includes(t))MTAGS.push(t);}); renderTagChips(); }
     msg.textContent="Filled from roster ("+info.roster+")."; }
   catch(err){ msg.textContent="Roster error."; }
 };
@@ -704,7 +755,7 @@ $("#mSave").onclick=async()=>{
   const grade=$("#mGrade").value;
   const row={ code:$("#mCode").value.trim(), title:$("#mTitleIn").value.trim(), credits:num($("#mCredits").value),
     term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null, counts_gpa:GRADE_POINTS[grade]!=null,
-    tags:splitList($("#mTags").value), analog_of:$("#mAnalog").value.trim()||null, in_as:$("#mInAs").checked };
+    tags:MTAGS.slice(), analog_of:$("#mAnalog").value.trim()||null, in_as:$("#mInAs").checked };
   if(EDIT_ID!=null) row.id=EDIT_ID;
   try{
     const saved=(await api("upsert",{table:"enrollments",row})).row;
@@ -718,8 +769,8 @@ $("#mSave").onclick=async()=>{
     $("#modal").classList.remove("on"); renderAll(); toast("Saved");
   }catch(err){ toast(err.message||"Error"); }
 };
-$("#mDelete").onclick=async()=>{ if(EDIT_ID==null||!confirm("Delete this course?")) return;
-  try{ await api("delete",{table:"enrollments",id:EDIT_ID}); DB.enrollments=DB.enrollments.filter(x=>String(x.id)!==String(EDIT_ID)); DB.satisfactions=(DB.satisfactions||[]).filter(s=>String(s.enrollment_id)!==String(EDIT_ID)); $("#modal").classList.remove("on"); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } };
+$("#mDelete").onclick=()=>armDel($("#mDelete"),async()=>{ if(EDIT_ID==null) return;
+  try{ await api("delete",{table:"enrollments",id:EDIT_ID}); DB.enrollments=DB.enrollments.filter(x=>String(x.id)!==String(EDIT_ID)); DB.satisfactions=(DB.satisfactions||[]).filter(s=>String(s.enrollment_id)!==String(EDIT_ID)); $("#modal").classList.remove("on"); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } });
 
 /* ---- requirement modal ---- */
 let R_EDIT=null;
@@ -738,7 +789,7 @@ function openReq(id=null){
   $("#rAttr").value=m.attribute||""; $("#rSubj").value=m.subject||""; $("#rLmin").value=m.levelMin||""; $("#rLmax").value=m.levelMax||"";
   $("#rX9").checked=!!(spec.exclude&&spec.exclude.x9xx); $("#rCodes").value=(m.codes||[]).join(", "); $("#rScope").value=m.scope||"as";
   syncMatchUI();
-  $("#rDelete").style.display=id!=null?"inline-flex":"none";
+  $("#rDelete").style.display=id!=null?"inline-flex":"none"; resetDelBtn($("#rDelete"));
   $("#rmodal").classList.add("on");
 }
 function fillParents(){ const pid=$("#rProg").value; const opts=DB.requirements.filter(r=>r.program_id===pid&&r.id!==R_EDIT);
@@ -749,6 +800,7 @@ function syncMatchUI(){ const k=$("#rKind").value, mt=$("#rMatchType").value;
 }
 $("#rKind").onchange=syncMatchUI; $("#rMatchType").onchange=syncMatchUI;
 $("#rClose").onclick=()=>$("#rmodal").classList.remove("on");
+$("#rCancel").onclick=()=>$("#rmodal").classList.remove("on");
 $("#rmodal").addEventListener("click",e=>{ if(e.target===$("#rmodal")) $("#rmodal").classList.remove("on"); });
 $("#rSave").onclick=async()=>{
   const kind=$("#rKind").value, n=num($("#rNeed").value)||(kind==="flag"?1:1);
@@ -770,8 +822,8 @@ $("#rSave").onclick=async()=>{
     $("#rmodal").classList.remove("on"); renderAll(); toast("Requirement saved");
   }catch(err){ toast(err.message||"Error"); }
 };
-$("#rDelete").onclick=async()=>{ if(R_EDIT==null||!confirm("Delete this requirement?")) return;
-  try{ await api("delete",{table:"requirements",id:R_EDIT}); DB.requirements=DB.requirements.filter(x=>x.id!==R_EDIT); $("#rmodal").classList.remove("on"); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } };
+$("#rDelete").onclick=()=>armDel($("#rDelete"),async()=>{ if(R_EDIT==null) return;
+  try{ await api("delete",{table:"requirements",id:R_EDIT}); DB.requirements=DB.requirements.filter(x=>x.id!==R_EDIT); $("#rmodal").classList.remove("on"); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } });
 
 /* ---- nav / theme / zoom ---- */
 function showPage(id){ CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); scrollTo(0,0); }
