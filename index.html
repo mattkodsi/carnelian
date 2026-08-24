@@ -109,11 +109,11 @@
   .drow .dot{width:9px;height:9px;border-radius:99px;flex:0 0 auto}
   .drow .nm{font-weight:700;font-size:13px}
   .drow .sub{font-size:11px;color:var(--ink-3);font-weight:600;margin-top:1px}
-  .drow .mini{width:66px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;flex:0 0 auto;margin-left:auto}
+  .drow .mini{width:66px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;flex:0 0 auto;margin-left:auto;display:flex}
   .drow .mini i{display:block;height:100%}
   .drow .rt{font-weight:800;font-size:12px;flex:0 0 auto;width:52px;text-align:right}
   .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.plan{background:var(--plan)} .dot.none{background:var(--surface-3);border:1.5px solid var(--line-strong)}
-  .fill.ok{background:var(--ok)} .fill.warn{background:var(--warn)} .fill.plan{background:var(--plan)}
+  .fill.ok{background:var(--ok)} .fill.warn{background:var(--warn)} .fill.plan{background:var(--plan)} .fill.planned{background:var(--warn);opacity:.32}
   .c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-ink3{color:var(--ink-3)}
 
   /* ---- "what's left" ---- */
@@ -139,7 +139,7 @@
   .req .bh:hover{background:var(--surface-2)}
   .req .chev{width:11px;color:var(--ink-3);transition:transform .2s;flex:0 0 auto} .req.open .chev{transform:rotate(90deg)}
   .req .nm{font-weight:800;font-size:13.5px} .req .cr{font-weight:800;font-size:12.5px;margin-left:auto;flex:0 0 auto}
-  .req .mini{width:60px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;flex:0 0 auto} .req .mini i{display:block;height:100%}
+  .req .mini{width:60px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;flex:0 0 auto;display:flex} .req .mini i{display:block;height:100%}
   .req .edit{flex:0 0 auto;color:var(--ink-3);font-size:12px;font-weight:700;padding:4px 8px;border-radius:7px}
   .req .edit:hover{background:var(--surface-3);color:var(--ink)}
   .req .body{border-top:1px solid var(--line);padding:4px 15px 11px;display:none} .req.open .body{display:block}
@@ -529,8 +529,19 @@ const childrenOf=pid=>DB.programs.filter(p=>p.parent_id===pid).sort((a,b)=>a.sor
 const topPrograms=()=>DB.programs.filter(p=>!p.parent_id).sort((a,b)=>a.sort-b.sort);
 const progById=id=>DB.programs.find(p=>p.id===id);
 
-function gpa(career){ let q=0,c=0; for(const e of DB.enrollments){ const t=termById(e.term_id); if((t?t.career:"undergrad")!==career) continue;
-  const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue; q+=p*num(e.credits); c+=num(e.credits);} return c?{gpa:q/c,credits:c}:{gpa:null,credits:0}; }
+// ids of every graded course applied to the Baker program (incl. 6000-level courses taken as an undergrad)
+function bakerAppliedIds(){ const s=new Set();
+  for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r)) s.add(String(e.id));
+  return s; }
+function gpa(career){ let q=0,c=0;
+  const bset = career==="grad" ? bakerAppliedIds() : null;
+  for(const e of DB.enrollments){ const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue;
+    const car=(termById(e.term_id)||{}).career||"undergrad";
+    // grad GPA = grad-career courses PLUS any graded course applied to Baker (e.g. 6000-level taken as undergrad).
+    // undergrad GPA = undergrad-career courses (the cross-applied ones stay here too — "Both").
+    const inCareer = career==="grad" ? (car==="grad"||bset.has(String(e.id))) : (car==="undergrad");
+    if(!inCareer) continue; q+=p*num(e.credits); c+=num(e.credits); }
+  return c?{gpa:q/c,credits:c}:{gpa:null,credits:0}; }
 function creditsScope(scope){ let c=0; for(const e of DB.enrollments){ const ds=displayStatus(e); if(!["completed","in_progress","transferred"].includes(ds)) continue;
   const t=termById(e.term_id), car=t?t.career:"undergrad";
   if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
@@ -548,36 +559,50 @@ function autoMatch(req){ const spec=req.spec||{}, m=spec.match||{}; if(m.manual|
     if(m.codes) return m.codes.includes(e.code); return false; }); }
 const childReqIds=id=>DB.requirements.filter(r=>r.parent_id===id).map(r=>r.id);
 function matchedFor(req){ const map=new Map(); for(const rid of [req.id,...childReqIds(req.id)]) for(const e of satisfiers(rid)) map.set(String(e.id),e); for(const e of autoMatch(req)) map.set(String(e.id),e); return [...map.values()]; }
+// a course only counts as "done" toward a requirement when it's actually finished
+const isEarned=e=>{ const ds=displayStatus(e); return ds==="completed"||ds==="transferred"; };
 function reqProgress(req){
   const need=(req.spec&&req.spec.need)||{type:"courses",n:num(req.count_required||req.credits_required||1)};
-  if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,need:1,met:done>=1,kind:"flag",courses:[]}; }
-  if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope; const courses=scope?[]:matchedFor(req);
-    const cr=scope?creditsScope(scope):courses.reduce((s,e)=>s+num(e.credits),0);
+  if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,planned:0,need:1,met:done>=1,kind:"flag",courses:[]}; }
+  if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope;
+    let doneCr=0, progCr=0, courses=[];
+    if(scope){ for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist") continue;
+        const car=(termById(e.term_id)||{}).career||"undergrad";
+        if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
+        if(isEarned(e)) doneCr+=num(e.credits); else progCr+=num(e.credits); } }
+    else { courses=matchedFor(req); for(const e of courses){ if(isEarned(e)) doneCr+=num(e.credits); else progCr+=num(e.credits); } }
     const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     const N=(BAKER_VIEW==="standard"&&req.program_id==="baker-mps"&&req.spec&&req.spec.standard!=null)?req.spec.standard:need.n;
-    return {done:Math.round(cr*10)/10,need:N,met:cr>=N,kind:"credits",courses,kids}; }
+    return {done:Math.round(doneCr*10)/10,planned:Math.round(progCr*10)/10,need:N,met:doneCr>=N,kind:"credits",courses,kids}; }
   if(need.type==="coverage"){ const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
-    const cov=kids.filter(k=>matchedFor(k).length>0).length; return {done:cov,need:need.n,met:cov>=need.n,kind:"coverage",kids}; }
+    const cov=kids.filter(k=>matchedFor(k).some(isEarned)).length;
+    const covPlan=kids.filter(k=>{const ms=matchedFor(k);return !ms.some(isEarned)&&ms.length>0;}).length;
+    return {done:cov,planned:covPlan,need:need.n,met:cov>=need.n,kind:"coverage",kids}; }
   const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
-  const courses=matchedFor(req); return {done:courses.length,need:need.n,met:courses.length>=need.n,kind:"courses",courses,kids};
+  const courses=matchedFor(req); const doneN=courses.filter(isEarned).length;
+  return {done:doneN,planned:courses.length-doneN,need:need.n,met:doneN>=need.n,kind:"courses",courses,kids};
 }
+// progress is CREDIT-WEIGHTED: a 27.5-cr Core moves the ring far more than a 1.5-cr bucket
+const reqRatio=pr=>pr.need?Math.min(1,pr.done/pr.need):(pr.met?1:0);
+const reqRatioP=pr=>pr.need?Math.min(1,(pr.done+(pr.planned||0))/pr.need):(pr.met?1:0);
+const reqWeight=pr=>pr.kind==="flag"?1:(pr.need||1);
+function weightedOver(rows){ let w=0,a=0,ap=0; for(const pr of rows){ const ww=reqWeight(pr); w+=ww; a+=ww*reqRatio(pr); ap+=ww*reqRatioP(pr); }
+  const met=rows.length?rows.every(r=>r.met):true;
+  let pct=w?Math.round(100*a/w):0, ppct=w?Math.round(100*ap/w):0;
+  if(met) pct=100; else if(pct>=100) pct=99; if(ppct>=100&&!met) ppct=99;
+  return {pct,ppct,met}; }
 function programProgress(prog){
   const top=DB.requirements.filter(r=>r.program_id===prog.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort);
   const rows=top.map(r=>({req:r,...reqProgress(r)}));
-  const ratios=rows.map(r=>r.need?Math.min(1,r.done/r.need):(r.met?1:0));
-  const met=rows.length?rows.every(r=>r.met):true;
-  let pct=rows.length?Math.round(100*ratios.reduce((a,b)=>a+b,0)/rows.length):0;
-  if(met) pct=100; else if(pct>=100) pct=99;
-  return {prog,rows,pct,met};
+  const w=weightedOver(rows);
+  return {prog,rows,pct:w.pct,ppct:w.ppct,met:w.met};
 }
 function degreeProgress(prog){
   const self=programProgress(prog);
   const kids=childrenOf(prog.id).map(c=>({prog:c,...programProgress(c)}));
-  const ratios=[...self.rows.map(r=>r.need?Math.min(1,r.done/r.need):(r.met?1:0)), ...kids.map(k=>k.pct/100)];
-  const met=self.met && kids.every(k=>k.met);
-  let pct=ratios.length?Math.round(100*ratios.reduce((a,b)=>a+b,0)/ratios.length):0;
-  if(met) pct=100; else if(pct>=100) pct=99;
-  return {prog,self,kids,pct,met};
+  let all=[...self.rows]; for(const k of kids) all=all.concat(k.rows);
+  const w=weightedOver(all);
+  return {prog,self,kids,pct:w.pct,ppct:w.ppct,met:self.met&&kids.every(k=>k.met)};
 }
 function outstanding(){ // every unmet leaf requirement across all programs
   const out=[];
@@ -594,9 +619,14 @@ function outstanding(){ // every unmet leaf requirement across all programs
   }
   return out;
 }
-function ring(pct,size,met){ const col=met?"var(--ok)":"var(--accent)";
-  return `<svg width="${size}" height="${size}" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" stroke-width="4"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${pct*0.973} 100" transform="rotate(-90 18 18)"/></svg>`; }
+function ring(pct,size,met,ppct){ const col=met?"var(--ok)":"var(--accent)";
+  const planned=(ppct!=null&&ppct>pct)?`<circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--warn)" opacity=".35" stroke-width="4" stroke-linecap="round" stroke-dasharray="${ppct*0.973} 100" transform="rotate(-90 18 18)"/>`:"";
+  return `<svg width="${size}" height="${size}" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" stroke-width="4"/>${planned}<circle cx="18" cy="18" r="15.5" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${pct*0.973} 100" transform="rotate(-90 18 18)"/></svg>`; }
 const barFill=(pct,met)=>`<i class="fill ${met?'ok':'warn'}" style="width:${Math.max(pct,3)}%"></i>`;
+// two-tone: solid earned + lighter planned
+function bar2(donePct,plannedPct,met){ const d=Math.max(0,Math.min(100,donePct)); const p=Math.max(0,Math.min(100,plannedPct||0)-d);
+  return `<i class="fill ${met?'ok':'warn'}" style="width:${d}%"></i>`+(p>0.5?`<i class="fill planned" style="width:${p}%"></i>`:""); }
+const pctPlan=pr=>pr.need?Math.round(100*Math.min(1,(pr.done+(pr.planned||0))/pr.need)):(pr.met?100:0);
 
 /* ---- render ---- */
 function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderWishlist(); showPage(CUR); }
@@ -619,27 +649,30 @@ function renderDashboard(){
   const bakerTop=DB.requirements.filter(r=>r.program_id==="baker-mps"&&!r.parent_id&&r.spec&&r.spec.need&&r.spec.need.type==="credits");
   const bakerNeed=bakerTop.reduce((s,r)=>s+r.spec.need.n,0);
   const bMap=new Map(); for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r)) bMap.set(String(e.id),e);
-  const bakerDone=Math.round([...bMap.values()].reduce((s,e)=>s+num(e.credits),0)*10)/10;
+  const bVals=[...bMap.values()];
+  const bakerEarned=Math.round(bVals.filter(isEarned).reduce((s,e)=>s+num(e.credits),0)*10)/10;
+  const bakerPlan=Math.round(bVals.filter(e=>!isEarned(e)).reduce((s,e)=>s+num(e.credits),0)*10)/10;
+  const bakerFind=Math.max(0,Math.round((bakerNeed-bakerEarned-bakerPlan)*10)/10);
   const asShort=asC<asNeed;
   const gradTerms=DB.terms.filter(t=>t.career==="grad").sort((a,b)=>a.sort-b.sort); const firstGrad=gradTerms[0];
-  const bakerNote=gr.credits?nf(gr.credits)+" cr graded":(firstGrad?(termTiming(firstGrad)==="planned"?"starts "+esc(firstGrad.name.replace(/ · Baker$/,"")):"in progress"):"not started");
+  const bakerNote=gr.gpa?nf(gr.credits)+" cr in the GPA":(firstGrad?(termTiming(firstGrad)==="planned"?"starts "+esc(firstGrad.name.replace(/ · Baker$/,"")):"in progress"):"not started");
   const stat=`<div class="statgrid">
     <div class="stat"><div class="k">Undergrad GPA</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div><div class="sub">${cur&&(cur.career||'undergrad')!=='grad'?'now in '+esc(cur.name):'A&amp;S — BA'}</div></div>
     <div class="stat"><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"}</div><div class="sub">${bakerNote}</div></div>
     <div class="stat"><div class="k">Undergraduate credits</div><div class="v">${nf(allC)}<small> / ${nf(ugNeed)}</small></div><div class="sub ${asShort?'warnsub':''}">Arts &amp; Sciences ${nf(asC)} / ${nf(asNeed)}${asShort?` · ${nf(asNeed-asC)} to go`:' ✓'}</div></div>
-    <div class="stat"><div class="k">Baker credits</div><div class="v">${nf(bakerDone)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerDone>=bakerNeed?'all credits mapped ✓':nf(bakerNeed-bakerDone)+' cr still to plan'}</div></div>
+    <div class="stat"><div class="k">Baker credits</div><div class="v">${nf(bakerEarned)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerEarned>=bakerNeed?'all 62 credits earned ✓':`${nf(bakerPlan)} planned · ${nf(bakerFind)} to find`}</div></div>
   </div>`;
 
   const degrees=topPrograms().map(p=>{
     const dp=degreeProgress(p); let rows="";
     if(dp.kids.length){
-      rows+=drow("College requirements", dp.self.pct, dp.self.met, leftLabel(dp.self), ()=>goToReqs(p.id), p.id);
-      for(const k of dp.kids) rows+=drow(k.prog.name, k.pct, k.met, leftLabel(k), null, k.prog.id);
+      rows+=drow("College requirements", dp.self.pct, dp.self.met, leftLabel(dp.self), ()=>goToReqs(p.id), p.id, dp.self.ppct);
+      for(const k of dp.kids) rows+=drow(k.prog.name, k.pct, k.met, leftLabel(k), null, k.prog.id, k.ppct);
     } else {
-      for(const r of dp.self.rows) rows+=drow(r.req.name, r.need?Math.min(100,Math.round(100*r.done/r.need)):0, r.met, reqLeft(r), null, p.id);
+      for(const r of dp.self.rows) rows+=drow(r.req.name, r.need?Math.min(100,Math.round(100*r.done/r.need)):0, r.met, reqLeft(r), null, p.id, pctPlan(r));
     }
     return `<div class="degree">
-      <div class="dh"><div class="ring">${ring(dp.pct,52,dp.met)}<b>${dp.pct}%</b></div>
+      <div class="dh"><div class="ring">${ring(dp.pct,52,dp.met,dp.ppct)}<b>${dp.pct}%</b></div>
         <div class="dt"><div class="nm">${esc(p.name)}</div><div class="mt">${dp.met?'Complete':dp.pct+'% complete'}</div></div></div>
       <div class="rows" data-prog="${p.id}">${rows}</div></div>`;
   }).join("");
@@ -658,12 +691,14 @@ function renderDashboard(){
   $("#dashboard").querySelectorAll(".drow[data-goto]").forEach(b=>b.onclick=()=>goToReqs(b.dataset.goto));
 }
 function leftLabel(pp){ if(pp.met) return "complete"; const n=pp.rows.filter(r=>!r.met).length; return n+" item"+(n===1?"":"s")+" left"; }
-function reqLeft(r){ if(r.met) return "complete"; if(r.kind==="credits") return nf(r.need-r.done)+" cr left"; if(r.kind==="flag") return "to do"; return (r.need-r.done)+" left"; }
-function drow(name,pct,met,sub,onclick,goto){
-  const cls=met?"ok":(pct>0?"warn":"none");
+function reqLeft(r){ if(r.met) return "complete"; const plan=r.planned||0;
+  if(r.kind==="credits") return nf(r.need-r.done)+" cr left"+(plan>0?` · ${nf(plan)} planned`:"");
+  if(r.kind==="flag") return "to do"; return (r.need-r.done)+" left"+(plan>0?` · ${plan} planned`:""); }
+function drow(name,pct,met,sub,onclick,goto,ppct){
+  const cls=met?"ok":((pct>0||(ppct||0)>0)?"warn":"none");
   return `<button class="drow" ${goto?`data-goto="${goto}"`:""}><span class="dot ${cls}"></span>
     <span class="grow"><div class="nm">${esc(name)}</div><div class="sub">${esc(sub)}</div></span>
-    <span class="mini">${barFill(pct,met)}</span><span class="rt ${met?'c-ok':'c-ink3'}">${met?'✓':pct+'%'}</span></button>`;
+    <span class="mini">${bar2(pct,ppct!=null?ppct:pct,met)}</span><span class="rt ${met?'c-ok':'c-ink3'}">${met?'✓':pct+'%'}</span></button>`;
 }
 
 function courseChip(e){ const ds=displayStatus(e); return `<span class="pill ${STATUS_CLASS[ds]}"><span class="code">${esc(e.code)}</span></span>`; }
@@ -696,16 +731,17 @@ function reqBlocks(prog){
     const r={req,...reqProgress(req)};
     let inner="";
     if(r.kind==="coverage"||(r.kids&&r.kids.length&&r.kind!=="credits")){
-      inner=r.kids.map(k=>{const kc=matchedFor(k);const met=kc.length>0;
-        return `<div class="crow"><span class="cdot dot ${met?'ok':'none'}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join("");
+      inner=r.kids.map(k=>{const kc=matchedFor(k);const met=kc.some(isEarned);const inprog=!met&&kc.length>0;
+        return `<div class="crow"><span class="cdot dot ${met?'ok':(inprog?'warn':'none')}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join("");
       if(r.kind!=="coverage" && r.done<r.need) inner+=`<div class="crow"><span class="cdot dot none"></span><span class="grow muted">${nf(r.need-r.done)} more needed</span></div>`;
     } else if(r.kind==="flag"){
       inner=`<div class="crow"><span class="cdot dot ${r.met?'ok':'none'}"></span><span class="grow">${r.met?'Recorded as done':'Not recorded yet'}</span></div>`;
     } else if(r.kind==="credits"){
-      const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden">${barFill(r.need?Math.min(100,100*r.done/r.need):0,r.met)}</span></div>`;
+      const planStr=(r.planned>0)?` <span class="muted">(+${nf(r.planned)} planned)</span>`:"";
+      const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits${planStr}</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex">${bar2(r.need?Math.min(100,100*r.done/r.need):0,pctPlan(r),r.met)}</span></div>`;
       const note=(BAKER_VIEW==='plan'&&req.spec&&req.spec.note)?`<div class="crow waivernote"><span class="grow">${esc(req.spec.note)}</span></div>`:"";
       let detail=note;
-      if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);return `<div class="crow"><span class="cdot dot ${kc.length?'ok':'none'}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
+      if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);return `<div class="crow"><span class="cdot dot ${km?'ok':(kc.length?'warn':'none')}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
       else if(r.courses&&r.courses.length){ detail=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${nf(num(e.credits))} cr</span></div>`).join(""); }
       inner=bar+detail;
     } else {
@@ -716,9 +752,9 @@ function reqBlocks(prog){
     const openByDefault=!r.met;
     return `<div class="req ${openByDefault?'open':''}"><div class="bh">
       <button class="chev" onclick="this.closest('.req').classList.toggle('open')" aria-label="toggle">›</button>
-      <span class="cdot dot ${r.met?'ok':(pct>0?'warn':'none')}"></span>
+      <span class="cdot dot ${r.met?'ok':((pct>0||(r.planned||0)>0)?'warn':'none')}"></span>
       <span class="nm" onclick="this.closest('.req').classList.toggle('open')">${esc(r.req.name)}</span>
-      <span class="mini">${barFill(pct,r.met)}</span>
+      <span class="mini">${bar2(pct,pctPlan(r),r.met)}</span>
       <span class="cr ${r.met?'c-ok':''}">${r.kind==='flag'?(r.met?'✓':'—'):nf(r.done)+'/'+nf(r.need)}</span>
       <button class="edit" data-editreq="${r.req.id}">edit</button></div>
       <div class="body">${inner}</div></div>`;
