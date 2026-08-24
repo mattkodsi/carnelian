@@ -621,9 +621,11 @@ function renderDashboard(){
   const bMap=new Map(); for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r)) bMap.set(String(e.id),e);
   const bakerDone=Math.round([...bMap.values()].reduce((s,e)=>s+num(e.credits),0)*10)/10;
   const asShort=asC<asNeed;
+  const gradTerms=DB.terms.filter(t=>t.career==="grad").sort((a,b)=>a.sort-b.sort); const firstGrad=gradTerms[0];
+  const bakerNote=gr.credits?nf(gr.credits)+" cr graded":(firstGrad?(termTiming(firstGrad)==="planned"?"starts "+esc(firstGrad.name.replace(/ · Baker$/,"")):"in progress"):"not started");
   const stat=`<div class="statgrid">
-    <div class="stat"><div class="k">Undergrad GPA</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div><div class="sub">${cur?'now in '+esc(cur.name):'A&amp;S — BA'}</div></div>
-    <div class="stat"><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"}</div><div class="sub">${gr.credits?nf(gr.credits)+' cr graded':'starts Fall 2027'}</div></div>
+    <div class="stat"><div class="k">Undergrad GPA</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div><div class="sub">${cur&&(cur.career||'undergrad')!=='grad'?'now in '+esc(cur.name):'A&amp;S — BA'}</div></div>
+    <div class="stat"><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"}</div><div class="sub">${bakerNote}</div></div>
     <div class="stat"><div class="k">Undergraduate credits</div><div class="v">${nf(allC)}<small> / ${nf(ugNeed)}</small></div><div class="sub ${asShort?'warnsub':''}">Arts &amp; Sciences ${nf(asC)} / ${nf(asNeed)}${asShort?` · ${nf(asNeed-asC)} to go`:' ✓'}</div></div>
     <div class="stat"><div class="k">Baker credits</div><div class="v">${nf(bakerDone)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerDone>=bakerNeed?'all credits mapped ✓':nf(bakerNeed-bakerDone)+' cr still to plan'}</div></div>
   </div>`;
@@ -738,7 +740,7 @@ function renderPlanner(){
     const isOpen=EXP.has(term.id)?true:(timing!=="completed");
     const rows=es.map(prowHTML).join("");
     return `<div class="pterm ${isOpen?'open':''}" data-term="${term.id}">
-      <div class="ph" data-toggle="${term.id}"><span class="chev">›</span><span class="nm">${esc(term.name)}</span>${car==='grad'?'<span class="badge">Baker</span>':''}<span class="tstat ${ts.c}">${ts.l}</span>
+      <div class="ph" data-toggle="${term.id}"><span class="chev">›</span><span class="nm">${esc(term.name)}</span><span class="tstat ${ts.c}">${ts.l}</span>
         <span class="meta">${nf(cr)} cr<small>${nf(cum[car])} cum</small></span></div>
       <div class="body">${rows||'<p class="muted" style="padding:6px 0">Nothing here yet.</p>'}
         <div class="add-in" data-add="${term.id}">＋ add a course to ${esc(term.name)}</div></div></div>`;
