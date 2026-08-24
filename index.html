@@ -23,20 +23,20 @@
     --r:14px; --r-sm:10px;
   }
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
-    --bg:#141110; --surface:#1D1917; --surface-2:#241E1B; --surface-3:#2B2420;
-    --line:#332B26; --line-strong:#43382F; --ink:#F2EBE5; --ink-2:#B4A79E; --ink-3:#80736A;
-    --accent:#EA6A63; --accent-ink:#1a0e0d; --accent-soft:#2C1614; --accent-line:#4a2723;
-    --ok:#5FBE86; --ok-bg:#16271E; --ok-line:#284835; --warn:#E0A84C; --warn-bg:#2A2113; --warn-line:#4a3a1e;
-    --plan:#77A5D8; --plan-bg:#15212E; --plan-line:#294055;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.7);
+    --bg:#131317; --surface:#1C1C22; --surface-2:#24242B; --surface-3:#2D2D35;
+    --line:#302F39; --line-strong:#41404C; --ink:#F1EFF5; --ink-2:#ABA7B5; --ink-3:#787480;
+    --accent:#F0665F; --accent-ink:#1a0f0e; --accent-soft:#2B1A1C; --accent-line:#4B2A2C;
+    --ok:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
+    --plan:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
+    --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72);
   }}
   :root[data-theme="dark"]{
-    --bg:#141110; --surface:#1D1917; --surface-2:#241E1B; --surface-3:#2B2420;
-    --line:#332B26; --line-strong:#43382F; --ink:#F2EBE5; --ink-2:#B4A79E; --ink-3:#80736A;
-    --accent:#EA6A63; --accent-ink:#1a0e0d; --accent-soft:#2C1614; --accent-line:#4a2723;
-    --ok:#5FBE86; --ok-bg:#16271E; --ok-line:#284835; --warn:#E0A84C; --warn-bg:#2A2113; --warn-line:#4a3a1e;
-    --plan:#77A5D8; --plan-bg:#15212E; --plan-line:#294055;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.7);
+    --bg:#131317; --surface:#1C1C22; --surface-2:#24242B; --surface-3:#2D2D35;
+    --line:#302F39; --line-strong:#41404C; --ink:#F1EFF5; --ink-2:#ABA7B5; --ink-3:#787480;
+    --accent:#F0665F; --accent-ink:#1a0f0e; --accent-soft:#2B1A1C; --accent-line:#4B2A2C;
+    --ok:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
+    --plan:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
+    --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72);
   }
   *{box-sizing:border-box} html,body{margin:0}
   html{touch-action:manipulation;-webkit-text-size-adjust:100%}
@@ -86,12 +86,13 @@
   .muted{color:var(--ink-3)}
 
   /* ---- dashboard: stat strip ---- */
-  .stat3{display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:11px;margin-bottom:20px}
+  .statgrid{display:grid;grid-template-columns:1fr 1fr;gap:11px;margin-bottom:20px}
   .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 15px;box-shadow:var(--shadow)}
   .stat .k{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--ink-3)}
-  .stat .v{font-size:27px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+  .stat .v{font-size:26px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
   .stat .v small{font-size:12px;color:var(--ink-3);font-weight:700}
   .stat .sub{font-size:11.5px;color:var(--ink-2);margin-top:3px;font-weight:600}
+  .stat .sub.warnsub{color:var(--accent)}
 
   /* ---- degree card ---- */
   .degree{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden}
@@ -159,10 +160,16 @@
   .pterm .meta{margin-left:auto;font-weight:800;font-size:12px;color:var(--ink-2);flex:0 0 auto;text-align:right}
   .pterm .meta small{display:block;font-size:10px;color:var(--ink-3);font-weight:700}
   .pterm .body{border-top:1px solid var(--line);padding:6px 15px 12px;display:none} .pterm.open .body{display:block}
-  .prow{display:grid;grid-template-columns:auto 1fr auto auto;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .prow{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer}
   .prow:last-child{border-bottom:0}
-  .prow .co{font-weight:700;font-size:12.5px} .prow .ti{color:var(--ink-2);font-size:11.5px}
-  .prow .cc{font-weight:700;font-size:12px;color:var(--ink-3);text-align:right}
+  .prow .co{font-weight:700;font-size:12.5px;white-space:nowrap} .prow .co.nonas{color:var(--accent)}
+  .prow .ti{color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .prow .cc{font-weight:700;font-size:12px;color:var(--ink-3);text-align:right;white-space:nowrap}
+  .pterm.unsched{border-color:var(--warn-line,var(--line))} .pterm .badge.warn{background:var(--warn-bg,var(--surface-2));color:var(--warn)}
+  .pterm .tstat{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px}
+  .pterm .tstat.done{background:var(--ok-bg);color:var(--ok)} .pterm .tstat.now{background:var(--warn-bg);color:var(--warn)} .pterm .tstat.soon{background:var(--plan-bg);color:var(--plan)}
+  .segrow{margin:2px 0 14px} .segrow .seg{margin-bottom:6px} .segnote{font-size:11.5px;color:var(--ink-3);line-height:1.45;max-width:60ch}
+  .crow.waivernote .grow{font-size:11.5px;color:var(--warn);font-weight:600}
   .add-in{display:flex;align-items:center;gap:7px;padding:9px 0 3px;color:var(--accent);font-weight:700;font-size:12px}
   .ideas{background:var(--surface);border:1px dashed var(--line-strong);border-radius:var(--r);padding:13px 15px;margin-bottom:14px}
   .ideas .ih{display:flex;align-items:center;gap:8px;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin-bottom:2px}
@@ -202,7 +209,13 @@
   .satbox{border:1px solid var(--line);border-radius:9px;max-height:170px;overflow:auto;padding:6px}
   .satgrp{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);padding:6px 6px 3px}
   .satopt{display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:12px;border-radius:6px} .satopt:hover{background:var(--surface-2)}
-  .sheet .sf{display:flex;gap:9px;padding:14px 18px;border-top:1px solid var(--line)} .sheet .sf .btn{flex:1;justify-content:center} .sheet .sf .del{flex:0 0 auto;color:var(--accent);border-color:var(--accent-line)}
+  .sheet .sf{display:flex;align-items:center;gap:9px;padding:14px 18px;border-top:1px solid var(--line)}
+  .sheet .sf-main{display:flex;gap:9px;margin-left:auto} .sheet .sf-main .btn{justify-content:center;padding:10px 20px}
+  .linkdel{background:none;border:0;color:var(--accent);font-weight:700;font-size:12.5px;padding:8px 2px;cursor:pointer} .linkdel:hover{text-decoration:underline}
+  .btn.danger{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .btn.busy{opacity:.6;pointer-events:none}
+  .modal.confirm{z-index:90} .confirm-sheet{max-width:330px}
+  .confirm-sheet .cbody{padding:20px 20px 6px} .confirm-sheet h3{font-size:16px;font-weight:800;margin-bottom:6px} .confirm-sheet p{font-size:13px;color:var(--ink-2);line-height:1.5}
   .hint{font-size:11px;color:var(--ink-3)}
   /* app-styled dropdowns everywhere */
   select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239C9188' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 11px center;padding-right:32px}
@@ -219,6 +232,30 @@
   .wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px}
   .wcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;box-shadow:var(--shadow);cursor:pointer}
   .wcard .co{font-weight:800;font-size:14.5px} .wcard .ti{font-size:12px;color:var(--ink-2);margin:3px 0 10px} .wcard .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  /* custom app dropdowns (replace native option lists) */
+  .dd{position:relative}
+  .dd-btn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);font-weight:600;font-size:14px}
+  .dd-btn .dd-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .dd-btn .dd-lbl.ph{color:var(--ink-3);font-weight:600}
+  .dd-btn .dd-chev{color:var(--ink-3);font-weight:800;transition:.2s} .dd.open .dd-btn .dd-chev{transform:rotate(90deg)} .dd.open .dd-btn{border-color:var(--accent)}
+  .dd-menu{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;box-shadow:var(--shadow);max-height:244px;overflow:auto;padding:5px;display:none;overscroll-behavior:contain}
+  .dd.open .dd-menu{display:block}
+  .dd-grp{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);padding:8px 9px 4px}
+  .dd-opt{display:block;width:100%;text-align:left;padding:9px 11px;border-radius:8px;font-size:13.5px;font-weight:600;color:var(--ink)}
+  .dd-opt:hover{background:var(--surface-2)} .dd-opt.on{background:var(--accent-soft);color:var(--accent);font-weight:800}
+  /* roster typeahead */
+  .searchfld{position:relative}
+  .results{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:25;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;box-shadow:var(--shadow);max-height:262px;overflow:auto;padding:4px;display:none;overscroll-behavior:contain}
+  .results.on{display:block}
+  .result{display:flex;gap:9px;align-items:baseline;padding:9px 11px;border-radius:8px;cursor:pointer;font-size:12.5px}
+  .result:hover{background:var(--surface-2)} .result .rc{font-weight:800;white-space:nowrap} .result .rt{color:var(--ink-2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .result .rr{color:var(--ink-3);font-weight:700;white-space:nowrap}
+  /* sticky modal chrome + scroll containment */
+  .sheet{overscroll-behavior:contain}
+  .sheet .sh{position:sticky;top:0;z-index:6;background:var(--surface);border-radius:16px 16px 0 0}
+  .sheet .sf{position:sticky;bottom:0;z-index:6;background:var(--surface);border-radius:0 0 16px 16px}
+  /* dynamic "map to requirements" toggle */
+  .mapbtn{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:1px solid var(--line-strong);border-radius:11px;background:var(--surface-2);font-weight:700;font-size:13px;color:var(--ink)}
+  .mapbtn:hover{background:var(--surface-3)} .mapbtn .chev{margin-left:auto;color:var(--ink-3);font-weight:800;transition:.2s} .mapbtn.open .chev{transform:rotate(90deg)}
+  .mapbtn .cnt{background:var(--accent);color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 8px}
   .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 17px;border-radius:99px;font-size:12.5px;font-weight:700;opacity:0;transition:.25s;z-index:120;pointer-events:none} .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
   .mobar{display:none}
@@ -232,8 +269,7 @@
     .navitem{flex:1;flex-direction:column;gap:3px;padding:7px 2px;font-size:10px;justify-content:center;text-align:center;border-radius:8px} .navitem svg{width:22px;height:22px}
     .main{padding:calc(60px + env(safe-area-inset-top)) 15px 88px}
     .phead h1{font-size:23px}
-    .stat3{grid-template-columns:1fr 1fr}
-    .stat3 .stat.wide{grid-column:1 / -1}
+    .statgrid{grid-template-columns:1fr 1fr;gap:9px}
     .frow{grid-template-columns:1fr}
     .trow{grid-template-columns:74px 1fr 34px 36px;gap:8px} .trow .ds{display:none}
   }
@@ -268,7 +304,7 @@
       <button class="navitem" data-nav="requirements"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Requirements</button>
       <button class="navitem" data-nav="planner"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Planner</button>
       <button class="navitem" data-nav="transcript"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Transcript</button>
-      <button class="navitem" data-nav="wishlist"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-9.2-8.3C1.1 8.5 2.6 5 6 5c2 0 3.2 1.2 4 2.4C10.8 6.2 12 5 14 5c3.4 0 4.9 3.5 3.2 6.7C19 15.6 12 20 12 20z"/></svg>Wishlist</button>
+      <button class="navitem" data-nav="wishlist"><svg viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>Wishlist</button>
     </nav>
     <div class="rail-foot">
       <button class="tbtn js-theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Theme</button>
@@ -289,8 +325,9 @@
   <div class="sheet">
     <div class="sh"><h3 id="mTitle">Course</h3><button class="x" id="mClose" aria-label="Close">×</button></div>
     <div class="sb">
-      <div class="fld"><label>Code</label>
-        <div class="lookup"><input id="mCode"><button class="btn" id="mLookupBtn" type="button">Search roster</button></div>
+      <div class="fld searchfld"><label>Code</label>
+        <input id="mCode" autocomplete="off">
+        <div class="results" id="mResults"></div>
         <div class="hint" id="mLookupMsg"></div></div>
       <div class="fld"><label>Title</label><input id="mTitleIn"></div>
       <div class="frow">
@@ -317,16 +354,16 @@
         </select>
         <div class="chips" id="mTagChips" style="margin-top:8px"></div></div>
       <div class="frow">
-        <div class="fld"><label>Analog of</label><input id="mAnalog"></div>
+        <div class="fld"><label>Equivalent Cornell course</label><input id="mAnalog"></div>
         <div class="fld"><label>A&amp;S course</label><label class="chkline" style="padding-top:9px"><input type="checkbox" id="mInAs"> yes</label></div>
       </div>
-      <button class="btn ghost-btn" id="mSatToggle" type="button">＋ Map to requirements manually</button>
+      <button class="mapbtn" id="mSatToggle" type="button"><span>Map to requirements</span><span class="cnt" id="mSatCount" style="display:none"></span><span class="chev">›</span></button>
       <div id="mSatWrap" style="display:none;margin-top:2px"><div id="mSat"></div></div>
     </div>
     <div class="sf">
-      <button class="btn del" id="mDelete" style="display:none">Delete</button>
-      <button class="btn" id="mCancel">Cancel</button>
-      <button class="btn primary" id="mSave">Save</button>
+      <button class="linkdel" id="mDelete" type="button" style="display:none">Delete course</button>
+      <div class="sf-main"><button class="btn" id="mCancel" type="button">Cancel</button>
+      <button class="btn primary" id="mSave" type="button">Save</button></div>
     </div>
   </div>
 </div>
@@ -369,9 +406,20 @@
       <div class="fld" id="rMV_scope" style="display:none"><label>Pool</label><select id="rScope"><option value="as">A&amp;S credits</option><option value="all">All undergrad credits</option><option value="grad">Grad credits</option></select></div>
     </div>
     <div class="sf">
-      <button class="btn del" id="rDelete" style="display:none">Delete</button>
-      <button class="btn" id="rCancel">Cancel</button>
-      <button class="btn primary" id="rSave">Save requirement</button>
+      <button class="linkdel" id="rDelete" type="button" style="display:none">Delete requirement</button>
+      <div class="sf-main"><button class="btn" id="rCancel" type="button">Cancel</button>
+      <button class="btn primary" id="rSave" type="button">Save requirement</button></div>
+    </div>
+  </div>
+</div>
+
+<!-- small confirm popup -->
+<div class="modal confirm" id="confirmModal">
+  <div class="sheet confirm-sheet">
+    <div class="cbody"><h3 id="confirmTitle">Delete?</h3><p id="confirmMsg"></p></div>
+    <div class="sf sf-main" style="justify-content:flex-end">
+      <button class="btn" id="confirmNo" type="button">Keep</button>
+      <button class="btn danger" id="confirmYes" type="button">Delete</button>
     </div>
   </div>
 </div>
@@ -382,7 +430,7 @@
 const FN = "https://uhwdnmbxiopfysodydty.supabase.co/functions/v1/carnelian";
 const GRADE_POINTS = {"A+":4.3,"A":4.0,"A-":3.7,"B+":3.3,"B":3.0,"B-":2.7,"C+":2.3,"C":2.0,"C-":1.7,"D+":1.3,"D":1.0,"D-":0.7,"F":0.0};
 let TOKEN = localStorage.getItem("carn_token") || "";
-let DB = {}, CUR = "dashboard", TCAREER = "undergrad";
+let DB = {}, CUR = "dashboard", TCAREER = "undergrad", BAKER_VIEW = "plan";
 const EXP = new Set();            // expanded planner terms
 const $ = (s,r=document)=>r.querySelector(s);
 const num = v => v==null||v===""? 0 : (typeof v==="number"?v:parseFloat(v));
@@ -394,6 +442,32 @@ async function api(action, payload={}){
   const j = await r.json(); if(!r.ok) throw Object.assign(new Error(j.error||"error"),{status:r.status}); return j;
 }
 function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("on"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),1800); }
+
+/* ---- ui helpers: scroll lock, modal open/close, custom dropdowns ---- */
+let _scrollY=0;
+function lockScroll(){ _scrollY=window.scrollY||0; document.body.style.position='fixed'; document.body.style.top=`-${_scrollY}px`; document.body.style.left='0'; document.body.style.right='0'; document.body.style.width='100%'; }
+function unlockScroll(){ if(document.body.style.position!=='fixed') return; document.body.style.position=''; document.body.style.top=''; document.body.style.left=''; document.body.style.right=''; document.body.style.width=''; window.scrollTo(0,_scrollY); }
+function openModal(el){ lockScroll(); el.classList.add('on'); }
+function closeModal(el){ el.classList.remove('on'); unlockScroll(); }
+function enhanceDD(sel){ if(!sel||sel._dd) return; const wrap=document.createElement('div'); wrap.className='dd';
+  const btn=document.createElement('button'); btn.type='button'; btn.className='dd-btn';
+  const menu=document.createElement('div'); menu.className='dd-menu'; wrap.appendChild(btn); wrap.appendChild(menu);
+  sel.parentNode.insertBefore(wrap,sel); sel.style.display='none'; sel._dd={wrap,btn,menu};
+  btn.onclick=(e)=>{ e.stopPropagation(); const isOpen=wrap.classList.contains('open'); document.querySelectorAll('.dd.open').forEach(x=>x.classList.remove('open')); if(!isOpen)wrap.classList.add('open'); };
+  syncDD(sel); }
+function syncDD(sel){ const dd=sel&&sel._dd; if(!dd) return; const cur=sel.options[sel.selectedIndex]; const lbl=cur?cur.textContent:'';
+  const ph=cur&&cur.value===''; dd.btn.innerHTML=`<span class="dd-lbl${ph?' ph':''}">${esc(lbl)}</span><span class="dd-chev">›</span>`;
+  dd.menu.innerHTML=''; [...sel.children].forEach(node=>{ if(node.tagName==='OPTGROUP'){ const g=document.createElement('div'); g.className='dd-grp'; g.textContent=node.label; dd.menu.appendChild(g); [...node.children].forEach(o=>dd.menu.appendChild(mkDDOpt(sel,o))); } else dd.menu.appendChild(mkDDOpt(sel,node)); }); }
+function mkDDOpt(sel,o){ const b=document.createElement('button'); b.type='button'; b.className='dd-opt'+(o.value===sel.value?' on':''); b.textContent=o.textContent;
+  b.onclick=(e)=>{ e.stopPropagation(); sel.value=o.value; sel._dd.wrap.classList.remove('open'); sel.dispatchEvent(new Event('change',{bubbles:true})); syncDD(sel); }; return b; }
+document.addEventListener('click',()=>document.querySelectorAll('.dd.open').forEach(x=>x.classList.remove('open')));
+// small delete-confirm popup (layers above an already-open modal; does NOT touch scroll lock)
+let CONFIRM_CB=null;
+function confirmDelete(title,name,cb){ $("#confirmTitle").textContent=title; $("#confirmMsg").innerHTML=`<b>${esc(name)}</b> will be removed. This can’t be undone.`; CONFIRM_CB=cb; $("#confirmModal").classList.add("on"); }
+function closeConfirm(){ $("#confirmModal").classList.remove("on"); CONFIRM_CB=null; }
+$("#confirmNo").onclick=closeConfirm;
+$("#confirmYes").onclick=()=>{ const cb=CONFIRM_CB; closeConfirm(); if(cb)cb(); };
+$("#confirmModal").addEventListener("click",e=>{ if(e.target===$("#confirmModal")) closeConfirm(); });
 
 /* ---- auth ---- */
 async function boot(){
@@ -421,7 +495,9 @@ $("#gateForm").addEventListener("submit", async e=>{
     localStorage.setItem("carn_token",TOKEN); DB=(await api("load")).data; enterApp();
   }catch(err){ msg.textContent=err.status===401?"Wrong PIN.":(err.message||"Error"); msg.classList.add("err"); }
 });
-function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="grid"; if(innerWidth<=760)$(".mobar").style.display="flex"; renderAll(); }
+function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="grid"; if(innerWidth<=760)$(".mobar").style.display="flex";
+  ["mTerm","mStatus","mGrade","mDist","rProg","rParent","rKind","rMatchType","rScope"].forEach(id=>enhanceDD(document.getElementById(id)));
+  renderAll(); }
 $("#logoutBtn").addEventListener("click",()=>{ localStorage.removeItem("carn_token"); location.reload(); });
 
 /* ---- helpers ---- */
@@ -438,6 +514,13 @@ function displayStatus(e){
 }
 const STATUS_CLASS={completed:"ok",in_progress:"warn",planned:"plan",transferred:"t",wishlist:"none"};
 const STATUS_LABEL={completed:"done",in_progress:"in progress",planned:"planned",transferred:"transferred",wishlist:"idea"};
+// timing of a whole term, derived from the calendar (past / current / upcoming)
+function termTiming(term){ const t=today(); if(!term) return "planned";
+  if(term.ends_on&&term.ends_on<t) return "completed";
+  if(term.starts_on&&term.starts_on<=t&&(!term.ends_on||t<=term.ends_on)) return "in_progress";
+  return "planned"; }
+// default status for a new course being added to a given term
+function statusForTerm(term_id){ return termTiming(termById(term_id)); }
 const codeForMatch=e=>(e.analog_of||e.code||"");
 const subjectOf=e=>codeForMatch(e).trim().split(/\s+/)[0]||"";
 const levelOf=e=>{ const m=codeForMatch(e).match(/(\d{3,4})/); return m?parseInt(m[1]):0; };
@@ -471,7 +554,8 @@ function reqProgress(req){
   if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope; const courses=scope?[]:matchedFor(req);
     const cr=scope?creditsScope(scope):courses.reduce((s,e)=>s+num(e.credits),0);
     const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
-    return {done:Math.round(cr*10)/10,need:need.n,met:cr>=need.n,kind:"credits",courses,kids}; }
+    const N=(BAKER_VIEW==="standard"&&req.program_id==="baker-mps"&&req.spec&&req.spec.standard!=null)?req.spec.standard:need.n;
+    return {done:Math.round(cr*10)/10,need:N,met:cr>=N,kind:"credits",courses,kids}; }
   if(need.type==="coverage"){ const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     const cov=kids.filter(k=>matchedFor(k).length>0).length; return {done:cov,need:need.n,met:cov>=need.n,kind:"coverage",kids}; }
   const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
@@ -501,8 +585,8 @@ function outstanding(){ // every unmet leaf requirement across all programs
     const tops=DB.requirements.filter(r=>r.program_id===p.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort);
     for(const r of tops){ const pr=reqProgress(r); if(pr.met) continue;
       let amt="", detail="";
-      if(pr.kind==="credits"){ amt=nf(r.spec.need.n-pr.done)+" cr"; }
-      else if(pr.kind==="coverage"){ amt=(r.spec.need.n-pr.done)+" left"; detail=(pr.kids||[]).filter(k=>matchedFor(k).length===0).map(k=>k.name).join(", "); }
+      if(pr.kind==="credits"){ amt=nf(pr.need-pr.done)+" cr"; }
+      else if(pr.kind==="coverage"){ amt=(pr.need-pr.done)+" left"; detail=(pr.kids||[]).filter(k=>matchedFor(k).length===0).map(k=>k.name).join(", "); }
       else if(pr.kind==="flag"){ amt="to do"; }
       else { amt=(pr.need-pr.done)+" course"+((pr.need-pr.done)===1?"":"s"); detail=(pr.kids||[]).filter(k=>matchedFor(k).length===0).map(k=>k.name).join(", "); }
       out.push({prog:p, req:r, amt, detail});
@@ -530,10 +614,18 @@ function renderDashboard(){
   const ug=gpa("undergrad"), gr=gpa("grad"), cur=currentTerm();
   const asC=creditsScope("as"), allC=creditsScope("all");
   const asReq=DB.requirements.find(r=>r.id==="as-ascred"); const asNeed=asReq?asReq.spec.need.n:100;
-  const stat=`<div class="stat3">
-    <div class="stat"><div class="k">Undergrad GPA</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div></div>
-    <div class="stat"><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"} <small>${gr.credits?nf(gr.credits)+' cr':'not started'}</small></div></div>
-    <div class="stat wide"><div class="k">Credits</div><div class="v">${nf(asC)}<small> / ${asNeed} A&amp;S</small></div><div class="sub">${nf(allC)} total undergrad${cur?' · now in '+esc(cur.name):''}</div></div>
+  const ugTotReq=DB.requirements.find(r=>r.id==="as-total"); const ugNeed=ugTotReq?ugTotReq.spec.need.n:120;
+  // Baker: sum the program's credit buckets for the target, and the distinct courses mapped to any Baker bucket for progress
+  const bakerTop=DB.requirements.filter(r=>r.program_id==="baker-mps"&&!r.parent_id&&r.spec&&r.spec.need&&r.spec.need.type==="credits");
+  const bakerNeed=bakerTop.reduce((s,r)=>s+r.spec.need.n,0);
+  const bMap=new Map(); for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r)) bMap.set(String(e.id),e);
+  const bakerDone=Math.round([...bMap.values()].reduce((s,e)=>s+num(e.credits),0)*10)/10;
+  const asShort=asC<asNeed;
+  const stat=`<div class="statgrid">
+    <div class="stat"><div class="k">Undergrad GPA</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div><div class="sub">${cur?'now in '+esc(cur.name):'A&amp;S — BA'}</div></div>
+    <div class="stat"><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"}</div><div class="sub">${gr.credits?nf(gr.credits)+' cr graded':'starts Fall 2027'}</div></div>
+    <div class="stat"><div class="k">Undergraduate credits</div><div class="v">${nf(allC)}<small> / ${nf(ugNeed)}</small></div><div class="sub ${asShort?'warnsub':''}">Arts &amp; Sciences ${nf(asC)} / ${nf(asNeed)}${asShort?` · ${nf(asNeed-asC)} to go`:' ✓'}</div></div>
+    <div class="stat"><div class="k">Baker credits</div><div class="v">${nf(bakerDone)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerDone>=bakerNeed?'all credits mapped ✓':nf(bakerNeed-bakerDone)+' cr still to plan'}</div></div>
   </div>`;
 
   const degrees=topPrograms().map(p=>{
@@ -579,6 +671,10 @@ function renderRequirements(){
     html+=`<div class="pgroup" id="pg-${top.id}">`;
     const dp=degreeProgress(top);
     html+=`<div class="gh"><span class="nm">${esc(top.name)}</span><span class="rt ${dp.met?'c-ok':'c-warn'}">${dp.met?'complete':dp.pct+'%'}</span></div>`;
+    if(top.id==="baker-mps"){
+      html+=`<div class="segrow"><div class="seg" id="bakerSeg"><button data-bv="plan" class="${BAKER_VIEW==='plan'?'on':''}">My plan</button><button data-bv="standard" class="${BAKER_VIEW==='standard'?'on':''}">Standard curriculum</button></div>
+        <p class="segnote">${BAKER_VIEW==='plan'?'Your plan: HADM 4200 + HADM 4870 (taken as an undergrad) waive the matching core courses, shifting 6 credits from Core into Free Electives.':'Cornell\'s published MPS-RE curriculum — 62 credits, before any waivers.'}</p></div>`;
+    }
     html+=reqBlocks(top);
     for(const k of childrenOf(top.id)){
       const kp=programProgress(k);
@@ -588,6 +684,7 @@ function renderRequirements(){
   }
   $("#requirements").innerHTML=html;
   $("#addReqBtn").onclick=()=>openReq();
+  $("#requirements").querySelectorAll("#bakerSeg button").forEach(b=>b.onclick=()=>{BAKER_VIEW=b.dataset.bv;renderRequirements();});
   $("#requirements").querySelectorAll("[data-editreq]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();openReq(b.dataset.editreq);});
   $("#requirements").querySelectorAll(".co[data-cid]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();openCourse(b.dataset.cid);});
 }
@@ -604,7 +701,8 @@ function reqBlocks(prog){
       inner=`<div class="crow"><span class="cdot dot ${r.met?'ok':'none'}"></span><span class="grow">${r.met?'Recorded as done':'Not recorded yet'}</span></div>`;
     } else if(r.kind==="credits"){
       const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden">${barFill(r.need?Math.min(100,100*r.done/r.need):0,r.met)}</span></div>`;
-      let detail="";
+      const note=(BAKER_VIEW==='plan'&&req.spec&&req.spec.note)?`<div class="crow waivernote"><span class="grow">${esc(req.spec.note)}</span></div>`:"";
+      let detail=note;
       if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);return `<div class="crow"><span class="cdot dot ${kc.length?'ok':'none'}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
       else if(r.courses&&r.courses.length){ detail=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${nf(num(e.credits))} cr</span></div>`).join(""); }
       inner=bar+detail;
@@ -625,30 +723,38 @@ function reqBlocks(prog){
   }).join("")||'<p class="muted" style="margin:2px 2px 12px">No requirements yet.</p>';
 }
 
+const byCode=(a,b)=>String(a.code||'~').localeCompare(String(b.code||'~'),undefined,{numeric:true});
+const prowHTML=e=>`<div class="prow" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(e.code||'—')}</span><span class="ti">${esc(e.title||'')}</span><span class="cc num">${nf(num(e.credits))}</span></div>`;
+const TSTAT={completed:{c:"done",l:"completed"},in_progress:{c:"now",l:"in progress"},planned:{c:"soon",l:"upcoming"}};
 function renderPlanner(){
   const terms=[...DB.terms].sort((a,b)=>a.sort-b.sort);
   const t=today();
-  const ideas=DB.enrollments.filter(e=>e.status==="wishlist");
   let cum={undergrad:0,grad:0};
   const cards=terms.map(term=>{
-    const es=DB.enrollments.filter(e=>e.term_id===term.id);
+    const es=DB.enrollments.filter(e=>e.term_id===term.id).sort(byCode);
     const cr=es.reduce((s,e)=>s+num(e.credits),0);
     const car=term.career||"undergrad"; cum[car]+=cr;
-    const future=term.starts_on&&term.starts_on>t;
-    const anyPlan=es.some(e=>["planned","in_progress"].includes(displayStatus(e)));
-    const isOpen=EXP.has(term.id)?true:(future||anyPlan||(currentTerm()&&currentTerm().id===term.id));
-    const rows=es.map(e=>{const ds=displayStatus(e);return `<div class="prow" data-cid="${e.id}"><span class="cdot dot ${STATUS_CLASS[ds]}"></span><span class="co code">${esc(e.code||'—')}</span><span class="ti">${esc(e.title||'')}</span><span class="cc num">${nf(num(e.credits))}</span></div>`;}).join("");
+    const timing=termTiming(term); const ts=TSTAT[timing];
+    const isOpen=EXP.has(term.id)?true:(timing!=="completed");
+    const rows=es.map(prowHTML).join("");
     return `<div class="pterm ${isOpen?'open':''}" data-term="${term.id}">
-      <div class="ph" data-toggle="${term.id}"><span class="chev">›</span><span class="nm">${esc(term.name)}</span>${car==='grad'?'<span class="badge">Baker</span>':''}
+      <div class="ph" data-toggle="${term.id}"><span class="chev">›</span><span class="nm">${esc(term.name)}</span>${car==='grad'?'<span class="badge">Baker</span>':''}<span class="tstat ${ts.c}">${ts.l}</span>
         <span class="meta">${nf(cr)} cr<small>${nf(cum[car])} cum</small></span></div>
       <div class="body">${rows||'<p class="muted" style="padding:6px 0">Nothing here yet.</p>'}
         <div class="add-in" data-add="${term.id}">＋ add a course to ${esc(term.name)}</div></div></div>`;
   }).join("");
-  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1><div class="actions"><button class="btn primary" id="addCourseBtn">＋ Add course</button></div></div>${cards}`;
+  const unsched=DB.enrollments.filter(e=>!e.term_id&&e.status!=="wishlist").sort(byCode);
+  let unschedCard="";
+  if(unsched.length){
+    const ur=unsched.map(prowHTML).join("");
+    unschedCard=`<div class="pterm open unsched"><div class="ph" data-toggle="__unsched"><span class="chev">›</span><span class="nm">Unscheduled</span><span class="badge warn">no term</span><span class="meta">${nf(unsched.reduce((s,e)=>s+num(e.credits),0))} cr</span></div>
+      <div class="body"><p class="muted" style="padding:2px 0 6px">Courses saved without a term. Open one to assign it a term.</p>${ur}</div></div>`;
+  }
+  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1><div class="actions"><button class="btn primary" id="addCourseBtn">＋ Add course</button></div></div>${unschedCard}${cards}`;
   $("#addCourseBtn").onclick=()=>openCourse();
   $("#planner").querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;const c=b.closest(".pterm");c.classList.toggle("open");if(c.classList.contains("open"))EXP.add(id);else EXP.delete(id);});
   $("#planner").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
-  $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:"planned"}));
+  $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:statusForTerm(b.dataset.add)}));
 }
 function renderWishlist(){
   const w=DB.enrollments.filter(e=>e.status==="wishlist");
@@ -703,14 +809,15 @@ function armDel(b,fn){ if(b.dataset.armed!=="1"){ b.dataset.armed="1"; b.textCon
 function openCourse(id=null, preset={}){
   EDIT_ID=id; const e=id!=null?DB.enrollments.find(x=>String(x.id)===String(id)):preset;
   $("#mTitle").textContent=id!=null?"Edit course":"Add course";
-  $("#mLookupMsg").textContent="";
+  $("#mLookupMsg").textContent=""; $("#mResults").classList.remove("on");
   $("#mCode").value=e.code||""; $("#mTitleIn").value=e.title||""; $("#mCredits").value=e.credits!=null?num(e.credits):"";
   $("#mTerm").innerHTML=`<option value="">— none —</option>`+DB.terms.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join(""); $("#mTerm").value=e.term_id||"";
   $("#mStatus").value=e.status||"planned";
   $("#mGrade").innerHTML=`<option value="">—</option>`+["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"].map(g=>`<option>${g}</option>`).join(""); $("#mGrade").value=e.grade||"";
   MTAGS=[...(e.tags||[])]; renderTagChips(); $("#mDist").value="";
   $("#mAnalog").value=e.analog_of||"";
-  $("#mInAs").checked = id==null&&e.in_as===undefined ? true : (e.in_as!==false&&e.in_as!=null);
+  $("#mInAs").checked = e.in_as===true;
+  ["mTerm","mStatus","mGrade","mDist"].forEach(x=>syncDD($("#"+x)));
   const cur=new Set((DB.satisfactions||[]).filter(s=>String(s.enrollment_id)===String(id)).map(s=>s.requirement_id));
   let html="";
   for(const p of DB.programs){ const tops=DB.requirements.filter(r=>r.program_id===p.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort); if(!tops.length) continue;
@@ -720,26 +827,52 @@ function openCourse(id=null, preset={}){
       rows.map(r=>`<label class="satopt" ${r.parent_id?'style="padding-left:44px"':''}><input type="checkbox" data-req="${r.id}" ${cur.has(r.id)?'checked':''}> ${esc(r.name)}</label>`).join("")+`</details>`;
   }
   $("#mSat").innerHTML=html;
-  const anyChecked=[...cur].length>0; $("#mSatWrap").style.display=anyChecked?"block":"none"; $("#mSatToggle").textContent=anyChecked?"Requirement mapping":"＋ Map to requirements manually";
-  $("#mDelete").style.display=id!=null?"inline-flex":"none"; resetDelBtn($("#mDelete"));
-  $("#modal").classList.add("on");
+  const n=[...cur].length; const c=$("#mSatCount"); c.textContent=n; c.style.display=n?'inline-block':'none';
+  $("#mSatWrap").style.display=n?"block":"none"; $("#mSatToggle").classList.toggle("open",n>0);
+  $("#mDelete").style.display=id!=null?"inline-block":"none";
+  openModal($("#modal"));
 }
-$("#mDist").onchange=()=>{ const v=$("#mDist").value; if(v&&!MTAGS.includes(v)){MTAGS.push(v);renderTagChips();} $("#mDist").value=""; };
-$("#mSatToggle").onclick=()=>{ const w=$("#mSatWrap"); w.style.display=w.style.display==="none"?"block":"none"; };
-$("#mClose").onclick=()=>$("#modal").classList.remove("on");
-$("#mCancel").onclick=()=>$("#modal").classList.remove("on");
-$("#modal").addEventListener("click",e=>{ if(e.target===$("#modal")) $("#modal").classList.remove("on"); });
-$("#mLookupBtn").onclick=async()=>{
-  const code=$("#mCode").value.trim(); if(!code) return; const msg=$("#mLookupMsg"); msg.textContent="Searching…";
-  try{ const info=await rosterLookup(code); if(!info){ msg.textContent="Not found on recent rosters."; return; }
-    $("#mCode").value=code.toUpperCase(); if(info.title)$("#mTitleIn").value=info.title; if(info.credits)$("#mCredits").value=info.credits;
-    if(info.tags&&info.tags.length){ info.tags.forEach(t=>{if(!MTAGS.includes(t))MTAGS.push(t);}); renderTagChips(); }
-    msg.textContent="Filled from roster ("+info.roster+")."; }
-  catch(err){ msg.textContent="Roster error."; }
-};
+$("#mDist").onchange=()=>{ const v=$("#mDist").value; if(v&&!MTAGS.includes(v)){MTAGS.push(v);renderTagChips();} $("#mDist").value=""; syncDD($("#mDist")); };
+$("#mSatToggle").onclick=()=>{ const open=$("#mSatWrap").style.display!=="none"; $("#mSatWrap").style.display=open?"none":"block"; $("#mSatToggle").classList.toggle("open",!open); };
+$("#mClose").onclick=()=>closeModal($("#modal"));
+$("#mCancel").onclick=()=>closeModal($("#modal"));
+$("#modal").addEventListener("click",e=>{ if(e.target===$("#modal")) closeModal($("#modal")); });
+/* live roster typeahead on the Code field */
+let SEARCH_CACHE={}, searchTimer=null, MRESULTS=[];
+async function getSubjectClasses(sub){
+  for(const roster of ["FA26","SP26","FA25","SP25","FA24"]){ const key=roster+"|"+sub;
+    if(SEARCH_CACHE[key]!==undefined){ if(SEARCH_CACHE[key]) return SEARCH_CACHE[key]; else continue; }
+    try{ const r=await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${roster}&subject=${sub}`); const j=await r.json();
+      if(j.status==="success"){ SEARCH_CACHE[key]=j.data.classes||[]; return SEARCH_CACHE[key]; } SEARCH_CACHE[key]=null; }
+    catch(e){ SEARCH_CACHE[key]=null; } }
+  return null;
+}
+function classTags(cls){ let tags=[]; if(cls.crseAttrValueGroups&&cls.crseAttrValueGroups.length) cls.crseAttrValueGroups.forEach(g=>(g.crseAttrValues||"").split(",").forEach(v=>{const t=v.replace(/[()\s]/g,"");if(t)tags.push(t);})); else if(cls.catalogDistr) cls.catalogDistr.replace(/[()]/g," ").split(/[,\s]+/).forEach(t=>{if(t)tags.push(t);}); return tags; }
+async function runSearch(){
+  const q=$("#mCode").value.trim().toUpperCase(); const res=$("#mResults"), msg=$("#mLookupMsg");
+  const parts=q.split(/\s+/), sub=parts[0];
+  if(q.length<2||!/^[A-Z]{2,7}$/.test(sub)){ res.classList.remove("on"); msg.textContent=""; return; }
+  msg.textContent="Searching Cornell roster…";
+  const classes=await getSubjectClasses(sub); msg.textContent="";
+  if(q!==$("#mCode").value.trim().toUpperCase()) return; // stale
+  if(!classes){ res.classList.remove("on"); return; }
+  const rest=parts.slice(1).join(" ");
+  let ms=classes.filter(c=>!rest||(c.catalogNbr||"").startsWith(rest)||((c.catalogNbr+" "+(c.titleLong||"")).toUpperCase().includes(rest))).slice(0,40);
+  MRESULTS=ms;
+  if(!ms.length){ res.classList.remove("on"); return; }
+  res.innerHTML=ms.map((c,i)=>{const eg=(c.enrollGroups||[])[0]||{};return `<div class="result" data-ri="${i}"><span class="rc">${esc(sub)} ${esc(c.catalogNbr)}</span><span class="rt">${esc(c.titleLong||'')}</span><span class="rr">${eg.unitsMaximum!=null?esc(String(eg.unitsMaximum))+' cr':''}</span></div>`;}).join("");
+  res.querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>pickResult(MRESULTS[+b.dataset.ri],sub));
+  res.classList.add("on");
+}
+function pickResult(cls,sub){ const eg=(cls.enrollGroups||[])[0]||{};
+  $("#mCode").value=sub+" "+cls.catalogNbr; $("#mTitleIn").value=cls.titleLong||""; if(eg.unitsMaximum!=null)$("#mCredits").value=eg.unitsMaximum;
+  classTags(cls).forEach(t=>{if(!MTAGS.includes(t))MTAGS.push(t);}); renderTagChips();
+  $("#mResults").classList.remove("on"); $("#mLookupMsg").textContent="Filled from roster."; }
+$("#mCode").addEventListener("input",()=>{ const el=$("#mCode"); const p=el.selectionStart; el.value=el.value.toUpperCase(); try{el.setSelectionRange(p,p);}catch(e){} clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,240); });
+$("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.remove("on"),200));
 async function rosterLookup(code){
   const parts=code.trim().toUpperCase().split(/\s+/); if(parts.length<2) return null; const sub=parts[0], nbr=parts[1];
-  for(const roster of ["FA25","SP26","FA24"]){
+  for(const roster of ["FA26","SP26","FA25","SP25","FA24"]){
     try{ const r=await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${roster}&subject=${sub}`);
       const j=await r.json(); if(j.status!=="success") continue;
       const cls=(j.data.classes||[]).find(c=>c.catalogNbr===nbr); if(!cls) continue;
@@ -751,26 +884,33 @@ async function rosterLookup(code){
   }
   return null;
 }
+let SAVING=false;
 $("#mSave").onclick=async()=>{
+  if(SAVING) return; SAVING=true; const btn=$("#mSave"); btn.classList.add("busy");
   const grade=$("#mGrade").value;
-  const row={ code:$("#mCode").value.trim(), title:$("#mTitleIn").value.trim(), credits:num($("#mCredits").value),
+  const row={ code:$("#mCode").value.trim().toUpperCase(), title:$("#mTitleIn").value.trim(), credits:num($("#mCredits").value),
     term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null, counts_gpa:GRADE_POINTS[grade]!=null,
     tags:MTAGS.slice(), analog_of:$("#mAnalog").value.trim()||null, in_as:$("#mInAs").checked };
   if(EDIT_ID!=null) row.id=EDIT_ID;
+  const want=new Set([...$("#mSat").querySelectorAll("input:checked")].map(c=>c.dataset.req));
   try{
     const saved=(await api("upsert",{table:"enrollments",row})).row;
     if(EDIT_ID!=null){ const i=DB.enrollments.findIndex(x=>String(x.id)===String(EDIT_ID)); DB.enrollments[i]=saved; } else DB.enrollments.push(saved);
+    // course itself is saved — close immediately so it never feels laggy
+    closeModal($("#modal")); renderAll(); toast("Saved");
+    // reconcile requirement mappings in the background
     const eid=saved.id;
-    const want=new Set([...$("#mSat").querySelectorAll("input:checked")].map(c=>c.dataset.req));
     const have=(DB.satisfactions||[]).filter(s=>String(s.enrollment_id)===String(eid));
-    for(const s of have) if(!want.has(s.requirement_id)){ await api("delete",{table:"satisfactions",id:s.id}); DB.satisfactions=DB.satisfactions.filter(x=>x.id!==s.id); }
-    const haveSet=new Set(have.map(s=>s.requirement_id));
-    for(const rid of want) if(!haveSet.has(rid)){ const r=(await api("upsert",{table:"satisfactions",row:{enrollment_id:eid,requirement_id:rid}})).row; (DB.satisfactions=DB.satisfactions||[]).push(r); }
-    $("#modal").classList.remove("on"); renderAll(); toast("Saved");
+    const haveSet=new Set(have.map(s=>s.requirement_id)); let touched=false;
+    for(const s of have) if(!want.has(s.requirement_id)){ await api("delete",{table:"satisfactions",id:s.id}); DB.satisfactions=DB.satisfactions.filter(x=>x.id!==s.id); touched=true; }
+    for(const rid of want) if(!haveSet.has(rid)){ const r=(await api("upsert",{table:"satisfactions",row:{enrollment_id:eid,requirement_id:rid}})).row; (DB.satisfactions=DB.satisfactions||[]).push(r); touched=true; }
+    if(touched) renderAll();
   }catch(err){ toast(err.message||"Error"); }
+  finally{ SAVING=false; btn.classList.remove("busy"); }
 };
-$("#mDelete").onclick=()=>armDel($("#mDelete"),async()=>{ if(EDIT_ID==null) return;
-  try{ await api("delete",{table:"enrollments",id:EDIT_ID}); DB.enrollments=DB.enrollments.filter(x=>String(x.id)!==String(EDIT_ID)); DB.satisfactions=(DB.satisfactions||[]).filter(s=>String(s.enrollment_id)!==String(EDIT_ID)); $("#modal").classList.remove("on"); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } });
+$("#mDelete").onclick=()=>{ if(EDIT_ID==null) return;
+  confirmDelete("Delete this course?", $("#mCode").value||"This course", async()=>{
+    try{ await api("delete",{table:"enrollments",id:EDIT_ID}); DB.enrollments=DB.enrollments.filter(x=>String(x.id)!==String(EDIT_ID)); DB.satisfactions=(DB.satisfactions||[]).filter(s=>String(s.enrollment_id)!==String(EDIT_ID)); closeModal($("#modal")); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } }); };
 
 /* ---- requirement modal ---- */
 let R_EDIT=null;
@@ -789,19 +929,20 @@ function openReq(id=null){
   $("#rAttr").value=m.attribute||""; $("#rSubj").value=m.subject||""; $("#rLmin").value=m.levelMin||""; $("#rLmax").value=m.levelMax||"";
   $("#rX9").checked=!!(spec.exclude&&spec.exclude.x9xx); $("#rCodes").value=(m.codes||[]).join(", "); $("#rScope").value=m.scope||"as";
   syncMatchUI();
-  $("#rDelete").style.display=id!=null?"inline-flex":"none"; resetDelBtn($("#rDelete"));
-  $("#rmodal").classList.add("on");
+  ["rProg","rParent","rKind","rMatchType","rScope"].forEach(x=>syncDD($("#"+x)));
+  $("#rDelete").style.display=id!=null?"inline-block":"none";
+  openModal($("#rmodal"));
 }
 function fillParents(){ const pid=$("#rProg").value; const opts=DB.requirements.filter(r=>r.program_id===pid&&r.id!==R_EDIT);
-  $("#rParent").innerHTML=`<option value="">— top level —</option>`+opts.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join(""); }
+  $("#rParent").innerHTML=`<option value="">— top level —</option>`+opts.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join(""); syncDD($("#rParent")); }
 function syncMatchUI(){ const k=$("#rKind").value, mt=$("#rMatchType").value;
   $("#rMatchWrap").style.display=k==="flag"?"none":"grid";
   ["attribute","subject","codes","scope"].forEach(x=>$("#rMV_"+x).style.display=(k!=="flag"&&mt===x)?(x==="subject"?"block":"grid"):"none");
 }
 $("#rKind").onchange=syncMatchUI; $("#rMatchType").onchange=syncMatchUI;
-$("#rClose").onclick=()=>$("#rmodal").classList.remove("on");
-$("#rCancel").onclick=()=>$("#rmodal").classList.remove("on");
-$("#rmodal").addEventListener("click",e=>{ if(e.target===$("#rmodal")) $("#rmodal").classList.remove("on"); });
+$("#rClose").onclick=()=>closeModal($("#rmodal"));
+$("#rCancel").onclick=()=>closeModal($("#rmodal"));
+$("#rmodal").addEventListener("click",e=>{ if(e.target===$("#rmodal")) closeModal($("#rmodal")); });
 $("#rSave").onclick=async()=>{
   const kind=$("#rKind").value, n=num($("#rNeed").value)||(kind==="flag"?1:1);
   const spec={need:{type:kind,n}};
@@ -819,14 +960,15 @@ $("#rSave").onclick=async()=>{
   if(R_EDIT) row.id=R_EDIT; else row.id=prog+"-"+Date.now().toString(36);
   try{ const saved=(await api("upsert",{table:"requirements",row})).row;
     const i=DB.requirements.findIndex(x=>x.id===saved.id); if(i>=0)DB.requirements[i]=saved; else DB.requirements.push(saved);
-    $("#rmodal").classList.remove("on"); renderAll(); toast("Requirement saved");
+    closeModal($("#rmodal")); renderAll(); toast("Requirement saved");
   }catch(err){ toast(err.message||"Error"); }
 };
-$("#rDelete").onclick=()=>armDel($("#rDelete"),async()=>{ if(R_EDIT==null) return;
-  try{ await api("delete",{table:"requirements",id:R_EDIT}); DB.requirements=DB.requirements.filter(x=>x.id!==R_EDIT); $("#rmodal").classList.remove("on"); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } });
+$("#rDelete").onclick=()=>{ if(R_EDIT==null) return;
+  confirmDelete("Delete this requirement?", $("#rName").value||"This requirement", async()=>{
+    try{ await api("delete",{table:"requirements",id:R_EDIT}); DB.requirements=DB.requirements.filter(x=>x.id!==R_EDIT); closeModal($("#rmodal")); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } }); };
 
 /* ---- nav / theme / zoom ---- */
-function showPage(id){ CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); scrollTo(0,0); }
+function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); if(changed) scrollTo(0,0); }
 document.querySelectorAll("[data-nav]").forEach(n=>n.addEventListener("click",()=>showPage(n.dataset.nav)));
 const root=document.documentElement, mq=matchMedia("(prefers-color-scheme: dark)");
 document.querySelectorAll(".js-theme").forEach(b=>b.addEventListener("click",()=>{const c=root.getAttribute("data-theme")||(mq.matches?"dark":"light");root.setAttribute("data-theme",c==="dark"?"light":"dark");}));
