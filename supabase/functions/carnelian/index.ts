@@ -75,7 +75,12 @@ const COLS: Record<string, string[]> = {
   terms: ["id", "name", "career", "kind", "starts_on", "ends_on", "sort"],
   adjustments: ["program_id", "type", "from_requirement_id", "to_requirement_id", "satisfies_requirement_id", "credits", "trigger_course", "note"],
   assignments: ["enrollment_id", "name", "weight", "score", "due_on", "sort"],
+  satisfactions: ["enrollment_id", "requirement_id", "note"],
+  requirements: ["id", "program_id", "parent_id", "name", "kind", "credits_required", "count_required", "attribute_tag", "sort", "notes", "spec"],
+  programs: ["id", "name", "kind", "status", "sort"],
 };
+
+const TEXT_ID = new Set(["terms", "requirements", "programs"]);
 
 async function upsert(table: string, row: Record<string, unknown>) {
   const allow = COLS[table];
@@ -86,10 +91,10 @@ async function upsert(table: string, row: Record<string, unknown>) {
   const vals: Record<string, unknown> = {};
   for (const c of cols) vals[c] = row[c];
 
-  if (table === "terms") {
-    if (!row.id) throw new Error("terms requires id");
+  if (TEXT_ID.has(table)) {
+    if (!row.id) throw new Error(table + " requires id");
     const upd = cols.filter((c) => c !== "id");
-    const r = await sql`insert into carnelian.terms ${sql(vals, ...cols)}
+    const r = await sql`insert into carnelian.${sql(table)} ${sql(vals, ...cols)}
       on conflict (id) do update set ${sql(vals, ...upd)} returning *`;
     return r[0];
   }
@@ -143,7 +148,7 @@ Deno.serve(async (req) => {
     if (!(await authed(body.token))) return json({ error: "unauthorized" }, 401);
 
     if (action === "load") {
-      const [terms, programs, requirements, requirement_options, enrollments, adjustments, assignments, cfg] =
+      const [terms, programs, requirements, requirement_options, enrollments, adjustments, assignments, satisfactions, cfg] =
         await Promise.all([
           sql`select * from carnelian.terms order by sort`,
           sql`select * from carnelian.programs order by sort`,
@@ -152,11 +157,12 @@ Deno.serve(async (req) => {
           sql`select * from carnelian.enrollments order by id`,
           sql`select * from carnelian.adjustments order by id`,
           sql`select * from carnelian.assignments order by sort`,
+          sql`select * from carnelian.satisfactions order by id`,
           getConfig(),
         ]);
       const settings = { ...(cfg.settings ?? {}) };
       delete settings.sessions;
-      return json({ ok: true, data: { terms, programs, requirements, requirement_options, enrollments, adjustments, assignments, settings } });
+      return json({ ok: true, data: { terms, programs, requirements, requirement_options, enrollments, adjustments, assignments, satisfactions, settings } });
     }
     if (action === "upsert") return json({ ok: true, row: await upsert(body.table, body.row ?? {}) });
     if (action === "delete") {
