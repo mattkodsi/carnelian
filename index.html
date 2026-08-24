@@ -436,7 +436,8 @@ const FN = "https://uhwdnmbxiopfysodydty.supabase.co/functions/v1/carnelian";
 const GRADE_POINTS = {"A+":4.3,"A":4.0,"A-":3.7,"B+":3.3,"B":3.0,"B-":2.7,"C+":2.3,"C":2.0,"C-":1.7,"D+":1.3,"D":1.0,"D-":0.7,"F":0.0};
 let TOKEN = localStorage.getItem("carn_token") || "";
 let DB = {}, CUR = "dashboard", TCAREER = localStorage.getItem("carn_tcareer") || "undergrad", BAKER_VIEW = "plan";
-const EXP = new Set();            // expanded planner terms
+const EXP = new Set();            // expanded planner terms (in-memory; resets on app reload)
+const REXP = new Set();           // expanded requirement rows (in-memory; all closed on app reload, kept across tab switches)
 const $ = (s,r=document)=>r.querySelector(s);
 const num = v => v==null||v===""? 0 : (typeof v==="number"?v:parseFloat(v));
 const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -725,6 +726,7 @@ function renderRequirements(){
     html+=`</div>`;
   }
   $("#requirements").innerHTML=html;
+  $("#requirements").querySelectorAll("[data-rt]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();const id=b.dataset.rt;const req=b.closest(".req");req.classList.toggle("open");if(req.classList.contains("open"))REXP.add(id);else REXP.delete(id);});
   $("#requirements").querySelectorAll("#bakerSeg button").forEach(b=>b.onclick=()=>{BAKER_VIEW=b.dataset.bv;renderRequirements();});
   $("#requirements").querySelectorAll("[data-editreq]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();openReq(b.dataset.editreq);});
   $("#requirements").querySelectorAll(".co[data-cid]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();openCourse(b.dataset.cid);});
@@ -753,11 +755,11 @@ function reqBlocks(prog){
       inner=list+(r.done<r.need?`<div class="crow"><span class="cdot dot none"></span><span class="grow muted">${nf(r.need-r.done)} more needed</span></div>`:"");
     }
     const pct=r.need?Math.min(100,100*r.done/r.need):(r.met?100:0);
-    const openByDefault=!r.met;
+    const openByDefault=REXP.has(r.req.id);
     return `<div class="req ${openByDefault?'open':''}"><div class="bh">
-      <button class="chev" onclick="this.closest('.req').classList.toggle('open')" aria-label="toggle">›</button>
+      <button class="chev" data-rt="${r.req.id}" aria-label="toggle">›</button>
       <span class="cdot dot ${r.met?'ok':((pct>0||(r.planned||0)>0)?'warn':'none')}"></span>
-      <span class="nm" onclick="this.closest('.req').classList.toggle('open')">${esc(r.req.name)}</span>
+      <span class="nm" data-rt="${r.req.id}">${esc(r.req.name)}</span>
       <span class="mini">${bar2(pct,pctPlan(r),r.met)}</span>
       <span class="cr ${r.met?'c-ok':''}">${r.kind==='flag'?(r.met?'✓':'—'):nf(r.done)+'/'+nf(r.need)}</span>
       <button class="edit" data-editreq="${r.req.id}">edit</button></div>
