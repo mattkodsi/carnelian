@@ -1,0 +1,636 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Carnelian</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
+<style>
+  :root{
+    --bg:#FAF7F4; --surface:#FFFFFF; --surface-2:#F4EFEA; --surface-3:#EFE8E2;
+    --line:#EBE3DC; --line-strong:#DCD1C8;
+    --ink:#1E1A18; --ink-2:#6C625B; --ink-3:#9C9188;
+    --accent:#A81F23; --accent-ink:#FFFFFF; --accent-soft:#F8E9E7; --accent-line:#E9C9C6;
+    --ok:#2E8B57; --ok-bg:#E4F1E9; --ok-line:#BFE0CC;
+    --warn:#B9770F; --warn-bg:#F8EDD6; --warn-line:#EAD3A0;
+    --plan:#39699F; --plan-bg:#E7EEF6; --plan-line:#C7D8EA;
+    --shadow:0 1px 2px rgba(60,40,30,.04), 0 12px 30px -18px rgba(80,40,30,.28);
+    --font-sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --font-mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,"Liberation Mono",monospace;
+    --r:14px; --r-sm:10px;
+  }
+  @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+    --bg:#141110; --surface:#1D1917; --surface-2:#241E1B; --surface-3:#2B2420;
+    --line:#332B26; --line-strong:#43382F; --ink:#F2EBE5; --ink-2:#B4A79E; --ink-3:#80736A;
+    --accent:#EA6A63; --accent-ink:#1a0e0d; --accent-soft:#2C1614; --accent-line:#4a2723;
+    --ok:#5FBE86; --ok-bg:#16271E; --ok-line:#284835; --warn:#E0A84C; --warn-bg:#2A2113; --warn-line:#4a3a1e;
+    --plan:#77A5D8; --plan-bg:#15212E; --plan-line:#294055;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.7);
+  }}
+  :root[data-theme="dark"]{
+    --bg:#141110; --surface:#1D1917; --surface-2:#241E1B; --surface-3:#2B2420;
+    --line:#332B26; --line-strong:#43382F; --ink:#F2EBE5; --ink-2:#B4A79E; --ink-3:#80736A;
+    --accent:#EA6A63; --accent-ink:#1a0e0d; --accent-soft:#2C1614; --accent-line:#4a2723;
+    --ok:#5FBE86; --ok-bg:#16271E; --ok-line:#284835; --warn:#E0A84C; --warn-bg:#2A2113; --warn-line:#4a3a1e;
+    --plan:#77A5D8; --plan-bg:#15212E; --plan-line:#294055;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.7);
+  }
+  *{box-sizing:border-box} html,body{margin:0}
+  body{background:var(--bg); color:var(--ink); font-family:var(--font-sans); -webkit-font-smoothing:antialiased; font-size:14px; line-height:1.5}
+  .mono{font-family:var(--font-mono); font-variant-numeric:tabular-nums}
+  h1,h2,h3,h4{margin:0; letter-spacing:-.01em}
+  button{font-family:inherit; cursor:pointer; border:0; background:none; color:inherit}
+  input,select{font-family:inherit; font-size:14px}
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:6px}
+
+  /* ---------- gate ---------- */
+  .gate{position:fixed; inset:0; display:grid; place-items:center; padding:24px; background:var(--bg); z-index:100}
+  .gatecard{width:100%; max-width:360px; text-align:center}
+  .gatecard .mark{width:52px;height:52px;border-radius:14px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:800;font-size:26px;margin:0 auto 16px}
+  .gatecard h1{font-size:22px; font-weight:800}
+  .gatecard p{color:var(--ink-2); font-size:13px; margin:8px 0 20px}
+  .gatecard input{width:100%; padding:12px 14px; border:1px solid var(--line-strong); border-radius:10px; background:var(--surface); color:var(--ink); text-align:center; letter-spacing:.1em; margin-bottom:10px}
+  .gatecard button{width:100%; padding:12px; border-radius:10px; background:var(--accent); color:#fff; font-weight:700}
+  .gatecard .msg{font-size:12.5px; margin-top:12px; min-height:18px}
+  .gatecard .msg.err{color:var(--accent)} .gatecard .msg.ok{color:var(--ok)}
+
+  /* ---------- shell ---------- */
+  .app{display:grid; grid-template-columns:236px 1fr; min-height:100vh}
+  .rail{background:var(--surface); border-right:1px solid var(--line); padding:18px 14px; display:flex; flex-direction:column; gap:16px; position:sticky; top:0; height:100vh; overflow:auto}
+  .brand{display:flex; align-items:center; gap:10px; padding:2px 6px}
+  .brand .mk{width:26px;height:26px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px}
+  .brand .wm{font-weight:800; letter-spacing:-.02em; font-size:16px}
+  .brand .wm small{display:block;font-size:10px;font-weight:600;color:var(--ink-3);letter-spacing:.04em;margin-top:-1px}
+  .gpas{display:grid; grid-template-columns:1fr 1fr; gap:8px}
+  .gpa{border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 10px}
+  .gpa.active{background:var(--accent); border-color:var(--accent)}
+  .gpa .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--ink-3)}
+  .gpa.active .k{color:rgba(255,255,255,.85)}
+  .gpa .v{font-size:20px;font-weight:800;letter-spacing:-.02em}
+  .gpa.active .v{color:#fff} .gpa .v small{font-size:11px;color:var(--ink-3);font-weight:600}
+  .nav{display:flex;flex-direction:column;gap:2px}
+  .navlabel{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);padding:10px 10px 4px}
+  .navitem{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:var(--r-sm);font-size:13.5px;font-weight:600;color:var(--ink-2);text-align:left;width:100%}
+  .navitem svg{width:17px;height:17px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.7}
+  .navitem:hover{background:var(--surface-2);color:var(--ink)}
+  .navitem.on{background:var(--accent-soft);color:var(--accent)}
+  .navitem .badge{margin-left:auto;font-size:10px;font-weight:800;color:var(--ink-3)}
+  .prog{display:flex;align-items:center;gap:9px;padding:7px 11px;border-radius:var(--r-sm);font-size:12.5px;font-weight:600;color:var(--ink-2);width:100%;text-align:left}
+  .prog:hover{background:var(--surface-2)}
+  .prog .st{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
+  .prog .st.act{background:var(--accent)} .prog .st.done{background:var(--ok)}
+  .rail-foot{margin-top:auto;display:flex;gap:8px;padding:6px;flex-wrap:wrap}
+  .tbtn{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--ink-2);border:1px solid var(--line);border-radius:99px;padding:6px 12px}
+  .tbtn:hover{background:var(--surface-2);color:var(--ink)}
+
+  .main{min-width:0;padding:26px 30px 60px}
+  .phead{display:flex;align-items:flex-end;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+  .eyebrow{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.09em;color:var(--accent)}
+  .phead h1{font-size:25px;font-weight:800;margin-top:5px}
+  .phead p{color:var(--ink-2);font-size:13px;margin-top:5px}
+  .phead .actions{margin-left:auto;display:flex;gap:9px}
+  .btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;border-radius:9px;padding:8px 13px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
+  .btn:hover{background:var(--surface-2)} .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+  .btn.sm{padding:5px 9px;font-size:11.5px}
+
+  .page{display:none} .page.on{display:block}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow)}
+  .pad{padding:16px 17px}
+  .ctitle{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:13px}
+  .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:13px}
+  .grid-2{display:grid;grid-template-columns:1.25fr .75fr;gap:13px}
+  .muted{color:var(--ink-3)}
+
+  .dot{width:10px;height:10px;border-radius:99px;flex:0 0 auto;display:inline-block}
+  .dot.d{background:var(--ok)} .dot.p{background:var(--warn)} .dot.b{background:var(--plan)}
+  .dot.o{background:transparent;border:1.6px dashed var(--line-strong)} .dot.t{background:var(--ink-3)}
+  .pill{font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap;display:inline-block}
+  .pill.d{background:var(--ok-bg);color:var(--ok)} .pill.p{background:var(--warn-bg);color:var(--warn)}
+  .pill.b{background:var(--plan-bg);color:var(--plan)} .pill.o{background:var(--surface-2);color:var(--ink-3);border:1px dashed var(--line-strong)}
+  .pill.t{background:var(--surface-2);color:var(--ink-2)} .pill.pet{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line)}
+  .term{font-family:var(--font-mono);font-size:10px;font-weight:700;padding:2px 6px;border-radius:6px;background:var(--surface-2);color:var(--ink-2)}
+  .term.only{background:var(--warn-bg);color:var(--warn)}
+  .bar{height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex}
+  .bar i{display:block;height:100%} .bar i.d{background:var(--ok)} .bar i.p{background:var(--warn)}
+
+  .trophy{display:flex;align-items:center;gap:13px;padding:13px 16px;border-radius:var(--r);background:linear-gradient(100deg,var(--accent-soft),var(--surface) 70%);border:1px solid var(--line);border-left:3px solid var(--ok);margin-bottom:18px;box-shadow:var(--shadow)}
+  .trophy .t{font-weight:800;font-size:13.5px} .trophy .s{font-size:12px;color:var(--ink-2);margin-top:1px}
+  .hero{display:flex;align-items:center;gap:20px;margin-bottom:18px}
+  .ring{position:relative;width:96px;height:96px;flex:0 0 auto}
+  .ring .lbl{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+  .ring .lbl b{font-size:22px;font-weight:800} .ring .lbl span{font-size:9.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3)}
+  .hero .h-t h2{font-size:20px;font-weight:800} .hero .h-t .sub{color:var(--ink-2);font-size:13px;margin-top:3px}
+  .hero .h-t .chips{margin-top:9px;display:flex;gap:7px;flex-wrap:wrap}
+
+  .bucket{border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;background:var(--surface);box-shadow:var(--shadow)}
+  .bucket .top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .bucket .nm{font-weight:800;font-size:13.5px} .bucket .cr{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--ink-2)}
+  .bucket .kind{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin:4px 0 11px}
+  .bucket .dots{display:flex;gap:5px;align-items:center;margin-top:11px;flex-wrap:wrap}
+  .bucket .left{margin-left:auto;font-size:11px;font-weight:800;color:var(--warn)} .bucket .left.ok{color:var(--ok)}
+
+  .feed .row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .feed .row:last-child{border-bottom:0} .feed .row .tag{margin-left:auto}
+
+  .switch{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+  .chip{font-size:12px;font-weight:700;padding:6px 12px;border-radius:99px;background:var(--surface);border:1px solid var(--line);color:var(--ink-2)}
+  .chip:hover{background:var(--surface-2)} .chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+  .req{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:11px;overflow:hidden;box-shadow:var(--shadow)}
+  .req .bh{display:flex;align-items:center;gap:12px;padding:14px 16px;width:100%;text-align:left}
+  .req .bh:hover{background:var(--surface-2)}
+  .req .chev{width:12px;color:var(--ink-3);transition:transform .2s} .req.open .chev{transform:rotate(90deg)}
+  .req .nm{font-weight:800;font-size:14px}
+  .req .kind{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);background:var(--surface-2);padding:3px 8px;border-radius:99px}
+  .req .adjb{font-size:10px;font-weight:800;color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn-line);padding:2px 8px;border-radius:99px}
+  .req .mini{width:110px;height:8px;border-radius:99px;background:var(--surface-3);overflow:hidden;flex:0 0 auto}
+  .req .mini i{display:block;height:100%;background:var(--ok)}
+  .req .cr{font-family:var(--font-mono);font-weight:800;font-size:13px;min-width:64px;text-align:right}
+  .req .body{border-top:1px solid var(--line);padding:4px 16px 14px;display:none} .req.open .body{display:block}
+  .crow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13px}
+  .crow:last-child{border-bottom:0} .crow .co{font-family:var(--font-mono);font-weight:700;cursor:pointer} .crow .ti{color:var(--ink-2)}
+  .crow .grow{flex:1 1 50%;min-width:0} .crow .cc{font-family:var(--font-mono);font-size:12px;color:var(--ink-3);font-weight:700;margin-left:auto}
+  .pool{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .pc{display:flex;align-items:center;gap:9px;border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 11px;font-size:12.5px}
+  .pc .co{font-family:var(--font-mono);font-weight:700} .pc .add{margin-left:auto;font-size:11px;font-weight:800;color:var(--plan);border:1px solid var(--plan-line);background:var(--plan-bg);border-radius:7px;padding:3px 9px}
+  .poolhd{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin:14px 0 4px}
+
+  .scroller{overflow-x:auto;padding-bottom:8px} .board{display:flex;gap:13px;min-width:min-content}
+  .col{width:210px;flex:0 0 auto;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r);padding:10px}
+  .col .ch{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:9px;padding:2px 3px}
+  .col .ch .t{font-weight:800;font-size:12.5px} .col .ch .cd{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--ink-3)}
+  .pcard{background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--ink-3);border-radius:var(--r-sm);padding:9px 10px;margin-bottom:8px;box-shadow:var(--shadow);cursor:pointer}
+  .pcard.d{border-left-color:var(--ok)} .pcard.p{border-left-color:var(--warn)} .pcard.b{border-left-color:var(--plan)}
+  .pcard.warnfit{border:1px solid var(--warn-line);border-left:3px solid var(--warn);background:var(--warn-bg)}
+  .pcard .co{font-family:var(--font-mono);font-weight:700;font-size:12.5px} .pcard .ti{font-size:11.5px;color:var(--ink-2);margin:2px 0 6px}
+  .pcard .mt{display:flex;align-items:center;gap:6px;flex-wrap:wrap} .pcard .cc{font-family:var(--font-mono);font-size:10.5px;color:var(--ink-3);font-weight:700;margin-left:auto}
+  .pcard .fit{font-size:10px;font-weight:800;color:var(--warn);margin-top:6px}
+  .col .foot{display:flex;justify-content:space-between;font-size:11px;font-weight:800;color:var(--ink-2);padding:8px 3px 2px;border-top:1px dashed var(--line-strong);margin-top:2px}
+  .ghost{border:1.5px dashed var(--line-strong);border-radius:var(--r-sm);padding:9px;text-align:center;font-size:11.5px;font-weight:700;color:var(--ink-3);cursor:pointer}
+
+  .career{margin-bottom:22px} .career .ch{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  .career .ch h3{font-size:16px;font-weight:800} .career .ch .g{margin-left:auto;font-family:var(--font-mono);font-weight:800;font-size:14px}
+  .career .ch .g small{color:var(--ink-3);font-weight:700;font-size:11px}
+  .tterm{border:1px solid var(--line);border-radius:var(--r);margin-bottom:9px;overflow:hidden;background:var(--surface)}
+  .tterm .th{display:flex;align-items:center;gap:10px;padding:10px 15px;background:var(--surface-2)}
+  .tterm .th .nm{font-weight:800;font-size:13px} .tterm .th .meta{margin-left:auto;font-family:var(--font-mono);font-size:11.5px;color:var(--ink-2);font-weight:700}
+  .trow{display:grid;grid-template-columns:84px 1fr 44px 42px;gap:12px;align-items:center;padding:8px 15px;border-top:1px solid var(--line);font-size:12.5px;cursor:pointer}
+  .trow:hover{background:var(--surface-2)} .trow .co{font-family:var(--font-mono);font-weight:700} .trow .ti{color:var(--ink-2)}
+  .trow .cc{font-family:var(--font-mono);font-size:11.5px;color:var(--ink-3);text-align:right} .trow .gr{font-family:var(--font-mono);font-weight:800;text-align:right}
+  .gr.a{color:var(--ok)} .gr.s{color:var(--ink-3)}
+  .wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px}
+  .wc .co{font-family:var(--font-mono);font-weight:800;font-size:14px} .wc .ti{font-size:12.5px;color:var(--ink-2);margin:2px 0 10px}
+  .wc .meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:12px} .wc .foot{display:flex;gap:8px} .wc .foot .btn{flex:1;justify-content:center;padding:7px}
+
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(20,12,10,.45);display:none;place-items:center;padding:20px;z-index:80}
+  .modal.on{display:grid}
+  .sheet{background:var(--surface);border:1px solid var(--line);border-radius:16px;width:100%;max-width:460px;box-shadow:0 30px 70px -20px rgba(0,0,0,.5);max-height:90vh;overflow:auto}
+  .sheet .sh{display:flex;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)}
+  .sheet .sh h3{font-size:16px;font-weight:800} .sheet .sh .x{margin-left:auto;font-size:20px;color:var(--ink-3);width:30px;height:30px;border-radius:8px}
+  .sheet .sb{padding:16px 18px;display:grid;gap:12px}
+  .fld{display:grid;gap:5px} .fld label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+  .fld input,.fld select{padding:9px 11px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink)}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .sheet .sf{display:flex;gap:9px;padding:14px 18px;border-top:1px solid var(--line)}
+  .sheet .sf .btn{flex:1;justify-content:center} .sheet .sf .del{flex:0 0 auto;color:var(--accent);border-color:var(--accent-line)}
+
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:99px;font-size:12.5px;font-weight:700;opacity:0;transition:.25s;z-index:120;pointer-events:none}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .mobar{display:none}
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr}
+    .mobar{display:flex;align-items:center;gap:10px;position:fixed;top:0;left:0;right:0;z-index:60;padding:9px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
+    .mobar .brand{padding:0} .mobar .tbtn{margin-left:auto}
+    .rail{position:fixed;left:0;right:0;bottom:0;top:auto;height:auto;width:auto;flex-direction:row;gap:0;padding:5px 4px calc(5px + env(safe-area-inset-bottom));border-right:0;border-top:1px solid var(--line);z-index:60;overflow:visible}
+    .rail .brand,.rail .gpas,.rail .navlabel,.rail .prog,.rail .rail-foot{display:none}
+    .rail .nav{flex-direction:row;width:100%;gap:0}
+    .navitem{flex:1;flex-direction:column;gap:3px;padding:7px 2px;font-size:10px;justify-content:center;text-align:center;border-radius:8px}
+    .navitem svg{width:21px;height:21px} .navitem .badge{display:none}
+    .main{padding:64px 15px 82px} .phead h1{font-size:21px} .phead .actions{margin-left:0;width:100%} .phead .actions .btn{flex:1;justify-content:center}
+    .grid-2,.grid-3{grid-template-columns:1fr} .pool{grid-template-columns:1fr} .wgrid{grid-template-columns:1fr}
+    .req .kind,.req .mini{display:none} .switch{overflow-x:auto;flex-wrap:nowrap} .switch .chip{flex:0 0 auto}
+    .trow{grid-template-columns:70px 1fr 40px} .trow .cc{display:none} .frow{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+
+<!-- passcode gate -->
+<div class="gate" id="gate">
+  <div class="gatecard">
+    <div class="mark">C</div>
+    <h1 id="gateTitle">Carnelian</h1>
+    <p id="gateSub">Checking…</p>
+    <form id="gateForm" style="display:none">
+      <input id="gateInput" type="password" inputmode="numeric" autocomplete="current-password" placeholder="passcode" aria-label="passcode">
+      <input id="gateInput2" type="password" autocomplete="new-password" placeholder="confirm passcode" aria-label="confirm passcode" style="display:none">
+      <button id="gateBtn" type="submit">Enter</button>
+    </form>
+    <div class="msg" id="gateMsg"></div>
+  </div>
+</div>
+
+<header class="mobar" style="display:none">
+  <div class="brand"><div class="mk" style="width:26px;height:26px;border-radius:8px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:800">C</div><div class="wm">Carnelian</div></div>
+  <button class="tbtn js-theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Theme</button>
+</header>
+
+<div class="app" id="app" style="display:none">
+  <aside class="rail">
+    <div class="brand"><div class="mk">C</div><div class="wm">Carnelian<small>degree command</small></div></div>
+    <div class="gpas" id="railGpas"></div>
+    <nav class="nav" id="railNav">
+      <button class="navitem on" data-nav="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
+      <button class="navitem" data-nav="requirements"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Requirements <span class="badge mono" id="reqBadge"></span></button>
+      <button class="navitem" data-nav="planner"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Planner</button>
+      <button class="navitem" data-nav="transcript"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Transcript</button>
+      <button class="navitem" data-nav="wishlist"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-9.2-8.3C1.1 8.5 2.6 5 6 5c2 0 3.2 1.2 4 2.4C10.8 6.2 12 5 14 5c3.4 0 4.9 3.5 3.2 6.7C19 15.6 12 20 12 20z"/></svg>Wishlist <span class="badge mono" id="wishBadge"></span></button>
+      <div class="navlabel">Programs</div>
+      <div id="railPrograms"></div>
+    </nav>
+    <div class="rail-foot">
+      <button class="tbtn js-theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Theme</button>
+      <button class="tbtn" id="logoutBtn">Lock</button>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section class="page on" id="dashboard"></section>
+    <section class="page" id="requirements"></section>
+    <section class="page" id="planner"></section>
+    <section class="page" id="transcript"></section>
+    <section class="page" id="wishlist"></section>
+  </main>
+</div>
+
+<!-- course editor -->
+<div class="modal" id="modal">
+  <div class="sheet">
+    <div class="sh"><h3 id="mTitle">Course</h3><button class="x" id="mClose">×</button></div>
+    <div class="sb">
+      <div class="frow">
+        <div class="fld"><label>Code</label><input id="mCode" placeholder="e.g. PHIL 2200"></div>
+        <div class="fld"><label>Credits</label><input id="mCredits" type="number" step="0.5" placeholder="3"></div>
+      </div>
+      <div class="fld"><label>Title</label><input id="mTitleIn" placeholder="Course title"></div>
+      <div class="frow">
+        <div class="fld"><label>Term</label><select id="mTerm"></select></div>
+        <div class="fld"><label>Status</label><select id="mStatus">
+          <option value="wishlist">Wishlist</option><option value="planned">Planned</option>
+          <option value="in_progress">In progress</option><option value="completed">Completed</option>
+          <option value="transferred">Transferred</option></select></div>
+      </div>
+      <div class="frow">
+        <div class="fld"><label>Grade</label><select id="mGrade"></select></div>
+        <div class="fld"><label>Offered terms</label><input id="mOffered" placeholder="F, S, Su, W"></div>
+      </div>
+      <div class="fld"><label>Tags (distribution / level)</label><input id="mTags" placeholder="HST-AS, PHIL>=3000"></div>
+      <div class="fld"><label>Pin to requirement (optional)</label><select id="mPin"></select></div>
+    </div>
+    <div class="sf">
+      <button class="btn del" id="mDelete" style="display:none">Delete</button>
+      <button class="btn primary" id="mSave">Save</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const FN = "https://uhwdnmbxiopfysodydty.supabase.co/functions/v1/carnelian";
+const GRADE_POINTS = {"A+":4.3,"A":4.0,"A-":3.7,"B+":3.3,"B":3.0,"B-":2.7,"C+":2.3,"C":2.0,"C-":1.7,"D+":1.3,"D":1.0,"D-":0.7,"F":0.0};
+let TOKEN = localStorage.getItem("carn_token") || "";
+let DB = {}, ACTIVE_PROG = null, CUR = "dashboard";
+
+const $ = (s,r=document)=>r.querySelector(s);
+const num = v => v==null||v===""? 0 : (typeof v==="number"?v:parseFloat(v));
+const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+async function api(action, payload={}){
+  const r = await fetch(FN,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,token:TOKEN,...payload})});
+  const j = await r.json();
+  if(!r.ok) throw Object.assign(new Error(j.error||"error"),{status:r.status});
+  return j;
+}
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),1800); }
+
+/* ---------- boot / auth ---------- */
+async function boot(){
+  try{
+    const st = await api("status");
+    if(!st.initialized){ showGate("create"); return; }
+    if(TOKEN){ try{ const j=await api("load"); DB=j.data; enterApp(); return; }catch(e){ if(e.status!==401) console.error(e); } }
+    showGate("login");
+  }catch(e){ $("#gateSub").textContent="Can't reach the server. Refresh to retry."; }
+}
+function showGate(mode){
+  $("#gate").style.display="grid"; $("#app").style.display="none"; $(".mobar").style.display="none";
+  $("#gateForm").style.display="block";
+  const c = $("#gateInput2");
+  if(mode==="create"){ $("#gateTitle").textContent="Set your passcode"; $("#gateSub").textContent="First time here — choose a passcode. It's stored only as a hash; no one (not even me) can read it."; c.style.display="block"; $("#gateBtn").textContent="Create"; $("#gateForm").dataset.mode="create"; }
+  else { $("#gateTitle").textContent="Carnelian"; $("#gateSub").textContent="Enter your passcode."; c.style.display="none"; $("#gateBtn").textContent="Enter"; $("#gateForm").dataset.mode="login"; }
+  $("#gateInput").focus();
+}
+$("#gateForm").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const mode=$("#gateForm").dataset.mode, pc=$("#gateInput").value, msg=$("#gateMsg"); msg.className="msg";
+  try{
+    if(mode==="create"){
+      if(pc.length<4){ msg.textContent="At least 4 characters."; msg.classList.add("err"); return; }
+      if(pc!==$("#gateInput2").value){ msg.textContent="Passcodes don't match."; msg.classList.add("err"); return; }
+      const j=await api("setup",{passcode:pc}); TOKEN=j.token; localStorage.setItem("carn_token",TOKEN);
+    } else {
+      const j=await api("login",{passcode:pc}); TOKEN=j.token; localStorage.setItem("carn_token",TOKEN);
+    }
+    const j=await api("load"); DB=j.data; enterApp();
+  }catch(err){ msg.textContent = err.status===401?"Wrong passcode.":(err.message||"Error"); msg.classList.add("err"); }
+});
+function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="grid"; if(window.innerWidth<=760) $(".mobar").style.display="flex"; ACTIVE_PROG = (DB.programs.find(p=>p.kind==="grad")||DB.programs.find(p=>p.status==="active")||DB.programs[0]||{}).id; renderAll(); }
+$("#logoutBtn").addEventListener("click",()=>{ localStorage.removeItem("carn_token"); TOKEN=""; location.reload(); });
+
+/* ---------- time awareness ---------- */
+function today(){ return new Date().toISOString().slice(0,10); }
+function currentTerm(){ const t=today(); return DB.terms.find(x=>x.starts_on&&x.ends_on&&x.starts_on<=t&&t<=x.ends_on); }
+function termById(id){ return DB.terms.find(t=>t.id===id); }
+function displayStatus(e){ // derive live status from stored status + term dates
+  if(e.status==="wishlist"||e.status==="transferred") return e.status;
+  const term=termById(e.term_id); const t=today();
+  if(e.grade && GRADE_POINTS[e.grade]!=null) return "completed";
+  if(term&&term.ends_on&&term.ends_on<t) return "completed";
+  if(term&&term.starts_on&&term.starts_on<=t&&(!term.ends_on||t<=term.ends_on)) return "in_progress";
+  return e.status==="completed"?"completed":"planned";
+}
+const STATUS_DOT = {completed:"d",in_progress:"p",planned:"b",transferred:"t",wishlist:"o"};
+const STATUS_LABEL = {completed:"completed",in_progress:"in progress",planned:"planned",transferred:"transferred",wishlist:"wishlist"};
+
+/* ---------- gpa ---------- */
+function gpa(career){
+  let q=0,c=0;
+  for(const e of DB.enrollments){
+    const term=termById(e.term_id); const car=term?term.career:"undergrad";
+    if(car!==career) continue;
+    const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue;
+    q+=p*num(e.credits); c+=num(e.credits);
+  }
+  return c? {gpa:q/c, credits:c} : {gpa:null, credits:0};
+}
+function creditsFor(career, statuses){ // completed/transferred credits toward a career
+  let c=0; for(const e of DB.enrollments){ const t=termById(e.term_id); const car=t?t.career:"undergrad"; if(car!==career) continue; if(statuses.includes(displayStatus(e))) c+=num(e.credits); } return c;
+}
+
+/* ---------- allocation engine ---------- */
+function optionsFor(reqId){ return DB.requirement_options.filter(o=>o.requirement_id===reqId); }
+function matchesReq(e, req, opts){
+  if(e.pinned_requirement_id===req.id) return true;
+  if(e.pinned_requirement_id) return false; // pinned elsewhere
+  if(req.kind==="specific_course"||req.kind==="choose_pool"){
+    const codes = opts.map(o=>(o.code||"").trim().toUpperCase());
+    return codes.includes((e.code||"").trim().toUpperCase());
+  }
+  if(req.kind==="attribute"){
+    const tag=req.attribute_tag||""; return (e.tags||[]).map(x=>x.toUpperCase()).includes(tag.toUpperCase());
+  }
+  if(req.kind==="credit_total") return true;
+  return false;
+}
+function programProgress(prog){
+  const reqs = DB.requirements.filter(r=>r.program_id===prog.id).sort((a,b)=>a.sort-b.sort);
+  const adj = DB.adjustments.filter(a=>a.program_id===prog.id);
+  // effective credit targets after credit-transfer adjustments
+  const targetDelta={}; const satisfied={};
+  for(const a of adj){
+    if(a.type==="credit_transfer"||a.type==="waiver"||a.type==="substitution"){
+      if(a.from_requirement_id) targetDelta[a.from_requirement_id]=(targetDelta[a.from_requirement_id]||0)-num(a.credits);
+      if(a.to_requirement_id) targetDelta[a.to_requirement_id]=(targetDelta[a.to_requirement_id]||0)+num(a.credits);
+    }
+    if(a.satisfies_requirement_id) satisfied[a.satisfies_requirement_id]=a;
+  }
+  const progCareer = prog.kind==="grad" ? "grad" : "undergrad";
+  const consider = DB.enrollments.filter(e=>{
+    if(displayStatus(e)==="wishlist") return false;
+    const t=termById(e.term_id); return (t?t.career:"undergrad")===progCareer;
+  });
+  const usedInProg = new Set();
+  let totalReq=0, totalDone=0;
+  const buckets = reqs.map(req=>{
+    const opts=optionsFor(req.id);
+    const target = Math.max(0, num(req.credits_required) + (targetDelta[req.id]||0));
+    let filled=0; const fillers=[]; let petitioned=!!satisfied[req.id];
+    if(petitioned){ filled = target; }
+    else {
+      // pinned first, then others
+      const cand = consider.filter(e=>!usedInProg.has(e.id) && matchesReq(e,req,opts));
+      cand.sort((a,b)=> (b.pinned_requirement_id===req.id?1:0)-(a.pinned_requirement_id===req.id?1:0));
+      for(const e of cand){
+        if(target && filled>=target) break;
+        usedInProg.add(e.id); fillers.push(e); filled+=num(e.credits);
+      }
+    }
+    const done=Math.min(filled,target||filled);
+    totalReq+=target; totalDone+=Math.min(done,target);
+    return {req,target,filled:done,fillers,opts,petitioned,adjDelta:targetDelta[req.id]||0};
+  });
+  return {prog,buckets,totalReq,totalDone,pct: totalReq? Math.round(100*Math.min(totalDone,totalReq)/totalReq):0};
+}
+
+/* ---------- render ---------- */
+function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderWishlist(); showPage(CUR); }
+function renderRail(){
+  const ug=gpa("undergrad"), gr=gpa("grad");
+  $("#railGpas").innerHTML =
+    `<div class="gpa"><div class="k">Undergrad</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div></div>`+
+    `<div class="gpa active"><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"}</div></div>`;
+  $("#railPrograms").innerHTML = DB.programs.map(p=>
+    `<button class="prog" data-prog="${p.id}"><span class="st ${p.status==='active'?'act':'done'}"></span> ${esc(p.name)}</button>`).join("");
+  $("#railPrograms").querySelectorAll("[data-prog]").forEach(b=>b.onclick=()=>{ ACTIVE_PROG=b.dataset.prog; renderRequirements(); showPage("requirements"); });
+  const active=DB.programs.find(p=>p.id===ACTIVE_PROG); const pr=active?programProgress(active):null;
+  $("#reqBadge").textContent = pr?pr.pct+"%":"";
+  $("#wishBadge").textContent = DB.enrollments.filter(e=>e.status==="wishlist").length||"";
+}
+function bar(done,target){ const p=target?Math.min(100,100*done/target):0; return `<div class="bar"><i class="${done>=target&&target>0?'d':'d'}" style="width:${p}%"></i></div>`; }
+
+function renderDashboard(){
+  const active=DB.programs.find(p=>p.id===ACTIVE_PROG)||DB.programs[0];
+  const done=DB.programs.filter(p=>p.status==="complete");
+  const ug=gpa("undergrad");
+  const ugChips=done.map(p=>esc(p.name)).join(" · ");
+  const pr=active?programProgress(active):{buckets:[],pct:0,totalDone:0,totalReq:0};
+  const cur=currentTerm();
+  const cards = pr.buckets.map(b=>{
+    const left=Math.max(0,b.target-b.filled);
+    return `<div class="bucket"><div class="top"><span class="nm">${esc(b.req.name)}</span><span class="cr">${b.filled%1?b.filled.toFixed(1):b.filled} / ${b.target%1?b.target.toFixed(1):b.target}</span></div>
+      <div class="kind">${esc(kindLabel(b.req))}${b.adjDelta?` · ⚑ ${b.adjDelta>0?'+':''}${b.adjDelta}`:''}</div>
+      ${bar(b.filled,b.target)}
+      <div class="dots"><span class="left ${left<=0?'ok':''}">${left<=0?'complete':left+' cr left'}</span></div></div>`;
+  }).join("");
+  const inThis = cur? DB.enrollments.filter(e=>e.term_id===cur.id) : [];
+  const wish = DB.enrollments.filter(e=>e.status==="wishlist").slice(0,4);
+  $("#dashboard").innerHTML = `
+    <div class="phead"><div><div class="eyebrow">Mission Command</div><h1>Where you stand</h1>
+      <p>${cur?('Current term — '+esc(cur.name)):'No active term right now.'}</p></div>
+      <div class="actions"><button class="btn primary" onclick="openCourse()">＋ Add course</button></div></div>
+    ${done.length?`<div class="trophy"><span style="font-size:16px">🎓</span><div><div class="t">Undergrad — ${ugChips||'complete'}</div>
+      <div class="s">${creditsFor('undergrad',['completed','transferred'])} cr · GPA ${ug.gpa?ug.gpa.toFixed(2):'—'}</div></div></div>`:''}
+    ${active?`<div class="hero"><div class="ring">
+      <svg width="96" height="96" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" stroke-width="4"/>
+      <circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--accent)" stroke-width="4" stroke-linecap="round" stroke-dasharray="${pr.pct*0.973} 100" transform="rotate(-90 18 18)"/></svg>
+      <div class="lbl"><b>${pr.pct}%</b><span>${Math.round(pr.totalDone)}/${Math.round(pr.totalReq)} cr</span></div></div>
+      <div class="h-t"><h2>${esc(active.name)}</h2><div class="sub">${esc(active.kind==='grad'?'Graduate program':'')}</div></div></div>`:''}
+    <div class="grid-3" style="margin-bottom:13px">${cards||'<p class="muted">No requirements loaded for this program yet.</p>'}</div>
+    <div class="grid-3">
+      <div class="card pad feed"><div class="ctitle">This term</div>
+        ${inThis.length?inThis.map(e=>rowLine(e)).join(""):'<div class="row muted">Nothing scheduled for the current term.</div>'}</div>
+      <div class="card pad feed"><div class="ctitle">Needs attention</div>${needsAttention(pr,cur)}</div>
+      <div class="card pad feed"><div class="ctitle">Wishlist</div>
+        ${wish.length?wish.map(e=>rowLine(e)).join(""):'<div class="row muted">Nothing saved.</div>'}</div>
+    </div>`;
+}
+function kindLabel(req){ return {specific_course:"Mandatory",choose_pool:"Choose · pool",attribute:"Attribute",credit_total:"Credit total"}[req.kind]||req.kind; }
+function rowLine(e){ const ds=displayStatus(e); return `<div class="row" onclick="openCourse(${e.id})" style="cursor:pointer"><span class="dot ${STATUS_DOT[ds]}"></span> <b class="mono">${esc(e.code||'—')}</b> <span class="muted" style="font-size:12px">${esc((e.title||'').slice(0,20))}</span><span class="tag pill ${STATUS_DOT[ds]}">${STATUS_LABEL[ds]}</span></div>`; }
+function needsAttention(pr,cur){
+  const items=[];
+  for(const b of pr.buckets){ const left=b.target-b.filled; if(left>0) items.push(`<div class="row"><span class="dot p"></span> ${esc(b.req.name)}: <b>&nbsp;${left%1?left.toFixed(1):left} cr</b>&nbsp;left</div>`); }
+  // offering conflicts
+  for(const e of DB.enrollments){ const t=termById(e.term_id); if(!t||e.status==="wishlist") continue; const off=(e.offered_terms||[]); const k=termKindCode(t); if(off.length&&k&&!off.includes(k)) items.push(`<div class="row"><span class="dot p"></span> <b class="mono">${esc(e.code)}</b>&nbsp;not offered in ${esc(t.name)}</div>`); }
+  return items.slice(0,5).join("")||'<div class="row muted">All clear.</div>';
+}
+function termKindCode(t){ return {fall:"F",spring:"S",summer:"Su",winter:"W"}[t.kind]||null; }
+
+function renderRequirements(){
+  const progs=DB.programs;
+  const active=progs.find(p=>p.id===ACTIVE_PROG)||progs[0];
+  const pr=active?programProgress(active):{buckets:[]};
+  const switcher = progs.map(p=>`<button class="chip ${p.id===ACTIVE_PROG?'on':''}" data-p="${p.id}">${esc(p.name)}${p.status==='complete'?' ✓':''}</button>`).join("");
+  const buckets = pr.buckets.map((b,i)=>{
+    const left=Math.max(0,b.target-b.filled);
+    const fillRows=b.fillers.map(e=>{ const ds=displayStatus(e);
+      return `<div class="crow"><span class="dot ${STATUS_DOT[ds]}"></span><span class="grow"><b class="co" onclick="openCourse(${e.id})">${esc(e.code||'—')}</b> <span class="ti">${esc(e.title||'')}</span>${e.pinned_requirement_id===b.req.id?' <span class="pill pet">📌 pinned</span>':''}</span><span class="cc">${num(e.credits)}</span><span class="pill ${STATUS_DOT[ds]}">${STATUS_LABEL[ds]}</span></div>`;}).join("");
+    const petRow = b.petitioned?`<div class="crow"><span class="dot d"></span><span class="grow ti">Satisfied by petition</span><span class="pill pet">⚑ waiver</span></div>`:"";
+    const openRow = (!b.petitioned&&left>0)?`<div class="crow"><span class="dot o"></span><span class="grow muted">${left%1?left.toFixed(1):left} cr remaining</span><span class="pill o">open</span></div>`:"";
+    let pool="";
+    if(b.req.kind==="choose_pool"){
+      const taken=new Set(b.fillers.map(e=>(e.code||"").toUpperCase()));
+      const avail=b.opts.filter(o=>!taken.has((o.code||"").toUpperCase())).slice(0,8);
+      if(avail.length) pool=`<div class="poolhd">Add from the pool · ${b.opts.length} eligible</div><div class="pool">`+
+        avail.map(o=>`<div class="pc"><b class="co">${esc(o.code||'')}</b> <span class="ti">${esc((o.title||'').slice(0,22))}</span>${o.offered_terms&&o.offered_terms.length?`<span class="term">${o.offered_terms.join('·')}</span>`:''}<span class="add" onclick='openCourse(null,${JSON.stringify({code:o.code,title:o.title,credits:num(o.credits),offered_terms:o.offered_terms||[],pinned_requirement_id:b.req.id})})'>＋ add</span></div>`).join("")+`</div>`;
+    }
+    return `<div class="req ${i<2?'open':''}"><button class="bh" onclick="this.parentElement.classList.toggle('open')">
+      <span class="chev">›</span><span class="nm">${esc(b.req.name)}</span><span class="kind">${esc(kindLabel(b.req))}</span>
+      ${b.adjDelta?`<span class="adjb">⚑ ${b.adjDelta>0?'+':''}${b.adjDelta} cr</span>`:''}
+      <span class="mini"><i style="width:${b.target?Math.min(100,100*b.filled/b.target):0}%"></i></span>
+      <span class="cr">${b.filled%1?b.filled.toFixed(1):b.filled}/${b.target%1?b.target.toFixed(1):b.target}</span></button>
+      <div class="body">${petRow}${fillRows}${openRow}${pool}</div></div>`;
+  }).join("");
+  $("#requirements").innerHTML = `<div class="phead"><div><div class="eyebrow">What counts for what</div><h1>Requirements</h1>
+    <p>Auto-allocated from your courses — pin only the ambiguous ones.</p></div>
+    <div class="actions"><button class="btn primary" onclick="openCourse()">＋ Add course</button></div></div>
+    <div class="switch">${switcher}</div>${buckets||'<p class="muted">No requirements defined for this program yet.</p>'}`;
+  $("#requirements").querySelectorAll("[data-p]").forEach(b=>b.onclick=()=>{ ACTIVE_PROG=b.dataset.p; renderRequirements(); renderRail(); });
+}
+
+function renderPlanner(){
+  const terms=[...DB.terms].sort((a,b)=>a.sort-b.sort);
+  const wish=DB.enrollments.filter(e=>e.status==="wishlist");
+  const cols = terms.map(t=>{
+    const es=DB.enrollments.filter(e=>e.term_id===t.id);
+    const cr=es.reduce((s,e)=>s+num(e.credits),0);
+    const kc=termKindCode(t);
+    const cards=es.map(e=>{ const ds=displayStatus(e); const off=e.offered_terms||[]; const bad=off.length&&kc&&!off.includes(kc);
+      return `<div class="pcard ${bad?'warnfit':STATUS_DOT[ds]}" onclick="openCourse(${e.id})"><div class="co">${esc(e.code||'—')}</div><div class="ti">${esc((e.title||'').slice(0,26))}</div>
+      <div class="mt"><span class="pill ${STATUS_DOT[ds]}">${STATUS_LABEL[ds]}</span>${off.length?`<span class="term ${bad?'only':''}">${off.join('·')}</span>`:''}<span class="cc">${num(e.credits)}</span></div>
+      ${bad?`<div class="fit">⚠ not offered in ${esc(t.name)}</div>`:''}</div>`;}).join("");
+    return `<div class="col"><div class="ch"><span class="t">${esc(t.name)}</span><span class="cd">${t.career==='grad'?'MPS':''}</span></div>
+      ${cards||'<div class="ghost" onclick="openCourse(null,{term_id:\''+t.id+'\'})">+ add</div>'}
+      <div class="foot"><span>${es.length} course${es.length===1?'':'s'}</span><span class="mono">${cr%1?cr.toFixed(1):cr} cr</span></div></div>`;
+  }).join("");
+  const stage=`<div class="col" style="border-style:dashed;background:var(--surface)"><div class="ch"><span class="t">Wishlist</span></div>
+    ${wish.map(e=>`<div class="pcard" onclick="openCourse(${e.id})"><div class="co">${esc(e.code||'—')}</div><div class="ti">${esc((e.title||'').slice(0,26))}</div><div class="mt">${e.offered_terms&&e.offered_terms.length?`<span class="term">${e.offered_terms.join('·')}</span>`:''}<span class="cc">${num(e.credits)}</span></div></div>`).join("")||'<div class="ghost" onclick="openCourse()">+ add</div>'}</div>`;
+  $("#planner").innerHTML = `<div class="phead"><div><div class="eyebrow">When</div><h1>Planner</h1>
+    <p>Courses by term. Cards flag when a course isn't offered that term.</p></div>
+    <div class="actions"><button class="btn primary" onclick="openCourse()">＋ Add course</button></div></div>
+    <div class="scroller"><div class="board">${stage}${cols}</div></div>`;
+}
+
+function renderTranscript(){
+  const careers=[["undergrad","Undergraduate · Arts & Sciences"],["grad","Graduate · Baker MPS"]];
+  let html=`<div class="phead"><div><div class="eyebrow">The record</div><h1>Transcript</h1>
+    <p>Grades drive GPA — scoped per career. S / SX excluded.</p></div>
+    <div class="actions"><button class="btn primary" onclick="openCourse()">＋ Add course</button></div></div>`;
+  for(const [car,label] of careers){
+    const terms=DB.terms.filter(t=>t.career===car).sort((a,b)=>a.sort-b.sort);
+    const g=gpa(car);
+    let body="";
+    for(const t of terms){
+      const es=DB.enrollments.filter(e=>e.term_id===t.id);
+      if(!es.length) continue;
+      const tg=termGpa(es); const cr=es.reduce((s,e)=>s+num(e.credits),0);
+      body+=`<div class="tterm"><div class="th"><span class="nm">${esc(t.name)}</span><span class="meta">${cr%1?cr.toFixed(1):cr} cr${tg!=null?' · '+tg.toFixed(2):''}</span></div>`+
+        es.map(e=>{ const p=GRADE_POINTS[e.grade]; return `<div class="trow" onclick="openCourse(${e.id})"><span class="co">${esc(e.code||'—')}</span><span class="ti">${esc(e.title||'')}</span><span class="cc">${num(e.credits)}</span><span class="gr ${p!=null?'a':'s'}">${esc(e.grade||displayStatus(e)==='in_progress'?'···':(e.grade||'—'))}</span></div>`;}).join("")+`</div>`;
+    }
+    html+=`<div class="career"><div class="ch"><h3>${esc(label)}</h3><span class="g">${g.gpa?g.gpa.toFixed(2):'—'} <small>${g.credits?('· '+g.credits+' cr'):''}</small></span></div>${body||'<p class="muted">No courses yet.</p>'}</div>`;
+  }
+  $("#transcript").innerHTML=html;
+}
+function termGpa(es){ let q=0,c=0; for(const e of es){ const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue; q+=p*num(e.credits); c+=num(e.credits);} return c?q/c:null; }
+
+function renderWishlist(){
+  const wish=DB.enrollments.filter(e=>e.status==="wishlist");
+  $("#wishlist").innerHTML=`<div class="phead"><div><div class="eyebrow">Saved for later</div><h1>Wishlist</h1>
+    <p>Courses you're eyeing. Add one to a term when you're ready.</p></div>
+    <div class="actions"><button class="btn primary" onclick="openCourse(null,{status:'wishlist'})">＋ Add</button></div></div>
+    <div class="wgrid">${wish.map(e=>`<div class="card pad wc"><div class="co">${esc(e.code||'—')}</div><div class="ti">${esc(e.title||'')}</div>
+      <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}${e.offered_terms&&e.offered_terms.length?`<span class="term">${e.offered_terms.join('·')}</span>`:''}<span class="mono muted">${num(e.credits)} cr</span></div>
+      <div class="foot"><button class="btn primary" onclick="openCourse(${e.id})">Edit</button></div></div>`).join("")||'<p class="muted">Nothing saved yet.</p>'}</div>`;
+}
+
+/* ---------- modal ---------- */
+let EDIT_ID=null;
+function openCourse(id=null, preset={}){
+  EDIT_ID=id; const e = id!=null ? DB.enrollments.find(x=>x.id==id) : preset;
+  $("#mTitle").textContent = id!=null?"Edit course":"Add course";
+  $("#mCode").value=e.code||""; $("#mTitleIn").value=e.title||""; $("#mCredits").value=e.credits!=null?num(e.credits):"";
+  $("#mTerm").innerHTML=`<option value="">— none —</option>`+DB.terms.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join("");
+  $("#mTerm").value=e.term_id||"";
+  $("#mStatus").value=e.status||"planned";
+  $("#mGrade").innerHTML=`<option value="">—</option>`+["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"].map(g=>`<option>${g}</option>`).join("");
+  $("#mGrade").value=e.grade||"";
+  $("#mOffered").value=(e.offered_terms||[]).join(", ");
+  $("#mTags").value=(e.tags||[]).join(", ");
+  const reqOpts=DB.requirements.map(r=>{const p=DB.programs.find(x=>x.id===r.program_id);return `<option value="${r.id}">${esc((p?p.name+' — ':'')+r.name)}</option>`;}).join("");
+  $("#mPin").innerHTML=`<option value="">— auto —</option>`+reqOpts; $("#mPin").value=e.pinned_requirement_id||"";
+  $("#mDelete").style.display = id!=null?"inline-flex":"none";
+  $("#modal").classList.add("on");
+}
+$("#mClose").onclick=$("#modal").onclick=(ev)=>{ if(ev.target===$("#modal")||ev.currentTarget===$("#mClose")) $("#modal").classList.remove("on"); };
+function splitList(v){ return v.split(",").map(s=>s.trim()).filter(Boolean); }
+$("#mSave").onclick=async ()=>{
+  const grade=$("#mGrade").value;
+  const row={ code:$("#mCode").value.trim(), title:$("#mTitleIn").value.trim(), credits:num($("#mCredits").value),
+    term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null,
+    counts_gpa: GRADE_POINTS[grade]!=null, offered_terms:splitList($("#mOffered").value), tags:splitList($("#mTags").value),
+    pinned_requirement_id:$("#mPin").value||null };
+  if(EDIT_ID!=null) row.id=EDIT_ID;
+  try{ const j=await api("upsert",{table:"enrollments",row});
+    if(EDIT_ID!=null){ const i=DB.enrollments.findIndex(x=>x.id==EDIT_ID); DB.enrollments[i]=j.row; }
+    else DB.enrollments.push(j.row);
+    $("#modal").classList.remove("on"); renderAll(); toast("Saved");
+  }catch(err){ toast(err.message||"Error"); }
+};
+$("#mDelete").onclick=async ()=>{
+  if(EDIT_ID==null) return; if(!confirm("Delete this course?")) return;
+  try{ await api("delete",{table:"enrollments",id:EDIT_ID}); DB.enrollments=DB.enrollments.filter(x=>x.id!=EDIT_ID); $("#modal").classList.remove("on"); renderAll(); toast("Deleted"); }
+  catch(err){ toast(err.message||"Error"); }
+};
+
+/* ---------- nav / theme ---------- */
+function showPage(id){ CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id));
+  document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); window.scrollTo(0,0); }
+document.querySelectorAll("[data-nav]").forEach(n=>n.addEventListener("click",()=>showPage(n.dataset.nav)));
+const root=document.documentElement, mq=matchMedia("(prefers-color-scheme: dark)");
+document.querySelectorAll(".js-theme").forEach(b=>b.addEventListener("click",()=>{ const cur=root.getAttribute("data-theme")||(mq.matches?"dark":"light"); root.setAttribute("data-theme",cur==="dark"?"light":"dark"); }));
+window.openCourse=openCourse;
+boot();
+</script>
+</body>
+</html>
