@@ -365,7 +365,10 @@ function programProgress(prog){
   const top=DB.requirements.filter(r=>r.program_id===prog.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort);
   const rows=top.map(r=>({req:r,...reqProgress(r)}));
   const ratios=rows.map(r=>r.need?Math.min(1,r.done/r.need):(r.met?1:0));
-  return {prog,rows,pct:rows.length?Math.round(100*ratios.reduce((a,b)=>a+b,0)/rows.length):0,met:rows.every(r=>r.met)};
+  const met=rows.every(r=>r.met);
+  let pct=rows.length?Math.round(100*ratios.reduce((a,b)=>a+b,0)/rows.length):0;
+  if(met) pct=100; else if(pct>=100) pct=99; // never show a full ring while anything is unmet
+  return {prog,rows,pct,met};
 }
 function ring(pct,size){ const off=100-pct*0.973; const col=pct>=100?"var(--ok)":"var(--accent)";
   return `<svg width="${size}" height="${size}" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" stroke-width="4"/><circle cx="18" cy="18" r="15.5" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${pct*0.973} 100" transform="rotate(-90 18 18)"/></svg>`; }
