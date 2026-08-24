@@ -80,6 +80,9 @@
   .phead{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
   .phead h1{font-size:26px;font-weight:800}
   .phead .actions{margin-left:auto;display:flex;gap:9px}
+  .ph-note{font-size:11.5px;color:var(--ink-3);font-weight:600;width:100%;margin-top:-8px}
+  .fab{position:fixed;right:20px;bottom:24px;width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:28px;font-weight:400;display:none;align-items:center;justify-content:center;box-shadow:0 8px 22px -6px rgba(120,20,20,.5);z-index:55;border:0;line-height:1}
+  .fab:active{transform:scale(.94)}
   .btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;border-radius:9px;padding:9px 14px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
   .btn:hover{background:var(--surface-2)} .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
   .page{display:none} .page.on{display:block}
@@ -190,8 +193,8 @@
   .tterm{border:1px solid var(--line);border-radius:var(--r);margin-bottom:9px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
   .tterm .th{display:flex;align-items:center;gap:10px;padding:10px 15px;background:var(--surface-2)}
   .tterm .th .nm{font-weight:800;font-size:13px} .tterm .th .meta{margin-left:auto;font-size:11.5px;color:var(--ink-2);font-weight:700}
-  .trow{display:grid;grid-template-columns:82px 1fr 58px 34px 38px;gap:11px;align-items:center;padding:9px 15px;border-top:1px solid var(--line);font-size:12.5px;cursor:pointer}
-  .trow:hover{background:var(--surface-2)} .trow .co{font-weight:700} .trow .co.nonas{color:var(--accent)} .trow .ti{color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .trow{display:grid;grid-template-columns:auto 1fr 58px 34px 38px;gap:11px;align-items:center;padding:9px 15px;border-top:1px solid var(--line);font-size:12.5px}
+  .trow .co{font-weight:700;white-space:nowrap} .trow .co.nonas{color:var(--accent)} .trow .ti{color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .trow .ds{font-size:10.5px;color:var(--ink-3);text-align:left;font-weight:700}
   .trow .cc{font-size:11.5px;color:var(--ink-3);text-align:right} .trow .gr{font-weight:800;text-align:right}
   .gr.a{color:var(--ok)} .gr.s{color:var(--ink-3)}
@@ -267,11 +270,12 @@
     .rail .brand,.rail .gpas,.rail .rail-foot{display:none}
     .rail .nav{flex-direction:row;width:100%;gap:0}
     .navitem{flex:1;flex-direction:column;gap:3px;padding:7px 2px;font-size:10px;justify-content:center;text-align:center;border-radius:8px} .navitem svg{width:22px;height:22px}
-    .main{padding:calc(60px + env(safe-area-inset-top)) 15px 88px}
+    .main{padding:calc(60px + env(safe-area-inset-top)) 15px calc(108px + env(safe-area-inset-bottom))}
+    .fab{bottom:calc(84px + env(safe-area-inset-bottom));right:16px}
     .phead h1{font-size:23px}
     .statgrid{grid-template-columns:1fr 1fr;gap:9px}
     .frow{grid-template-columns:1fr}
-    .trow{grid-template-columns:74px 1fr 34px 36px;gap:8px} .trow .ds{display:none}
+    .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
 </style>
 </head>
@@ -424,13 +428,14 @@
   </div>
 </div>
 
+<button class="fab" id="fab" type="button" aria-label="Add">＋</button>
 <div class="toast" id="toast"></div>
 
 <script>
 const FN = "https://uhwdnmbxiopfysodydty.supabase.co/functions/v1/carnelian";
 const GRADE_POINTS = {"A+":4.3,"A":4.0,"A-":3.7,"B+":3.3,"B":3.0,"B-":2.7,"C+":2.3,"C":2.0,"C-":1.7,"D+":1.3,"D":1.0,"D-":0.7,"F":0.0};
 let TOKEN = localStorage.getItem("carn_token") || "";
-let DB = {}, CUR = "dashboard", TCAREER = "undergrad", BAKER_VIEW = "plan";
+let DB = {}, CUR = "dashboard", TCAREER = localStorage.getItem("carn_tcareer") || "undergrad", BAKER_VIEW = "plan";
 const EXP = new Set();            // expanded planner terms
 const $ = (s,r=document)=>r.querySelector(s);
 const num = v => v==null||v===""? 0 : (typeof v==="number"?v:parseFloat(v));
@@ -703,7 +708,7 @@ function drow(name,pct,met,sub,onclick,goto,ppct){
 
 function courseChip(e){ const ds=displayStatus(e); return `<span class="pill ${STATUS_CLASS[ds]}"><span class="code">${esc(e.code)}</span></span>`; }
 function renderRequirements(){
-  let html=`<div class="phead"><h1>Requirements</h1><div class="actions"><button class="btn primary" id="addReqBtn">＋ Add requirement</button></div></div>`;
+  let html=`<div class="phead"><h1>Requirements</h1></div>`;
   for(const top of topPrograms()){
     html+=`<div class="pgroup" id="pg-${top.id}">`;
     const dp=degreeProgress(top);
@@ -720,7 +725,6 @@ function renderRequirements(){
     html+=`</div>`;
   }
   $("#requirements").innerHTML=html;
-  $("#addReqBtn").onclick=()=>openReq();
   $("#requirements").querySelectorAll("#bakerSeg button").forEach(b=>b.onclick=()=>{BAKER_VIEW=b.dataset.bv;renderRequirements();});
   $("#requirements").querySelectorAll("[data-editreq]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();openReq(b.dataset.editreq);});
   $("#requirements").querySelectorAll(".co[data-cid]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();openCourse(b.dataset.cid);});
@@ -761,8 +765,10 @@ function reqBlocks(prog){
   }).join("")||'<p class="muted" style="margin:2px 2px 12px">No requirements yet.</p>';
 }
 
-const byCode=(a,b)=>String(a.code||'~').localeCompare(String(b.code||'~'),undefined,{numeric:true});
-const prowHTML=e=>`<div class="prow" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(e.code||'—')}</span><span class="ti">${esc(e.title||'')}</span><span class="cc num">${nf(num(e.credits))}</span></div>`;
+const byCode=(a,b)=>String(codeLabel(a)).localeCompare(String(codeLabel(b)),undefined,{numeric:true});
+// what to show as a course's "code" — Oxford/transferred courses have no Cornell code, so label them "Oxford"
+const codeLabel=e=>{ const c=(e.code||'').trim(); return (c&&c!=='OXON')?c:'Oxford'; };
+const prowHTML=e=>`<div class="prow" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti">${esc(e.title||'')}</span><span class="cc num">${nf(num(e.credits))}</span></div>`;
 const TSTAT={completed:{c:"done",l:"completed"},in_progress:{c:"now",l:"in progress"},planned:{c:"soon",l:"upcoming"}};
 function renderPlanner(){
   const terms=[...DB.terms].sort((a,b)=>a.sort-b.sort);
@@ -788,19 +794,17 @@ function renderPlanner(){
     unschedCard=`<div class="pterm open unsched"><div class="ph" data-toggle="__unsched"><span class="chev">›</span><span class="nm">Unscheduled</span><span class="badge warn">no term</span><span class="meta">${nf(unsched.reduce((s,e)=>s+num(e.credits),0))} cr</span></div>
       <div class="body"><p class="muted" style="padding:2px 0 6px">Courses saved without a term. Open one to assign it a term.</p>${ur}</div></div>`;
   }
-  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1><div class="actions"><button class="btn primary" id="addCourseBtn">＋ Add course</button></div></div>${unschedCard}${cards}`;
-  $("#addCourseBtn").onclick=()=>openCourse();
+  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1></div>${cards}${unschedCard}`;
   $("#planner").querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;const c=b.closest(".pterm");c.classList.toggle("open");if(c.classList.contains("open"))EXP.add(id);else EXP.delete(id);});
   $("#planner").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
   $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:statusForTerm(b.dataset.add)}));
 }
 function renderWishlist(){
   const w=DB.enrollments.filter(e=>e.status==="wishlist");
-  const cards=w.map(e=>`<div class="wcard" data-cid="${e.id}"><div class="co code">${esc(e.code||'Course')}</div><div class="ti">${esc(e.title||'')}</div>
+  const cards=w.map(e=>`<div class="wcard" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
     <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div></div>`).join("");
-  $("#wishlist").innerHTML=`<div class="phead"><h1>Wishlist</h1><div class="actions"><button class="btn primary" id="addWishBtn">＋ Add</button></div></div>
-    ${cards?`<div class="wgrid">${cards}</div>`:'<p class="muted">Nothing saved yet. Courses you set to <b>Wishlist</b> status show up here.</p>'}`;
-  $("#addWishBtn").onclick=()=>openCourse(null,{status:"wishlist"});
+  $("#wishlist").innerHTML=`<div class="phead"><h1>Wishlist</h1></div>
+    ${cards?`<div class="wgrid">${cards}</div>`:'<p class="muted">Nothing saved yet. Courses you set to <b>Wishlist</b> status show up here. Tap ＋ to add one.</p>'}`;
   $("#wishlist").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
 }
 
@@ -828,10 +832,9 @@ function renderTranscript(){
   for(const t of terms){ const es=DB.enrollments.filter(e=>e.term_id===t.id); if(!es.length) continue;
     const tg=termGpa(es), cr=es.reduce((s,e)=>s+num(e.credits),0);
     body+=`<div class="tterm"><div class="th"><span class="nm">${esc(t.name)}</span><span class="meta">${nf(cr)} cr${tg!=null?' · '+tg.toFixed(2):''}</span></div>`+
-      es.map(e=>{const p=GRADE_POINTS[e.grade];const dist=(e.tags||[])[0]||'';return `<div class="trow" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(e.code||'—')}</span><span class="ti">${esc(e.title||'')}</span><span class="ds">${esc(dist)}</span><span class="cc num">${nf(num(e.credits))}</span><span class="gr ${p!=null?'a':'s'}">${esc(e.grade||(displayStatus(e)==='in_progress'?'···':'—'))}</span></div>`;}).join("")+`</div>`;}
-  $("#transcript").innerHTML=`<div class="phead"><h1>Transcript</h1></div>${seg}${legend}${summary}${body||'<p class="muted">No courses in this career yet.</p>'}`;
-  $("#transcript").querySelectorAll("[data-tc]").forEach(b=>b.onclick=()=>{TCAREER=b.dataset.tc;renderTranscript();});
-  $("#transcript").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
+      es.map(e=>{const p=GRADE_POINTS[e.grade];const dist=(e.tags||[])[0]||'';return `<div class="trow"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti">${esc(e.title||'')}</span><span class="ds">${esc(dist)}</span><span class="cc num">${nf(num(e.credits))}</span><span class="gr ${p!=null?'a':'s'}">${esc(e.grade||(displayStatus(e)==='in_progress'?'···':'—'))}</span></div>`;}).join("")+`</div>`;}
+  $("#transcript").innerHTML=`<div class="phead"><h1>Transcript</h1><div class="ph-note">Read-only record · edit courses in the Planner</div></div>${seg}${legend}${summary}${body||'<p class="muted">No courses in this career yet.</p>'}`;
+  $("#transcript").querySelectorAll("[data-tc]").forEach(b=>b.onclick=()=>{TCAREER=b.dataset.tc;localStorage.setItem("carn_tcareer",TCAREER);renderTranscript();});
 }
 function termGpa(es){ let q=0,c=0; for(const e of es){ const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue; q+=p*num(e.credits); c+=num(e.credits);} return c?q/c:null; }
 
@@ -1006,10 +1009,15 @@ $("#rDelete").onclick=()=>{ if(R_EDIT==null) return;
     try{ await api("delete",{table:"requirements",id:R_EDIT}); DB.requirements=DB.requirements.filter(x=>x.id!==R_EDIT); closeModal($("#rmodal")); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } }); };
 
 /* ---- nav / theme / zoom ---- */
-function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); if(changed) scrollTo(0,0); }
+function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); if(changed) scrollTo(0,0); updateFab(); }
+// floating add button — contextual to the page, so you never scroll up to add
+const FAB_ACT={ planner:()=>openCourse(), requirements:()=>openReq(), wishlist:()=>openCourse(null,{status:"wishlist"}) };
+function updateFab(){ const f=$("#fab"); if(!f) return; const act=FAB_ACT[CUR];
+  if(act){ f.style.display="flex"; f.onclick=act; } else f.style.display="none"; }
 document.querySelectorAll("[data-nav]").forEach(n=>n.addEventListener("click",()=>showPage(n.dataset.nav)));
 const root=document.documentElement, mq=matchMedia("(prefers-color-scheme: dark)");
-document.querySelectorAll(".js-theme").forEach(b=>b.addEventListener("click",()=>{const c=root.getAttribute("data-theme")||(mq.matches?"dark":"light");root.setAttribute("data-theme",c==="dark"?"light":"dark");}));
+{ const savedTheme=localStorage.getItem("carn_theme"); if(savedTheme) root.setAttribute("data-theme",savedTheme); }
+document.querySelectorAll(".js-theme").forEach(b=>b.addEventListener("click",()=>{const c=root.getAttribute("data-theme")||(mq.matches?"dark":"light");const nt=c==="dark"?"light":"dark";root.setAttribute("data-theme",nt);localStorage.setItem("carn_theme",nt);}));
 window.openCourse=openCourse;
 
 ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
