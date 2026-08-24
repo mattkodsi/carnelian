@@ -3,7 +3,12 @@
 <head>
 <meta charset="utf-8">
 <title>Carnelian</title>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Carnelian">
+<meta name="theme-color" content="#A81F23">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎓</text></svg>">
 <style>
   :root{
@@ -34,6 +39,7 @@
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 14px 34px -18px rgba(0,0,0,.7);
   }
   *{box-sizing:border-box} html,body{margin:0}
+  html{touch-action:manipulation;-webkit-text-size-adjust:100%} /* no double-tap / pinch zoom, no iOS auto text inflation */
   body{background:var(--bg); color:var(--ink); font-family:var(--font-sans); -webkit-font-smoothing:antialiased; font-size:14px; line-height:1.5}
   .mono{font-family:var(--font-mono); font-variant-numeric:tabular-nums}
   h1,h2,h3,h4{margin:0; letter-spacing:-.01em}
@@ -189,8 +195,8 @@
     <h1 id="gateTitle">Carnelian</h1>
     <p id="gateSub">Checking…</p>
     <form id="gateForm" style="display:none">
-      <input id="gateInput" type="password" autocomplete="current-password" placeholder="passcode" aria-label="passcode">
-      <input id="gateInput2" type="password" autocomplete="new-password" placeholder="confirm passcode" aria-label="confirm passcode" style="display:none">
+      <input id="gateInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="PIN" aria-label="PIN">
+      <input id="gateInput2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="confirm PIN" aria-label="confirm PIN" style="display:none">
       <button id="gateBtn" type="submit">Enter</button>
     </form>
     <div class="msg" id="gateMsg"></div>
@@ -295,15 +301,15 @@ async function boot(){
 function showGate(mode){
   $("#gate").style.display="grid"; $("#app").style.display="none"; $(".mobar").style.display="none"; $("#gateForm").style.display="block";
   const c=$("#gateInput2");
-  if(mode==="create"){ $("#gateTitle").textContent="Set your passcode"; $("#gateSub").textContent="First time here — choose a passcode. Stored only as a hash."; c.style.display="block"; $("#gateBtn").textContent="Create"; $("#gateForm").dataset.mode="create"; }
-  else { $("#gateTitle").textContent="Carnelian"; $("#gateSub").textContent="Enter your passcode."; c.style.display="none"; $("#gateBtn").textContent="Enter"; $("#gateForm").dataset.mode="login"; }
+  if(mode==="create"){ $("#gateTitle").textContent="Set your PIN"; $("#gateSub").textContent="Choose a 4-digit PIN. Stored only as a hash."; c.style.display="block"; $("#gateBtn").textContent="Create"; $("#gateForm").dataset.mode="create"; }
+  else { $("#gateTitle").textContent="Carnelian"; $("#gateSub").textContent="Enter your PIN."; c.style.display="none"; $("#gateBtn").textContent="Enter"; $("#gateForm").dataset.mode="login"; }
   $("#gateInput").focus();
 }
 $("#gateForm").addEventListener("submit", async e=>{
   e.preventDefault(); const mode=$("#gateForm").dataset.mode, pc=$("#gateInput").value, msg=$("#gateMsg"); msg.className="msg";
   try{
-    if(mode==="create"){ if(pc.length<4){msg.textContent="At least 4 characters.";msg.classList.add("err");return;}
-      if(pc!==$("#gateInput2").value){msg.textContent="Passcodes don't match.";msg.classList.add("err");return;}
+    if(mode==="create"){ if(pc.length<4){msg.textContent="Enter a 4-digit PIN.";msg.classList.add("err");return;}
+      if(pc!==$("#gateInput2").value){msg.textContent="PINs don't match.";msg.classList.add("err");return;}
       TOKEN=(await api("setup",{passcode:pc})).token; }
     else TOKEN=(await api("login",{passcode:pc})).token;
     localStorage.setItem("carn_token",TOKEN); DB=(await api("load")).data; enterApp();
@@ -534,6 +540,13 @@ document.querySelectorAll("[data-nav]").forEach(n=>n.addEventListener("click",()
 const root=document.documentElement, mq=matchMedia("(prefers-color-scheme: dark)");
 document.querySelectorAll(".js-theme").forEach(b=>b.addEventListener("click",()=>{const c=root.getAttribute("data-theme")||(mq.matches?"dark":"light");root.setAttribute("data-theme",c==="dark"?"light":"dark");}));
 window.openCourse=openCourse;
+
+/* ---- iOS zoom lock: block pinch + double-tap zoom ---- */
+["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
+/* ---- PIN: auto-submit at 4 digits ---- */
+$("#gateInput").addEventListener("input",()=>{ if($("#gateForm").dataset.mode==="login" && $("#gateInput").value.length===4) $("#gateForm").requestSubmit(); });
+$("#gateInput2").addEventListener("input",()=>{ if($("#gateInput").value.length===4 && $("#gateInput2").value.length===4) $("#gateForm").requestSubmit(); });
+
 boot();
 </script>
 </body>
