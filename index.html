@@ -23,7 +23,7 @@
     --shadow:0 1px 2px rgba(60,40,30,.04), 0 12px 30px -18px rgba(80,40,30,.28);
     --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
     --font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",system-ui,sans-serif;
-    --r:14px; --r-sm:10px;
+    --r:14px; --r-sm:10px; color-scheme:light;
   }
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
     --bg:#131317; --surface:#1C1C22; --surface-2:#24242B; --surface-3:#2D2D35;
@@ -34,7 +34,7 @@
     --ev-strength:26%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 74%, var(--ink));
     --ev-bd:color-mix(in srgb, var(--h) 34%, var(--surface)); --ev-bl:var(--h); --ev-shadow:none;
     --sched-band:color-mix(in srgb, var(--ink) 5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 11%, transparent);
-    --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72);
+    --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72); color-scheme:dark;
   }}
   :root[data-theme="dark"]{
     --bg:#131317; --surface:#1C1C22; --surface-2:#24242B; --surface-3:#2D2D35;
@@ -45,7 +45,7 @@
     --ev-strength:26%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 74%, var(--ink));
     --ev-bd:color-mix(in srgb, var(--h) 34%, var(--surface)); --ev-bl:var(--h); --ev-shadow:none;
     --sched-band:color-mix(in srgb, var(--ink) 5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 11%, transparent);
-    --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72);
+    --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72); color-scheme:dark;
   }
   *{box-sizing:border-box} html,body{margin:0}
   html{touch-action:manipulation;-webkit-text-size-adjust:100%}
@@ -384,6 +384,13 @@
     .schead h1{font-size:23px}
     .schead .summ{margin-left:0;flex-basis:100%;text-align:left}
     .schead .summ small{display:inline;margin-left:6px}
+    /* Schedule page locks to the viewport between the fixed top bar (48px) and tab bar
+       (62px) — a fixed-height flex column, so the page can never scroll. */
+    .main.fit{position:fixed;inset:0;z-index:1;overflow:hidden;display:flex;flex-direction:column;
+      padding:calc(52px + env(safe-area-inset-top)) 15px calc(66px + env(safe-area-inset-bottom))}
+    .main.fit .page.on{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
+    .main.fit .schead{flex:0 0 auto;margin-bottom:10px}
+    .main.fit .sched{flex:1 1 0;min-height:0}
     .sched-days .d{font-size:10px;padding:7px 2px}
     .ev{padding:3px 4px;border-radius:6px;border-left-width:3px}
     .ev .c{font-size:9.5px;letter-spacing:-.03em;white-space:normal;line-height:1.08}
@@ -1056,17 +1063,14 @@ function renderSchedule(){
 // so nothing spills under the nav and the document height never exceeds the viewport.
 function fitSchedule(){
   const wrap=$("#schedule .sched"); if(!wrap) return;
+  // Mobile: the whole schedule page is locked to the viewport between the fixed bars
+  // via a fixed-height flex layout (.main.fit below), so the grid fills by CSS and the
+  // page physically cannot scroll — no measured height needed, and none of the earlier
+  // window.innerHeight / nav-position guessing that iOS kept getting wrong.
+  if(matchMedia("(max-width:760px)").matches){ wrap.style.height=""; return; }
   const body=wrap.querySelector(".sched-body"); if(!body){ wrap.style.height=""; return; }
   const top=wrap.getBoundingClientRect().top;
-  const isMobile=matchMedia("(max-width:760px)").matches;
-  let floor;
-  if(isMobile){
-    const rail=document.querySelector(".rail");
-    floor=(rail?rail.getBoundingClientRect().top:window.innerHeight)-10;   // sit just above the tab bar
-  }else{
-    floor=window.innerHeight-28;                                           // desktop breathing room
-  }
-  const h=Math.round(floor-top);
+  const h=Math.round((window.innerHeight-28)-top);   // desktop breathing room
   wrap.style.height=Math.max(320,h)+"px";
 }
 window.addEventListener("resize",()=>{ if(CUR==="schedule") fitSchedule(); });
