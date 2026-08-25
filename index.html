@@ -69,6 +69,8 @@
 
   /* ---- shell ---- */
   .app{display:grid; grid-template-columns:232px 1fr; min-height:100vh}
+  /* Schedule page: freeze the document so nothing scrolls behind the fixed grid */
+  html.schedlock{overflow:hidden} html.schedlock body{overflow:hidden}
   .rail{background:var(--surface); border-right:1px solid var(--line); padding:18px 14px; display:flex; flex-direction:column; gap:14px; position:sticky; top:0; height:100vh; overflow:auto}
   .brand{display:flex; align-items:center; gap:10px; padding:2px 6px}
   .brand .mk{width:28px;height:28px;border-radius:9px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px}
@@ -386,6 +388,8 @@
     .schead .summ small{display:inline;margin-left:6px}
     /* Schedule page locks to the viewport between the fixed top bar (48px) and tab bar
        (62px) — a fixed-height flex column, so the page can never scroll. */
+    /* iOS ignores overflow:hidden on the body, so pin it to the viewport too */
+    html.schedlock body{position:fixed;inset:0;width:100%;height:100%}
     .main.fit{position:fixed;inset:0;z-index:1;overflow:hidden;display:flex;flex-direction:column;
       padding:calc(52px + env(safe-area-inset-top)) 15px calc(66px + env(safe-area-inset-bottom))}
     .main.fit .page.on{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
@@ -1482,6 +1486,10 @@ $("#rDelete").onclick=()=>{ if(R_EDIT==null) return;
 /* ---- nav / theme / zoom ---- */
 function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id));
   const main=document.querySelector(".main"); if(main) main.classList.toggle("fit", id==="schedule");
+  // Hard-lock the document from scrolling on the schedule page: the page is a fixed
+  // overlay, but the body behind it is min-height:100vh (taller than iOS's visible
+  // viewport), which otherwise scrolls behind the fixed grid. This freezes it.
+  document.documentElement.classList.toggle("schedlock", id==="schedule");
   if(changed && id!=="planner") scrollTo(0,0);
   updateFab();
   if(id==="schedule") requestAnimationFrame(fitSchedule);
