@@ -366,6 +366,14 @@
   .mfw{display:block;min-width:0}
   .mfw label{display:block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-bottom:3px}
   .mfw input{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px}
+  /* custom time box: styled display + transparent native <input type=time> overlaid on top */
+  .tf-wrap{position:relative;display:flex;align-items:center;gap:7px;width:100%;min-width:0;box-sizing:border-box;
+    padding:9px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px}
+  .tf-wrap .tf-disp{flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .tf-wrap .tf-disp.empty{color:var(--ink-3);font-weight:500}
+  .tf-wrap .tf-clk{width:15px;height:15px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .tf-wrap input[type=time]{position:absolute;inset:0;width:100%;height:100%;margin:0;padding:0;border:0;background:transparent;opacity:0;-webkit-appearance:none;appearance:none;cursor:pointer}
+  .dd.open .tf-wrap,.tf-wrap:focus-within{border-color:var(--accent)}
   .mfw select{width:100%;min-width:0;padding:9px 32px 9px 10px;border:1px solid var(--line-strong);border-radius:8px;background-color:var(--surface);color:var(--ink);font-size:13px}
   .mobar{display:none}
   @media (max-width:760px){
@@ -391,9 +399,9 @@
     /* iOS ignores overflow:hidden on the body, so pin it to the viewport too */
     html.schedlock body{position:fixed;inset:0;width:100%;height:100%}
     .main.fit{position:fixed;inset:0;z-index:1;overflow:hidden;display:flex;flex-direction:column;
-      padding:calc(52px + env(safe-area-inset-top)) 15px calc(66px + env(safe-area-inset-bottom))}
+      padding:calc(52px + env(safe-area-inset-top)) 15px calc(74px + env(safe-area-inset-bottom))}
     .main.fit .page.on{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
-    .main.fit .schead{flex:0 0 auto;margin-bottom:10px}
+    .main.fit .schead{flex:0 0 auto;margin-bottom:9px;gap:5px 12px}
     .main.fit .sched{flex:1 1 0;min-height:0}
     .sched-days .d{font-size:10px;padding:7px 2px}
     .ev{padding:3px 3px;border-radius:6px;border-left-width:3px}
@@ -1151,6 +1159,12 @@ function renderTagChips(){
   $("#mTagChips").querySelectorAll("[data-rmtag]").forEach(b=>b.onclick=()=>{MTAGS.splice(+b.dataset.rmtag,1);renderTagChips();});
 }
 /* meeting-time editor */
+const CLOCK_SVG=`<svg class="tf-clk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>`;
+const fmtClock=v=>{ const t=hm2min(v); return t==null?"":min2label(t).replace(/(am|pm)$/i,x=>" "+x.toUpperCase()); };
+// A fully custom time box (consistent in light/dark) with the real native <input type=time>
+// laid transparent on top — so tapping opens the native picker but our styled box is what shows.
+const timeField=(i,f,val)=>{ const has=hm2min(val)!=null;
+  return `<span class="tf-wrap"><span class="tf-disp${has?'':' empty'}">${has?fmtClock(val):'Set time'}</span>${CLOCK_SVG}<input type="time" data-mfield="${i}:${f}" data-timedisp value="${esc(val||'')}"></span>`; };
 function renderMeetRows(){
   const multi = MSECTIONS.length>1;
   $("#mMeetRows").innerHTML=MMEET.map((m,i)=>{
@@ -1164,8 +1178,8 @@ function renderMeetRows(){
       <div class="meet-hd"><span class="ml">Meeting ${i+1}</span><button type="button" class="rmrow" data-mrm="${i}">Remove</button></div>
       <div class="meet-days">${SDAYS.map(d=>`<button type="button" data-mday="${i}:${d}" class="${(m.days||[]).includes(d)?'on':''}">${d}</button>`).join("")}</div>
       <div class="meet-2">
-        <span class="mfw"><label>Start</label><input type="time" data-mfield="${i}:start" value="${esc(m.start||'')}"></span>
-        <span class="mfw"><label>End</label><input type="time" data-mfield="${i}:end" value="${esc(m.end||'')}"></span>
+        <span class="mfw"><label>Start</label>${timeField(i,"start",m.start)}</span>
+        <span class="mfw"><label>End</label>${timeField(i,"end",m.end)}</span>
       </div>
       <span class="mfw"><label>Location</label><input type="text" data-mfield="${i}:location" value="${esc(m.location||'')}"></span>
       ${sectionField}
@@ -1179,6 +1193,10 @@ function renderMeetRows(){
   $("#mMeetRows").querySelectorAll("[data-mfield]").forEach(inp=>inp.onchange=()=>{const[i,f]=inp.dataset.mfield.split(":");MMEET[+i][f]=inp.value;});
   $("#mMeetRows").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{MMEET.splice(+b.dataset.mrm,1);renderMeetRows();});
   $("#mMeetRows").querySelectorAll("[data-secpick]").forEach(sel=>sel.onchange=()=>applySection(+sel.value));
+  $("#mMeetRows").querySelectorAll("[data-timedisp]").forEach(inp=>inp.addEventListener("change",()=>{
+    const w=inp.closest(".tf-wrap"), d=w&&w.querySelector(".tf-disp"); if(!d) return;
+    const has=hm2min(inp.value)!=null; d.textContent=has?fmtClock(inp.value):"Set time"; d.classList.toggle("empty",!has);
+  }));
 }
 $("#mMeetAdd").onclick=()=>{ MMEET.push({component:"",section:"",days:[],start:"",end:"",location:"",instructor:"",part:"full"}); renderMeetRows(); };
 // parse Cornell roster meeting patterns/times into our shape
