@@ -351,6 +351,9 @@
   .ci-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
   /* ---- meeting-times editor (course modal) ---- */
   .meetbox{border:1px solid var(--line);border-radius:11px;padding:10px;background:var(--surface)}
+  /* component pickers (Lecture / Discussion) above the meeting rows */
+  .secpick{display:grid;gap:9px;margin:0 0 11px;padding:11px 12px;border:1px solid var(--accent-line);border-radius:10px;background:var(--accent-soft)}
+  .secpick .mfw label{color:var(--accent)}
   .meet-empty{margin:2px 2px 10px;color:var(--ink-3);font-size:12.5px}
   .addmeet{width:100%;padding:10px;border:1px dashed var(--line-strong);border-radius:9px;background:var(--surface-2);color:var(--accent);font-weight:800;font-size:13px}
   .addmeet:hover{background:var(--accent-soft);border-color:var(--accent-line)}
@@ -1151,8 +1154,12 @@ function termGpa(es){ let q=0,c=0; for(const e of es){ const p=GRADE_POINTS[e.gr
 
 /* ---- course modal ---- */
 let EDIT_ID=null, MTAGS=[], MMEET=[];
-// roster sections for the course being edited (drives the in-place Section dropdown)
-let MSECTIONS=[], MSEC_CLS=null, MSEC_SUB="", MSEC_SEL=0;
+// roster sections for the course being edited, grouped by component (LEC/DIS/LAB…)
+// so a lecture+discussion course lets you pick one section per component.
+let MSEC_CLS=null, MSEC_SUB="", MSEC_EG=null, MSEC_GROUPS=[], MSEC_PICK={};
+const COMP_NAME={LEC:"Lecture",DIS:"Discussion",LAB:"Lab",SEM:"Seminar",RSC:"Research",IND:"Independent study",STU:"Studio",FLD:"Field work",PRJ:"Project",TUT:"Tutorial",PRS:"Practicum",CLN:"Clinical",LAG:"Language"};
+const COMP_ORDER=["LEC","SEM","STU","LAB","DIS","RSC","IND","TUT","FLD","PRJ","PRS","CLN","LAG"];
+const compName=c=>COMP_NAME[c]||(c||"Meeting");
 const splitList=v=>v.split(",").map(s=>s.trim()).filter(Boolean);
 function renderTagChips(){
   $("#mTagChips").innerHTML=MTAGS.map((t,i)=>`<span class="chip-x">${esc(t)}<button type="button" data-rmtag="${i}" aria-label="remove">×</button></span>`).join("");
@@ -1166,16 +1173,14 @@ const fmtClock=v=>{ const t=hm2min(v); return t==null?"":min2label(t).replace(/(
 const timeField=(i,f,val)=>{ const has=hm2min(val)!=null;
   return `<span class="tf-wrap"><span class="tf-disp${has?'':' empty'}">${has?fmtClock(val):'Set time'}</span>${CLOCK_SVG}<input type="time" data-mfield="${i}:${f}" data-timedisp value="${esc(val||'')}"></span>`; };
 function renderMeetRows(){
-  const multi = MSECTIONS.length>1;
   $("#mMeetRows").innerHTML=MMEET.map((m,i)=>{
-    // First meeting of a multi-section course shows a Section dropdown you can change
-    // anytime; everything else keeps a plain editable Section field.
-    const sectionField = (multi && i===0)
-      ? `<span class="mfw"><label>Your section · ${MSECTIONS.length} offered</label><select data-secpick>${MSECTIONS.map((s,si)=>`<option value="${si}" ${si===MSEC_SEL?'selected':''}>${esc(secOptLabel(s))}</option>`).join("")}</select></span>`
-      : `<span class="mfw"><label>Section</label><input type="text" data-mfield="${i}:section" value="${esc(m.section||'')}"></span>`;
+    // A roster-filled meeting is labelled by its component (Lecture · 001) and its section
+    // is chosen up in the pickers; a hand-added meeting keeps an editable Section field.
+    const label = m.component ? `${compName(m.component)}${m.section?" · "+esc(m.section):""}` : `Meeting ${i+1}`;
+    const sectionField = m.component ? "" : `<span class="mfw"><label>Section</label><input type="text" data-mfield="${i}:section" value="${esc(m.section||'')}"></span>`;
     return `
     <div class="meet-row">
-      <div class="meet-hd"><span class="ml">Meeting ${i+1}</span><button type="button" class="rmrow" data-mrm="${i}">Remove</button></div>
+      <div class="meet-hd"><span class="ml">${label}</span><button type="button" class="rmrow" data-mrm="${i}">Remove</button></div>
       <div class="meet-days">${SDAYS.map(d=>`<button type="button" data-mday="${i}:${d}" class="${(m.days||[]).includes(d)?'on':''}">${d}</button>`).join("")}</div>
       <div class="meet-2">
         <span class="mfw"><label>Start</label>${timeField(i,"start",m.start)}</span>
@@ -1192,7 +1197,6 @@ function renderMeetRows(){
   $("#mMeetRows").querySelectorAll("[data-mday]").forEach(b=>b.onclick=()=>{const[i,d]=b.dataset.mday.split(":");const m=MMEET[+i];m.days=m.days||[];const k=m.days.indexOf(d);if(k>=0)m.days.splice(k,1);else m.days.push(d);b.classList.toggle("on");});
   $("#mMeetRows").querySelectorAll("[data-mfield]").forEach(inp=>inp.onchange=()=>{const[i,f]=inp.dataset.mfield.split(":");MMEET[+i][f]=inp.value;});
   $("#mMeetRows").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{MMEET.splice(+b.dataset.mrm,1);renderMeetRows();});
-  $("#mMeetRows").querySelectorAll("[data-secpick]").forEach(sel=>sel.onchange=()=>applySection(+sel.value));
   $("#mMeetRows").querySelectorAll("[data-timedisp]").forEach(inp=>inp.addEventListener("change",()=>{
     const w=inp.closest(".tf-wrap"), d=w&&w.querySelector(".tf-disp"); if(!d) return;
     const has=hm2min(inp.value)!=null; d.textContent=has?fmtClock(inp.value):"Set time"; d.classList.toggle("empty",!has);
@@ -1226,9 +1230,9 @@ function openCourse(id=null, preset={}){
   $("#mGrade").innerHTML=`<option value="">—</option>`+["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"].map(g=>`<option>${g}</option>`).join(""); $("#mGrade").value=e.grade||"";
   MTAGS=[...(e.tags||[])]; renderTagChips(); $("#mDist").value="";
   MMEET=meetingsOf(e).map(m=>({component:m.component||"",section:m.section||"",days:[...(m.days||[])],start:m.start||"",end:m.end||"",location:m.location||"",instructor:m.instructor||"",part:partOf(m)}));
-  MSECTIONS=[]; MSEC_CLS=null; MSEC_SUB=""; MSEC_SEL=0;
+  MSEC_CLS=null; MSEC_SUB=""; MSEC_EG=null; MSEC_GROUPS=[]; MSEC_PICK={};
   $("#mMeetSel").innerHTML=""; renderMeetRows();
-  loadSectionsForCourse(e);   // async: surfaces the Section dropdown for roster courses with >1 section
+  loadSectionsForCourse(e);   // async: surfaces the component pickers for roster courses
   $("#mAnalog").value=e.analog_of||"";
   $("#mInAs").checked = e.in_as===true;
   ["mTerm","mStatus","mGrade","mDist"].forEach(x=>syncDD($("#"+x)));
@@ -1287,39 +1291,60 @@ async function runSearch(){
   res.querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>pickResult(MRESULTS[+b.dataset.ri],sub));
   res.classList.add("on");
 }
-// Picking a course from search: store its sections, fill code/title/credits/tags,
-// and apply the best-guess section. Multi-section courses now expose a Section
-// dropdown inside the meeting box (no floating popup) — see renderMeetRows.
+const secOptLabel=s=>{ const mt=(s.s.meetings||[])[0]; const when=mt?fmtRosterWhen(mt):"no set time"; return s.section+" · "+when+(s.topic?" · "+s.topic:""); };
+// Group a class's sections by component (LEC/DIS/LAB…) and default-pick one of each.
+function buildSectionGroups(cls){
+  MSEC_CLS=cls; MSEC_EG=(cls.enrollGroups||[])[0]||{};
+  const cr=(MSEC_EG.unitsMaximum!=null?MSEC_EG.unitsMaximum:MSEC_EG.unitsMinimum);
+  const by={};
+  (MSEC_EG.classSections||[]).forEach(s=>{ const comp=s.ssrComponent||"LEC";
+    (by[comp]=by[comp]||[]).push({section:s.section||"",topic:s.topicDescription||"",credits:cr,comp,s}); });
+  MSEC_GROUPS=Object.keys(by).sort((a,b)=>{const ia=COMP_ORDER.indexOf(a),ib=COMP_ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);})
+    .map(comp=>({comp,name:compName(comp),sections:by[comp]}));
+  MSEC_PICK={};
+  MSEC_GROUPS.forEach(g=>{ let d=g.sections.findIndex(x=>(x.s.meetings||[]).some(m=>m.timeStart)); MSEC_PICK[g.comp]=d<0?0:d; });
+}
+// Picking a course from search: build its component groups, fill code/title/credits/tags,
+// and fill meetings for the default section of each component.
 function pickResult(cls,sub){
-  MSEC_CLS=cls; MSEC_SUB=sub; MSECTIONS=sectionsOf(cls); MSEC_SEL=0;
+  MSEC_SUB=sub; buildSectionGroups(cls);
   $("#mCode").value=sub+" "+cls.catalogNbr;
   classTags(cls).forEach(t=>{if(!MTAGS.includes(t))MTAGS.push(t);}); renderTagChips();
   $("#mResults").classList.remove("on");
-  // default to the first section that actually has a meeting time
-  let def=MSECTIONS.findIndex(s=>(s.s.meetings||[]).some(m=>m.timeStart)); if(def<0) def=0;
-  applySection(def);
+  applySections();
 }
-const secOptLabel=s=>{ const mt=(s.s.meetings||[])[0]; const when=mt?fmtRosterWhen(mt):"no set time"; return s.section+" · "+when+(s.topic?" · "+s.topic:""); };
-// Apply a chosen section: fill title/credits and rebuild the meeting rows from it.
-function applySection(idx){
-  if(!MSECTIONS[idx]) return;
-  MSEC_SEL=idx;
-  const sc=MSECTIONS[idx], cls=MSEC_CLS, eg=(cls.enrollGroups||[])[0]||{};
-  $("#mTitleIn").value=sc.topic||cls.titleLong||"";
-  const cr=(sc.credits!=null)?sc.credits:eg.unitsMaximum; if(cr!=null)$("#mCredits").value=cr;
+// Build the meeting rows from the currently-picked section of every component.
+function applySections(){
+  const cls=MSEC_CLS; if(!cls) return;
+  const g0=MSEC_GROUPS[0], primary=g0&&g0.sections[MSEC_PICK[g0.comp]];
+  $("#mTitleIn").value=(primary&&primary.topic)||cls.titleLong||"";
+  const cr=(MSEC_EG.unitsMaximum!=null?MSEC_EG.unitsMaximum:MSEC_EG.unitsMinimum); if(cr!=null)$("#mCredits").value=cr;
   const term=termById($("#mTerm").value);
-  const prevLoc=(MMEET[0]||{}).location||"";        // the roster has no rooms, so keep a typed one
-  let halfN=0;
-  const mtgs=meetingsFromSection(sc.s);
-  mtgs.forEach(m=>{ m.part=detectPart(m.sd,m.ed,term); if(m.part!=='full')halfN++; delete m.sd; delete m.ed;
-    if(!m.location&&prevLoc) m.location=prevLoc; });
-  MMEET = mtgs.length ? mtgs : [];
-  renderMeetRows();
-  const secTxt=sc.section?("Section "+sc.section):"";
-  $("#mLookupMsg").textContent = mtgs.length ? ("Filled from roster"+(secTxt?" · "+secTxt:"")+(halfN?" · half-term":"")+" · rooms are TBA for this term") : (secTxt?(secTxt+" has no set meeting time"):"No set meeting time");
+  const prevLoc={}; MMEET.forEach(m=>{ if(m.location) prevLoc[m.component||""]=m.location; });  // keep typed rooms
+  let halfN=0; const out=[];
+  MSEC_GROUPS.forEach(g=>{ const sc=g.sections[MSEC_PICK[g.comp]]; if(!sc) return;
+    meetingsFromSection(sc.s).forEach(m=>{ m.part=detectPart(m.sd,m.ed,term); if(m.part!=='full')halfN++; delete m.sd; delete m.ed;
+      if(!m.location && prevLoc[m.component||g.comp]) m.location=prevLoc[m.component||g.comp]; out.push(m); }); });
+  MMEET=out;
+  renderMeetSel(); renderMeetRows();
+  const parts=MSEC_GROUPS.map(g=>{const sc=g.sections[MSEC_PICK[g.comp]];return sc?(g.name+" "+sc.section):"";}).filter(Boolean);
+  $("#mLookupMsg").textContent = out.length ? ("Filled from roster · "+parts.join(" + ")+(halfN?" · half-term":"")) : "No set meeting time";
 }
-// When editing an existing roster course, load its sections so the dropdown appears
-// with the current one selected — without touching the saved meeting times.
+// The component pickers above the meeting rows — shown only when there's a real choice
+// (multiple components, or any component with more than one section).
+function renderMeetSel(){
+  const box=$("#mMeetSel"); if(!box) return;
+  const show = MSEC_GROUPS.length>1 || MSEC_GROUPS.some(g=>g.sections.length>1);
+  if(!show){ box.innerHTML=""; return; }
+  box.innerHTML=`<div class="secpick">`+MSEC_GROUPS.map(g=>{
+    const multi=g.sections.length>1;
+    const opts=g.sections.map((s,i)=>`<option value="${i}" ${i===MSEC_PICK[g.comp]?'selected':''}>${esc(secOptLabel(s))}</option>`).join("");
+    return `<span class="mfw"><label>${esc(g.name)}${multi?` · pick yours (${g.sections.length})`:''}</label><select data-seccomp="${esc(g.comp)}">${opts}</select></span>`;
+  }).join("")+`</div>`;
+  box.querySelectorAll("[data-seccomp]").forEach(sel=>sel.onchange=()=>{ MSEC_PICK[sel.dataset.seccomp]=+sel.value; applySections(); });
+}
+// Editing an existing roster course: load its component groups and match the saved
+// meetings to picks, without overwriting the saved times.
 async function loadSectionsForCourse(e){
   const code=(e.code||"").trim().toUpperCase(), parts=code.split(/\s+/);
   if(parts.length<2) return; const sub=parts[0], nbr=parts[1];
@@ -1327,13 +1352,15 @@ async function loadSectionsForCourse(e){
   let classes; try{ classes=await getSubjectClasses(sub, roster); }catch(err){ return; }
   const cls=classes&&classes.find(c=>c.catalogNbr===nbr); if(!cls) return;
   if($("#mCode").value.trim().toUpperCase()!==code) return;   // editor moved to another course
-  const secs=sectionsOf(cls); if(secs.length<2) return;
-  MSEC_CLS=cls; MSEC_SUB=sub; MSECTIONS=secs;
-  const m0=(e.meetings||[])[0]||{}; let sel=-1;
-  if(m0.start) sel=secs.findIndex(s=>{const mt=(s.s.meetings||[])[0]; return mt&&parseRosterTime(mt.timeStart)===m0.start;});
-  if(sel<0 && m0.section) sel=secs.findIndex(s=>s.section===m0.section||("LEC "+s.section)===m0.section);
-  MSEC_SEL=sel<0?0:sel;
-  renderMeetRows();   // meetings unchanged; just surfaces the Section dropdown
+  MSEC_SUB=sub; buildSectionGroups(cls);
+  if(!MSEC_GROUPS.length) return;
+  MSEC_GROUPS.forEach(g=>{
+    const saved=(e.meetings||[]).find(m=>(m.component||"")===g.comp) || (e.meetings||[])[0]; let idx=-1;
+    if(saved){ if(saved.start) idx=g.sections.findIndex(s=>{const mt=(s.s.meetings||[])[0];return mt&&parseRosterTime(mt.timeStart)===saved.start;});
+      if(idx<0 && saved.section) idx=g.sections.findIndex(s=>s.section===saved.section); }
+    MSEC_PICK[g.comp]=idx<0?0:idx;
+  });
+  renderMeetSel(); renderMeetRows();   // meetings unchanged; surfaces the pickers + component labels
 }
 $("#mCode").addEventListener("input",()=>{ const el=$("#mCode"); const p=el.selectionStart; el.value=el.value.toUpperCase(); try{el.setSelectionRange(p,p);}catch(e){} clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,240); });
 $("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.remove("on"),200));
