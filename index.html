@@ -222,9 +222,9 @@
   .sheet .sh{display:flex;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)} .sheet .sh h3{font-size:16px;font-weight:800} .sheet .sh .x{margin-left:auto;font-size:20px;color:var(--ink-3);width:30px;height:30px;border-radius:8px}
   .sheet .sb{padding:16px 18px;display:grid;gap:12px}
   .fld{display:grid;gap:5px} .fld label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
-  .fld{min-width:0} .fld input,.fld select{padding:10px 11px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);width:100%;min-width:0;box-sizing:border-box}
+  .fld{min-width:0} .fld input,.fld select{padding:10px 12px;font-size:14px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);width:100%;min-width:0;box-sizing:border-box}
   .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px} .frow>.fld{min-width:0}
-  .chkrow{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);cursor:pointer;font-size:13.5px;font-weight:700;color:var(--ink)}
+  .chkrow{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);cursor:pointer;font-size:14px;font-weight:600;color:var(--ink)}
   .chkrow input{width:18px;height:18px;flex:0 0 auto;margin:0;accent-color:var(--accent)}
   .lookup{display:flex;gap:8px} .lookup input{flex:1}
   .chkline{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
@@ -282,9 +282,13 @@
   .sheet .sh{position:sticky;top:0;z-index:6;background:var(--surface);border-radius:16px 16px 0 0}
   .sheet .sf{position:sticky;bottom:0;z-index:6;background:var(--surface);border-radius:0 0 16px 16px}
   /* dynamic "map to requirements" toggle */
-  .mapbtn{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;border:1px solid var(--line-strong);border-radius:11px;background:var(--surface-2);font-weight:700;font-size:13px;color:var(--ink)}
-  .mapbtn:hover{background:var(--surface-3)} .mapbtn .chev{margin-left:auto;color:var(--ink-3);font-weight:800;transition:.2s} .mapbtn.open .chev{transform:rotate(90deg)}
-  .mapbtn .cnt{background:var(--accent);color:#fff;border-radius:99px;font-size:10px;font-weight:800;padding:1px 8px}
+  /* Map to requirements — a distinct accent action, not another field */
+  .mapbtn{display:flex;align-items:center;gap:11px;width:100%;padding:13px 15px;margin-top:4px;border:1.5px solid color-mix(in srgb,var(--accent) 38%,var(--line-strong));border-radius:12px;background:var(--accent-soft);font-weight:800;font-size:14px;color:var(--accent);cursor:pointer;transition:border-color .15s}
+  .mapbtn:hover{border-color:var(--accent)}
+  .mapbtn .mi{width:18px;height:18px;flex:0 0 auto;stroke:var(--accent);fill:none;stroke-width:1.9}
+  .mapbtn .mt{flex:1 1 auto;text-align:left}
+  .mapbtn .chev{flex:0 0 auto;color:var(--accent);font-weight:800;transition:.2s} .mapbtn.open .chev{transform:rotate(90deg)}
+  .mapbtn .cnt{flex:0 0 auto;background:var(--accent);color:#fff;border-radius:99px;font-size:11px;font-weight:800;padding:2px 9px}
   .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 17px;border-radius:99px;font-size:12.5px;font-weight:700;opacity:0;transition:.25s;z-index:120;pointer-events:none} .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
   /* ---- schedule (weekly grid) ---- */
@@ -327,18 +331,20 @@
   /* read-only course info pane */
   /* read-only course info pane — compact: code lives in the slim header, no dead space */
   #infoModal .sheet{max-width:392px}
-  #infoModal .sh{padding:13px 16px;gap:10px}
+  #infoModal .sh{padding:13px 16px;gap:12px}
+  #infoModal .sh .ci-cr{margin-left:auto}          /* credits sit hard-right, next to the × */
+  #infoModal .sh .x{margin-left:0}                  /* not auto — else credits float mid-header */
   #infoModal .sb{padding:14px 16px 4px;gap:9px}
   #infoModal .sf{padding:12px 16px 16px;border-top:0}
   #infoModal .sf .btn{width:100%;justify-content:center;padding:11px 20px}
   .ci-code{font-weight:800;font-size:16px;color:var(--ink);border-left:4px solid var(--h,var(--accent));padding-left:10px;line-height:1.1}
-  .ci-cr{margin-left:auto;font-weight:800;font-size:13px;color:var(--ink-3)}
+  .ci-cr{font-weight:800;font-size:13px;color:var(--ink-3)}
   .ci-title{font-size:14.5px;font-weight:700;color:var(--ink)}
   .ci-term{font-size:12.5px;color:var(--ink-3);font-weight:700}
   .ci-meets{display:grid;gap:8px;margin-top:2px}
-  .ci-meet{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface-2)}
-  .ci-when{font-weight:800;font-size:13.5px;color:var(--ink)}
-  .ci-sub{font-size:12.5px;color:var(--ink-2);margin-top:3px;line-height:1.4}
+  .ci-meet{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--surface-2)}
+  .ci-when{font-weight:800;font-size:13.5px;color:var(--ink);margin-bottom:5px}
+  .ci-line{font-size:12.5px;color:var(--ink-2);line-height:1.55}
   .ci-none{color:var(--ink-3);font-size:13px}
   .ci-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
   /* ---- meeting-times editor (course modal) ---- */
@@ -445,7 +451,9 @@
         <input id="mCode" autocomplete="off">
         <div class="results" id="mResults"></div>
         <div class="hint" id="mLookupMsg"></div></div>
-      <div class="fld"><label>Title</label><input id="mTitleIn"></div>
+      <div class="fld searchfld"><label>Title</label><input id="mTitleIn" autocomplete="off">
+        <div class="results" id="mTitleResults"></div>
+        <div class="hint" id="mTitleMsg"></div></div>
       <div class="fld"><label>Credits</label><input id="mCredits" type="number" step="0.5" inputmode="decimal"></div>
       <div class="frow">
         <div class="fld"><label>Status</label><select id="mStatus">
@@ -474,7 +482,7 @@
         </div></div>
       <div class="fld"><label>Equivalent Cornell course</label><input id="mAnalog"></div>
       <label class="chkrow"><input type="checkbox" id="mInAs"><span>Counts toward A&amp;S credit</span></label>
-      <button class="mapbtn" id="mSatToggle" type="button"><span>Map to requirements</span><span class="cnt" id="mSatCount" style="display:none"></span><span class="chev">›</span></button>
+      <button class="mapbtn" id="mSatToggle" type="button"><svg class="mi" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg><span class="mt">Map to requirements</span><span class="cnt" id="mSatCount" style="display:none"></span><span class="chev">›</span></button>
       <div id="mSatWrap" style="display:none;margin-top:2px"><div id="mSat"></div></div>
     </div>
     <div class="sf">
@@ -1067,12 +1075,18 @@ const DAY_FULL={M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri",S:"Sat",U:"Sun"};
 function openCourseInfo(id){
   const e=DB.enrollments.find(x=>String(x.id)===String(id)); if(!e) return;
   const term=termById(e.term_id), mtgs=meetingsOf(e);
+  // Stack each detail on its own line, in the same order the schedule shows it:
+  // day/time, then location, then section, then instructor.
   const meetsHtml = mtgs.length ? mtgs.map(m=>{
     const days=(m.days||[]).map(d=>DAY_FULL[d]||d).join(", ");
     const tt=(hm2min(m.start)!=null&&hm2min(m.end)!=null)?`${min2label(hm2min(m.start))}–${min2label(hm2min(m.end))}`:"";
     const partLbl=m.part==='1'?' · first half':m.part==='2'?' · second half':'';
-    const sub=[]; if(m.location)sub.push(esc(m.location)); if(m.section)sub.push("Section "+esc(m.section)); if(m.instructor)sub.push(esc(m.instructor));
-    return `<div class="ci-meet"><div class="ci-when">${esc([days,tt].filter(Boolean).join("  "))}${partLbl}</div>${sub.length?`<div class="ci-sub">${sub.join(" · ")}</div>`:""}</div>`;
+    const sec=[m.component,m.section].map(s=>(s||'').trim()).filter(Boolean).join(" ");
+    const rows=[];
+    if(m.location) rows.push(esc(m.location));
+    if(sec) rows.push(esc(sec));
+    if(m.instructor) rows.push(esc(m.instructor));
+    return `<div class="ci-meet"><div class="ci-when">${esc([days,tt].filter(Boolean).join(" "))}${partLbl}</div>${rows.map(r=>`<div class="ci-line">${r}</div>`).join("")}</div>`;
   }).join("") : `<div class="ci-none">No meeting times set.</div>`;
   const tags=(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("");
   const ci=SCHED_CIDX[e.code||('#'+e.id)]!=null?SCHED_CIDX[e.code||('#'+e.id)]:courseColorIdx(e.code);
@@ -1136,9 +1150,9 @@ function renderMeetRows(){
         <span class="mfw"><label>Start</label><input type="time" data-mfield="${i}:start" value="${esc(m.start||'')}"></span>
         <span class="mfw"><label>End</label><input type="time" data-mfield="${i}:end" value="${esc(m.end||'')}"></span>
       </div>
-      <span class="mfw"><label>Location</label><input type="text" placeholder="e.g. Statler 165" data-mfield="${i}:location" value="${esc(m.location||'')}"></span>
+      <span class="mfw"><label>Location</label><input type="text" data-mfield="${i}:location" value="${esc(m.location||'')}"></span>
       <div class="meet-2">
-        <span class="mfw"><label>Section</label><input type="text" placeholder="e.g. 001" data-mfield="${i}:section" value="${esc(m.section||'')}"></span>
+        <span class="mfw"><label>Section</label><input type="text" data-mfield="${i}:section" value="${esc(m.section||'')}"></span>
         <span class="mfw"><label>Part of term</label><select data-mfield="${i}:part">
           <option value="full" ${(m.part!=='1'&&m.part!=='2')?'selected':''}>Full term</option>
           <option value="1" ${m.part==='1'?'selected':''}>First half</option>
@@ -1267,6 +1281,67 @@ $("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.
 // clicking a result/section must not blur the Code field (which would auto-hide the dropdown before the click lands)
 $("#mResults").addEventListener("mousedown",e=>e.preventDefault());
 $("#mTerm").addEventListener("change",()=>{ if($("#mCode").value.trim().length>=2){ clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,60); } });
+
+/* ---- search the WHOLE roster by course name (Title box) ----
+   The Cornell API requires a subject per query, so a name search needs an index of
+   every course in the term. We build a slim {subject, number, title} index once per
+   roster (~280KB, ~4.5k courses) and cache it in localStorage, so it's a one-time
+   cost; later name searches filter it instantly. Picking a result fetches just that
+   one subject's full data to fill sections/meeting times (same path as the Code box). */
+let TITLE_INDEX={}, TITLE_BUILDING={}, titleTimer=null, MTITLE=[];
+async function ensureTitleIndex(roster, onProgress){
+  if(TITLE_INDEX[roster]) return TITLE_INDEX[roster];
+  try{ const raw=localStorage.getItem("carn_tidx_"+roster); if(raw){ const o=JSON.parse(raw); if(o&&o.v===1&&Array.isArray(o.items)&&o.items.length){ TITLE_INDEX[roster]=o.items; return o.items; } } }catch(e){}
+  if(TITLE_BUILDING[roster]) return TITLE_BUILDING[roster];
+  TITLE_BUILDING[roster]=(async()=>{
+    let subs=[];
+    try{ const j=await (await fetch(`https://classes.cornell.edu/api/2.0/config/subjects.json?roster=${roster}`)).json(); if(j.status==="success") subs=(j.data.subjects||[]).map(s=>s.value); }catch(e){}
+    if(!subs.length){ TITLE_BUILDING[roster]=null; return null; }
+    const items=[]; let done=0, i=0;
+    async function worker(){ while(i<subs.length){ const s=subs[i++];
+      try{ const j=await (await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${roster}&subject=${s}`)).json();
+        if(j.status==="success") for(const c of (j.data.classes||[])) items.push({s, n:c.catalogNbr, t:c.titleLong||""}); }catch(e){}
+      done++; if(onProgress&&done%6===0) onProgress(done,subs.length); } }
+    await Promise.all(Array.from({length:8},()=>worker()));
+    TITLE_INDEX[roster]=items;
+    try{ localStorage.setItem("carn_tidx_"+roster, JSON.stringify({v:1,built:new Date().toISOString().slice(0,10),items})); }catch(e){}
+    TITLE_BUILDING[roster]=null; return items;
+  })();
+  return TITLE_BUILDING[roster];
+}
+async function runTitleSearch(){
+  const q=$("#mTitleIn").value.trim(); const res=$("#mTitleResults"), msg=$("#mTitleMsg");
+  if(q.length<3){ res.classList.remove("on"); msg.textContent=""; return; }
+  const roster=termRoster(termById($("#mTerm").value))||ROSTER_FALLBACK[0];
+  let idx=TITLE_INDEX[roster];
+  if(!idx){ msg.textContent="Indexing the roster (one-time)…";
+    idx=await ensureTitleIndex(roster,(d,t)=>{ if($("#mTitleIn").value.trim()===q) msg.textContent=`Indexing the roster (one-time)… ${Math.round(d/t*100)}%`; });
+    if($("#mTitleIn").value.trim()!==q) return;          // user kept typing
+  }
+  msg.textContent="";
+  if(!idx){ res.classList.remove("on"); return; }
+  const ql=q.toLowerCase();
+  const hits=idx.filter(x=>x.t.toLowerCase().includes(ql));
+  hits.sort((a,b)=>{ const as=a.t.toLowerCase().startsWith(ql)?0:1, bs=b.t.toLowerCase().startsWith(ql)?0:1; return as-bs || a.t.localeCompare(b.t); });
+  MTITLE=hits.slice(0,40);
+  if(!MTITLE.length){ res.innerHTML=`<div class="result rhead">No course names match “${esc(q)}”</div>`; res.classList.add("on"); return; }
+  res.innerHTML=MTITLE.map((x,i)=>`<div class="result" data-tri="${i}"><span class="rc">${esc(x.s)} ${esc(x.n)}</span><span class="rt">${esc(x.t)}</span></div>`).join("");
+  res.querySelectorAll("[data-tri]").forEach(b=>b.onclick=()=>pickTitleResult(MTITLE[+b.dataset.tri]));
+  res.classList.add("on");
+}
+async function pickTitleResult(item){
+  const roster=termRoster(termById($("#mTerm").value))||ROSTER_FALLBACK[0];
+  $("#mTitleResults").classList.remove("on"); $("#mTitleMsg").textContent="Loading course…";
+  const classes=await getSubjectClasses(item.s, roster);
+  $("#mTitleMsg").textContent="";
+  if(!classes){ return; }
+  const cls=classes.find(c=>c.catalogNbr===item.n); if(!cls) return;
+  $("#mCode").value=item.s+" "+item.n;
+  pickResult(cls, item.s);
+}
+$("#mTitleIn").addEventListener("input",()=>{ clearTimeout(titleTimer); titleTimer=setTimeout(runTitleSearch,320); });
+$("#mTitleIn").addEventListener("blur",()=>setTimeout(()=>$("#mTitleResults").classList.remove("on"),200));
+$("#mTitleResults").addEventListener("mousedown",e=>e.preventDefault());
 async function rosterLookup(code){
   const parts=code.trim().toUpperCase().split(/\s+/); if(parts.length<2) return null; const sub=parts[0], nbr=parts[1];
   for(const roster of ["FA26","SP26","FA25","SP25","FA24"]){
