@@ -378,9 +378,24 @@
   .sched-allday .ad-col:first-of-type{border-left:0}
   .sched-allday .ad-col.noclass{background:color-mix(in srgb,var(--ink) 4%,transparent)}
   .sched-allday .ad-col.today{background:var(--accent-soft)}
-  .adchip{font-size:8.5px;font-weight:700;line-height:1.22;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .sched-allday .ad-col.has-ev{cursor:pointer}
+  .sched-allday .ad-col.has-ev:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
+  .adchip{font-size:9px;font-weight:700;line-height:1.35;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
   .adchip.noclass{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:800}
+  .adchip.more{color:var(--ink-3);background:transparent;border-style:dashed;font-weight:800}
   .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
+  /* academic-calendar day detail sheet */
+  #acDayBody{display:flex;flex-direction:column;gap:8px}
+  .acd-item{padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+  .acd-item.noclass{border-color:var(--accent-line);background:var(--accent-soft)}
+  .acd-t{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
+  .acd-no{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle}
+  .acd-meta{font-size:12px;font-weight:600;color:var(--ink-3);margin-top:4px}
+  /* share-schedule chooser */
+  .sharepick{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;padding:13px 15px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);margin-bottom:9px}
+  .sharepick:hover{background:var(--surface-2);border-color:var(--accent-line)}
+  .sharepick b{font-size:14.5px;font-weight:800;color:var(--ink)}
+  .sharepick span{font-size:12px;font-weight:600;color:var(--ink-3)}
   /* read-only course info pane */
   /* read-only course info pane — compact: code lives in the slim header, no dead space */
   #infoModal .sheet{max-width:392px}
@@ -682,6 +697,23 @@
 </div>
 
 <button class="fab" id="fab" type="button" aria-label="Add">＋</button>
+<!-- share schedule chooser -->
+<div class="modal" id="shareModal">
+  <div class="sheet" style="max-width:360px">
+    <div class="sh"><h3>Share schedule</h3><button class="x" id="shareClose" aria-label="Close">×</button></div>
+    <div class="sb">
+      <button class="sharepick" id="shareWeek" type="button"><b>This week</b><span id="shareWeekSub">dates included</span></button>
+      <button class="sharepick" id="shareTerm" type="button"><b>Typical week</b><span>the weekly layout, no specific dates</span></button>
+    </div>
+  </div>
+</div>
+<!-- academic-calendar day detail -->
+<div class="modal" id="acDayModal">
+  <div class="sheet" style="max-width:400px">
+    <div class="sh"><h3 id="acDayTitle">Academic dates</h3><button class="x" id="acDayClose" aria-label="Close">×</button></div>
+    <div class="sb" id="acDayBody"></div>
+  </div>
+</div>
 <!-- Google Calendar modal -->
 <div class="modal" id="gcalModal">
   <div class="sheet" style="max-width:380px">
@@ -1242,7 +1274,7 @@ function termAcademics(term){
     if(isNo) res.noClass.push({s,e});
     if(/last day of instruction/i.test(title)){ if(/7\s*week\s*1/i.test(title)) res.half1End=e; else if(!/7\s*week/i.test(title)){ if(!lastInstr||e>lastInstr) lastInstr=e; } }
     if(/7\s*week\s*2/i.test(title)&&/instruction begins/i.test(title)) res.half2Start=s;
-    if(isNo||acalRelevant(title)) res.overlay.push({s,e,title,noclass:isNo});   // suppression uses noClass; the overlay hides other-cohort notices
+    if(isNo||acalRelevant(title)) res.overlay.push({s,e,title,noclass:isNo,time:ev.time,date:ev.date});   // suppression uses noClass; the overlay hides other-cohort notices
   }
   if(lastInstr) res.classEnd=lastInstr;
   return res;
@@ -1250,6 +1282,17 @@ function termAcademics(term){
 function isNoClassDay(D,ac){ for(const iv of ac.noClass){ if(D>=iv.s&&D<=iv.e) return true; } return false; }
 function meetingActiveOn(part,D,ac){ if(ac.ts&&D<ac.ts) return false; if(ac.classEnd&&D>ac.classEnd) return false;
   if(part==='1') return !ac.mid||D<=(ac.half1End||ac.mid); if(part==='2') return !ac.mid||D>=(ac.half2Start||ac.mid); return true; }
+// Detail sheet for a day's academic-calendar events — full titles + dates + times, so the overlay
+// chips can stay compact without losing anything.
+function openAcadDay(day){
+  if(!day||!day.events||!day.events.length) return;
+  const t=$("#acDayTitle"); if(t) t.textContent=day.label;
+  const b=$("#acDayBody"); if(!b) return;
+  b.innerHTML=day.events.map(o=>{ const tm=acalTime(o.time);
+    return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalShort(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
+  }).join("");
+  openModal($("#acDayModal"));
+}
 function renderSchedule(){
   // once the published-roster list loads, re-render so newly-eligible future terms appear
   if(!AVAIL_ROSTERS && !renderSchedule._av){ renderSchedule._av=true; availRosters().then(()=>renderSchedule()); }
@@ -1349,11 +1392,16 @@ function renderSchedule(){
   const scount=`<span class="scount">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</span>`;
   const summ=`<div class="summ">${scount}</div>`;
   const nowEls = SCHED_NOW ? `<div class="now-time" style="display:none"></div><div class="now-line" style="display:none"></div>` : '';
-  // academic-calendar overlay strip for the visible week (breaks/holidays/deadlines/finals)
-  const adcols=SDAYS.map(d=>{ const D=dateOf(d);
-    const chips=ac.overlay.filter(o=>D>=o.s&&D<=o.e).map(o=>`<div class="adchip${o.noclass?' noclass':''}" title="${esc(o.title)}">${esc(acalShort(o.title))}</div>`).join("");
-    return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}">${chips}</div>`; }).join("");
-  const hasAd=ac.overlay.some(o=>SDAYS.some(d=>{const D=dateOf(d);return D>=o.s&&D<=o.e;}));
+  // academic-calendar overlay strip for the visible week — compact clickable chips; tapping a day
+  // opens a detail sheet with the full titles/times, so nothing is truncated and busy days stay tidy.
+  const adDays=[];
+  const adcols=SDAYS.map((d,di)=>{ const D=dateOf(d);
+    const evs=ac.overlay.filter(o=>D>=o.s&&D<=o.e);
+    adDays.push({label:`${SDAY_LABEL[d]}, ${ACAL_MONTHS[D.getMonth()]} ${D.getDate()}`, events:evs});
+    let chips=evs.slice(0,2).map(o=>`<div class="adchip${o.noclass?' noclass':''}">${esc(acalShort(o.title))}</div>`).join("");
+    if(evs.length>2) chips+=`<div class="adchip more">+${evs.length-2} more</div>`;
+    return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}${evs.length?' has-ev':''}" data-adcol="${di}">${chips}</div>`; }).join("");
+  const hasAd=adDays.some(x=>x.events.length);
   const alldayHtml=hasAd?`<div class="sched-allday"><div class="ad-gut"></div>${adcols}</div>`:"";
   // week navigator (bounded to the term); "Today" resets to the current/opening week
   const wkbar=(term&&(termHasTimed||ac.has))
@@ -1372,11 +1420,12 @@ function renderSchedule(){
   const tools=`<div class="shtools"><button id="schedImg" class="shbtn" title="Share this schedule as an image">${ICO.share} Share</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" title="Sync to Google Calendar">${GCAL.connected?ICO.check+' Calendar':ICO.cal+' Calendar'}</button></div>`;
   $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}${tools}</div>${wkbar}${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;SCHED_WEEK=null;renderSchedule();};
-  { const bi=$("#schedImg"); if(bi) bi.onclick=scheduleImage; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
+  { const bi=$("#schedImg"); if(bi) bi.onclick=openShareChooser; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
   const wp=$("#wkPrev"); if(wp) wp.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()-7); renderSchedule(); };
   const wnx=$("#wkNext"); if(wnx) wnx.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+7); renderSchedule(); };
   const wnw=$("#wkNow"); if(wnw) wnw.onclick=()=>{ SCHED_WEEK=defaultWeekMon(term); renderSchedule(); };
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
+  $("#schedule").querySelectorAll("[data-adcol]").forEach(c=>{ const day=adDays[+c.dataset.adcol]; if(day&&day.events.length) c.onclick=()=>openAcadDay(day); });
   clearInterval(schedNowTimer); schedNowTimer=null;
   if(SCHED_NOW){ updateNowLine(); schedNowTimer=setInterval(updateNowLine, 20000); }
   requestAnimationFrame(fitSchedule);
@@ -2208,16 +2257,29 @@ function renderGcalModal(){
 }
 $("#gcalClose").onclick=()=>closeModal($("#gcalModal"));
 $("#gcalModal").addEventListener("click",e=>{ if(e.target===$("#gcalModal")) closeModal($("#gcalModal")); });
+$("#acDayClose").onclick=()=>closeModal($("#acDayModal"));
+$("#acDayModal").addEventListener("click",e=>{ if(e.target===$("#acDayModal")) closeModal($("#acDayModal")); });
+$("#shareClose").onclick=()=>closeModal($("#shareModal"));
+$("#shareModal").addEventListener("click",e=>{ if(e.target===$("#shareModal")) closeModal($("#shareModal")); });
+$("#shareWeek").onclick=()=>shareSchedule(SCHED_WEEK||defaultWeekMon(termById(SCHED_TERM)));
+$("#shareTerm").onclick=()=>shareSchedule(null);
 
 /* ============ Save schedule as a PNG image ============ */
 function roundRectPath(x,X,Y,W,H,R){ R=Math.max(0,Math.min(R,W/2,H/2)); x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
-function schedImageData(termId){
+// weekMon set → snapshot the specific visible week (real dates, break/half-term suppression, matching
+// the on-screen grid). weekMon null → the generic "typical week" (every meeting, both halves, no dates).
+function schedImageData(termId, weekMon){
   const term=termById(termId);
   const es=DB.enrollments.filter(e=>e.term_id===termId&&displayStatus(e)!=="wishlist");
   const cidx={}; let ci=0; es.forEach(e=>{ const k=e.code||('#'+e.id); if(cidx[k]==null)cidx[k]=(ci++)%SCHED_COLORS.length; });
+  const ac=weekMon?termAcademics(term):null;
+  const dateOf=weekMon?(d=>{ const i=SDAYS.indexOf(d); return new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+i); }):null;
   const events=[];
   for(const e of es){ const ms=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
-    for(const m of ms) for(const dd of m.days){ if(!SDAYS.includes(dd))continue; events.push({e,ci:cidx[e.code||('#'+e.id)],day:dd,s:hm2min(m.start),en:hm2min(m.end),m}); } }
+    for(const m of ms){ const part=partOf(m);
+      for(const dd of m.days){ if(!SDAYS.includes(dd))continue;
+        if(weekMon){ const D=dateOf(dd); if(isNoClassDay(D,ac)||!meetingActiveOn(part,D,ac)) continue; }
+        events.push({e,ci:cidx[e.code||('#'+e.id)],day:dd,s:hm2min(m.start),en:hm2min(m.end),m}); } } }
   let minS=Infinity,maxE=-Infinity; events.forEach(ev=>{minS=Math.min(minS,ev.s);maxE=Math.max(maxE,ev.en);});
   if(!isFinite(minS)){minS=8*60;maxE=18*60;}
   const startH=Math.floor(minS/60),endH=Math.ceil(maxE/60);
@@ -2226,7 +2288,8 @@ function schedImageData(termId){
     while(i<list.length){ let j=i,ce=list[i].en; const cl=[list[i]]; while(j+1<list.length&&list[j+1].s<ce){j++;cl.push(list[j]);ce=Math.max(ce,list[j].en);}
       const cc=[]; for(const ev of cl){ let pl=false; for(let c=0;c<cc.length;c++){ if(cc[c]<=ev.s){ ev.col=c; cc[c]=ev.en; pl=true; break; } } if(!pl){ ev.col=cc.length; cc.push(ev.en); } } cl.forEach(ev=>ev.ncols=cc.length); i=j+1; } }
   const credits=es.reduce((s,e)=>s+num(e.credits),0);
-  return {term,es,events,byDay,startH,endH,credits};
+  const wk=weekMon?(()=>{const o={};SDAYS.forEach(d=>{const D=dateOf(d);o[d]=(D.getMonth()+1)+"/"+D.getDate();});return o;})():null;
+  return {term,es,events,byDay,startH,endH,credits,wk,titleSub:weekMon?weekLabel(weekMon):null};
 }
 // Decode a data: URL to a Blob *synchronously* — keeps us inside the click gesture
 // so iOS lets navigator.share attach the PNG to a text (async toBlob would break it).
@@ -2236,11 +2299,19 @@ function dataURLtoBlob(durl){
   for(let i=0;i<n;i++) u8[i]=bin.charCodeAt(i);
   return new Blob([u8],{type:mime});
 }
-function scheduleImage(){
-  const cv=buildSchedCanvas(SCHED_TERM);
-  if(!cv){ toast("No class times to show for this term"); return; }
+// Ask which snapshot to share: the specific visible week (with dates) or the generic weekly layout.
+function openShareChooser(){
+  const sub=$("#shareWeekSub"); if(sub) sub.textContent=(SCHED_WEEK?weekLabel(SCHED_WEEK):"current week")+" · dates included";
+  openModal($("#shareModal"));
+}
+// weekMon: a Monday Date for the week snapshot, or null for the generic "typical week".
+function shareSchedule(weekMon){
+  closeModal($("#shareModal"));
+  const cv=buildSchedCanvas(SCHED_TERM, weekMon);
+  if(!cv){ toast(weekMon?"No classes to show for this week":"No class times to show for this term"); return; }
   const term=termById(SCHED_TERM);
-  const name=`carnelian-${(term?term.name:'schedule').replace(/\s+/g,'-').toLowerCase()}.png`;
+  const tag=weekMon?('-'+weekLabel(weekMon).replace(/[^a-z0-9]+/gi,'-').replace(/^-|-$/g,'').toLowerCase()):'';
+  const name=`carnelian-${(term?term.name:'schedule').replace(/\s+/g,'-').toLowerCase()}${tag}.png`;
   let blob; try{ blob=dataURLtoBlob(cv.toDataURL('image/png')); }
   catch(e){ toast("Couldn't render image"); return; }
   const file=new File([blob],name,{type:'image/png'});
@@ -2271,12 +2342,12 @@ function evColors(hue){
   document.body.removeChild(probe);
   return out;
 }
-function buildSchedCanvas(termId){
-  const d=schedImageData(termId);
+function buildSchedCanvas(termId, weekMon){
+  const d=schedImageData(termId, weekMon);
   if(!d.events.length){ return null; }
   const cs=getComputedStyle(document.body), v=n=>(cs.getPropertyValue(n)||'').trim()||'#000000';
   const surface=v('--surface'), ink=v('--ink'), ink2=v('--ink-2'), ink3=v('--ink-3'), line=v('--line'), surface2=v('--surface-2');
-  const S=2, pad=16, gutter=48, colW=152, headH=64, dayH=30, hourH=54;
+  const S=2, pad=16, gutter=48, colW=152, headH=64, hourH=54; const dayH=d.wk?38:30;
   const rows=d.endH-d.startH, total=rows*60, gStart=d.startH*60, gridH=rows*hourH;
   const W=gutter+colW*5+pad, H=headH+dayH+gridH+pad;
   const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
@@ -2286,11 +2357,14 @@ function buildSchedCanvas(termId){
   x.fillStyle=ink; x.font='800 22px -apple-system,BlinkMacSystemFont,system-ui,sans-serif';
   x.fillText(d.term?d.term.name:'Schedule', pad, 36);
   x.fillStyle=ink3; x.font='700 12.5px -apple-system,system-ui,sans-serif';
-  x.fillText(`${d.es.length} course${d.es.length===1?'':'s'} · ${nf(d.credits)} credits`, pad, 54);
+  x.fillText(`${d.es.length} course${d.es.length===1?'':'s'} · ${nf(d.credits)} credits${d.titleSub?'   ·   '+d.titleSub:''}`, pad, 54);
   const gx0=gutter, gy0=headH+dayH;
   x.fillStyle=surface2; x.fillRect(pad,headH,W-pad*2,dayH);
-  x.fillStyle=ink2; x.font='800 12px -apple-system,system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
-  SDAYS.forEach((dd,i)=>x.fillText(SDAY_LABEL[dd], gx0+colW*i+colW/2, headH+dayH/2));
+  x.textAlign='center'; x.textBaseline='middle';
+  SDAYS.forEach((dd,i)=>{ const cx=gx0+colW*i+colW/2;
+    if(d.wk){ x.fillStyle=ink2; x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(SDAY_LABEL[dd], cx, headH+dayH/2-6);
+      x.fillStyle=ink3; x.font='700 10px -apple-system,system-ui,sans-serif'; x.fillText(d.wk[dd], cx, headH+dayH/2+8); }
+    else { x.fillStyle=ink2; x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(SDAY_LABEL[dd], cx, headH+dayH/2); } });
   x.strokeStyle=line; x.lineWidth=1; x.textAlign='right'; x.font='700 10px -apple-system,system-ui,sans-serif';
   for(let hh=d.startH; hh<=d.endH; hh++){ const gy=gy0+((hh*60-gStart)/total)*gridH;
     x.beginPath(); x.moveTo(gx0,Math.round(gy)+0.5); x.lineTo(W-pad,Math.round(gy)+0.5); x.stroke();
