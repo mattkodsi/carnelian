@@ -1207,6 +1207,10 @@ function weekLabel(mon){ const fri=new Date(mon.getFullYear(),mon.getMonth(),mon
 function academicEvents(){ try{ const raw=localStorage.getItem("carn_acal"); if(raw){ const o=JSON.parse(raw); if(o&&o.v===1&&Array.isArray(o.events)) return o.events; } }catch(e){} return null; }
 // Short chip label: drop the "Fall 2026:" term prefix; for break/holiday rows keep just the name.
 function acalShort(t){ let s=String(t||"").replace(/^(Fall|Spring|Winter|Summer)\s+\d{4}:\s*/i,""); if(/\/\s*(no classes|holiday)/i.test(s)) s=s.split("/")[0].trim(); return s; }
+// Relevance filter for the schedule overlay: hide enrollment/add-drop notices aimed at cohorts that
+// aren't the user (he's Baker = Graduate/Professional, plus senior-year). Everything universal (breaks,
+// finals, deadlines, term bounds…) still shows. The "for " guard avoids catching "First-year writing seminar".
+function acalRelevant(title){ return !/\bfor\s+(Juniors?|Sophomores?|First[-\s]?Years?)\b/i.test(String(title||"")); }
 // Derive a term's class-affecting structure straight from the registrar text: "No classes" ranges,
 // the last day of instruction (classes stop after it → finals/study handled for free), and the
 // 7-week half boundaries. Degrades gracefully to plain term dates when a term has no scraped data.
@@ -1223,7 +1227,7 @@ function termAcademics(term){
     if(isNo) res.noClass.push({s,e});
     if(/last day of instruction/i.test(title)){ if(/7\s*week\s*1/i.test(title)) res.half1End=e; else if(!/7\s*week/i.test(title)){ if(!lastInstr||e>lastInstr) lastInstr=e; } }
     if(/7\s*week\s*2/i.test(title)&&/instruction begins/i.test(title)) res.half2Start=s;
-    res.overlay.push({s,e,title,noclass:isNo});
+    if(isNo||acalRelevant(title)) res.overlay.push({s,e,title,noclass:isNo});   // suppression uses noClass; the overlay hides other-cohort notices
   }
   if(lastInstr) res.classEnd=lastInstr;
   return res;
