@@ -218,7 +218,7 @@
   .trow{display:grid;grid-template-columns:auto 1fr 58px 34px 38px;gap:11px;align-items:center;padding:9px 15px;border-top:1px solid var(--line);font-size:12.5px}
   .trow .co{font-weight:700;white-space:nowrap} .trow .co.nonas{color:var(--accent)} .trow .ti{color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .trow .ds{font-size:10.5px;color:var(--ink-3);text-align:left;font-weight:700}
-  .trow .cc{font-size:11.5px;color:var(--ink-3);text-align:right} .trow .gr{font-weight:800;text-align:right}
+  .trow .cc{font-size:11.5px;color:var(--ink-3);text-align:center;font-variant-numeric:tabular-nums} .trow .gr{font-weight:800;text-align:center}
   .gr.a{color:var(--ok)} .gr.s{color:var(--ink-3)}
 
   /* ---- modal ---- */
@@ -308,12 +308,9 @@
   .schead .summ .scount{text-align:right}
   .schead .summ small{display:block;font-size:11px;color:var(--ink-3);font-weight:700}
   .schead .summ small.cf{color:var(--accent)}
-  .schead .halftog{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;gap:7px;border:0;background:none;margin:0;padding:2px;font:inherit;font-size:11.5px;font-weight:700;color:var(--ink-3);cursor:pointer;white-space:nowrap;line-height:1}
-  .schead .halftog .bx{width:15px;height:15px;flex:0 0 auto;border:1.5px solid var(--line-strong);border-radius:4px;position:relative;transition:background .12s,border-color .12s}
-  .schead .halftog:hover{color:var(--ink)}
-  .schead .halftog.on{color:var(--ink)}
-  .schead .halftog.on .bx{background:var(--accent);border-color:var(--accent)}
-  .schead .halftog.on .bx::after{content:"";position:absolute;left:4px;top:1px;width:3.5px;height:7.5px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .schead .halftog{appearance:none;-webkit-appearance:none;border:0;background:none;margin:0;padding:2px 0;font:inherit;font-size:11px;font-weight:700;color:var(--ink-3);cursor:pointer;white-space:nowrap;line-height:1;opacity:.72;transition:color .12s,opacity .12s}
+  .schead .halftog:hover{opacity:1;color:var(--ink)}
+  .schead .halftog.on{color:var(--accent);opacity:1}
   .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
   .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto}
   .sched-days .d{padding:9px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2)}
@@ -1070,7 +1067,9 @@ function renderSchedule(){
       const w=100/ev.ncols, left=ev.col*w, dur=ev.en-ev.s;
       const showLoc=dur>=50 && ev.ncols===1;
       const secLbl=ev.m.section?` · ${esc(ev.m.component||'')} ${esc(ev.m.section)}`.replace(/\s+/g,' ').trimEnd():'';
-      const plabel=ev.part==='1'?'1st half':ev.part==='2'?'2nd half':'';
+      // In focus mode every block is already the current half, so the "1st half ·" prefix is
+      // redundant and only crowds out the time — drop it there, keep it in the combined view.
+      const plabel=focusOn?'':(ev.part==='1'?'1st half':ev.part==='2'?'2nd half':'');
       const dim=activeHalf&&(ev.part==='1'||ev.part==='2')&&ev.part!==activeHalf;
       const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half"); if(dim)cls.push("dim");
       return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}" style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
@@ -1087,7 +1086,7 @@ function renderSchedule(){
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
   const scount=`<span class="scount">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</span>`;
   const focusToggle=(activeHalf&&hasHalf)
-    ? `<button id="schedFocus" class="halftog${focusOn?' on':''}" role="switch" aria-checked="${focusOn?'true':'false'}" title="Show only the half of the term that's currently in session. Affects the grid only — your course count and credits don't change."><span class="bx"></span>Current half only</button>`
+    ? `<button id="schedFocus" class="halftog${focusOn?' on':''}" role="switch" aria-checked="${focusOn?'true':'false'}" title="Show only the half of the term that's currently in session. Affects the grid only — your course count and credits don't change.">${focusOn?'✓ ':''}Current half</button>`
     : '';
   const summ=`<div class="summ">${scount}${focusToggle}</div>`;
   const body=events.length
