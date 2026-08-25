@@ -159,9 +159,15 @@
   .pterm .ph{display:flex;align-items:center;gap:11px;padding:13px 15px;width:100%;text-align:left}
   .pterm .ph:hover{background:var(--surface-2)}
   .pterm .chev{width:11px;color:var(--ink-3);transition:transform .2s;flex:0 0 auto} .pterm.open .chev{transform:rotate(90deg)}
-  .pterm .nm{font-weight:800;font-size:13.5px} .pterm .badge{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px;background:var(--plan-bg);color:var(--plan)}
-  .pterm .meta{margin-left:auto;font-weight:800;font-size:12px;color:var(--ink-2);flex:0 0 auto;text-align:right}
+  .pterm .nm{font-weight:800;font-size:13.5px}
+  .pterm .nowtag{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
+  .pterm .meta{margin-left:auto;font-weight:800;font-size:14px;color:var(--ink);flex:0 0 auto;text-align:right}
   .pterm .meta small{display:block;font-size:10px;color:var(--ink-3);font-weight:700}
+  .pterm.now{border-color:var(--accent-line)} .pterm.now>.ph{box-shadow:inset 3px 0 0 var(--accent)}
+  .pterm.past>.ph .nm{color:var(--ink-2)} .pterm.past{box-shadow:none;background:var(--surface)}
+  .pterm.aux{background:transparent;border-style:dashed;box-shadow:none} .pterm.aux>.ph .nm{color:var(--ink-2)}
+  .aux-div{display:flex;align-items:center;gap:11px;margin:22px 3px 11px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
+  .aux-div::before,.aux-div::after{content:"";flex:1;height:1px;background:var(--line)}
   .pterm .body{border-top:1px solid var(--line);padding:6px 15px 12px;display:none} .pterm.open .body{display:block}
   .prow{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer}
   .prow:last-child{border-bottom:0}
@@ -205,8 +211,8 @@
   .sheet .sh{display:flex;align-items:center;padding:16px 18px;border-bottom:1px solid var(--line)} .sheet .sh h3{font-size:16px;font-weight:800} .sheet .sh .x{margin-left:auto;font-size:20px;color:var(--ink-3);width:30px;height:30px;border-radius:8px}
   .sheet .sb{padding:16px 18px;display:grid;gap:12px}
   .fld{display:grid;gap:5px} .fld label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
-  .fld input,.fld select{padding:10px 11px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink)}
-  .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .fld{min-width:0} .fld input,.fld select{padding:10px 11px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);width:100%;min-width:0;box-sizing:border-box}
+  .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px} .frow>.fld{min-width:0}
   .lookup{display:flex;gap:8px} .lookup input{flex:1}
   .chkline{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
   .satbox{border:1px solid var(--line);border-radius:9px;max-height:170px;overflow:auto;padding:6px}
@@ -298,16 +304,18 @@
   .uchip small{color:var(--ink-3);font-weight:700}
   .sched-empty{padding:40px 22px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* ---- meeting-times editor (course modal) ---- */
-  .meet-row{border:1px solid var(--line);border-radius:9px;padding:9px 10px;margin-bottom:8px;display:grid;gap:8px;background:var(--surface)}
-  .meet-days{display:flex;gap:5px;flex-wrap:wrap}
-  .meet-days button{flex:1 1 0;min-width:34px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);border-radius:8px;padding:7px 0;font-size:12px;font-weight:800}
+  .meet-row{border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:9px;display:grid;gap:9px;background:var(--surface-2)}
+  .meet-hd{display:flex;align-items:center;justify-content:space-between}
+  .meet-hd .ml{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
+  .rmrow{color:var(--accent);font-size:11.5px;font-weight:800;cursor:pointer;padding:2px 5px;border-radius:6px;background:none;border:0}
+  .rmrow:hover{background:var(--accent-soft)}
+  .meet-days{display:flex;gap:5px}
+  .meet-days button{flex:1 1 0;min-width:0;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);border-radius:8px;padding:8px 0;font-size:12px;font-weight:800}
   .meet-days button.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
-  .meet-times{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .meet-times input{padding:9px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px;width:100%}
-  .meet-meta{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
-  .meet-meta input{padding:9px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px;min-width:0}
-  .meet-meta .rmrow{color:var(--accent);font-size:12px;font-weight:800;padding:6px 9px;border-radius:7px;white-space:nowrap;cursor:pointer}
-  .meet-meta .rmrow:hover{background:var(--accent-soft)}
+  .meet-2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .mfw{display:block;min-width:0}
+  .mfw label{display:block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-bottom:3px}
+  .mfw input{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px}
   .mobar{display:none}
   @media (max-width:760px){
     .app{grid-template-columns:1fr}
@@ -322,6 +330,7 @@
     .phead h1{font-size:23px}
     .statgrid{grid-template-columns:1fr 1fr;gap:9px}
     .frow{grid-template-columns:1fr}
+    .sheet .frow{grid-template-columns:1fr 1fr;gap:10px}
     :root{--gutter:30px;--hourH:46px}
     .schead h1{font-size:23px}
     .schead .summ{margin-left:0;flex-basis:100%;text-align:left}
@@ -846,29 +855,30 @@ function renderPlanner(){
     const es=DB.enrollments.filter(e=>e.term_id===term.id).sort(byCode);
     const cr=es.reduce((s,e)=>s+num(e.credits),0);
     const car=term.career||"undergrad"; cum[car]+=cr;
-    const timing=termTiming(term); const ts=TSTAT[timing];
-    const isOpen=EXP.has(term.id)?true:(timing!=="completed");
+    const timing=termTiming(term); const isNow=timing==="in_progress", past=timing==="completed";
+    const isOpen=EXP.has(term.id)?true:!past;
     const rows=es.map(prowHTML).join("");
-    return `<div class="pterm ${isOpen?'open':''}" data-term="${term.id}">
-      <div class="ph" data-toggle="${term.id}"><span class="chev">›</span><span class="nm">${esc(term.name)}</span><span class="tstat ${ts.c}">${ts.l}</span>
-        <span class="meta">${nf(cr)} cr<small>${nf(cum[car])} cum</small></span></div>
+    return `<div class="pterm ${isOpen?'open':''}${isNow?' now':''}${past?' past':''}" data-term="${term.id}">
+      <div class="ph" data-toggle="${term.id}"><span class="chev">›</span><span class="nm">${esc(term.name)}</span>${isNow?'<span class="nowtag">now</span>':''}
+        <span class="meta">${nf(cr)}<small> cr · ${nf(cum[car])} total</small></span></div>
       <div class="body">${rows||'<p class="muted" style="padding:6px 0">Nothing here yet.</p>'}
-        <div class="add-in" data-add="${term.id}">＋ add a course to ${esc(term.name)}</div></div></div>`;
+        <div class="add-in" data-add="${term.id}">＋ add a course</div></div></div>`;
   }).join("");
   const unsched=DB.enrollments.filter(e=>!e.term_id&&e.status!=="wishlist").sort(byCode);
   let unschedCard="";
   if(unsched.length){
     const ur=unsched.map(prowHTML).join("");
-    unschedCard=`<div class="pterm open unsched"><div class="ph" data-toggle="__unsched"><span class="chev">›</span><span class="nm">Unscheduled</span><span class="badge warn">no term</span><span class="meta">${nf(unsched.reduce((s,e)=>s+num(e.credits),0))} cr</span></div>
-      <div class="body"><p class="muted" style="padding:2px 0 6px">Courses saved without a term. Open one to assign it a term.</p>${ur}</div></div>`;
+    unschedCard=`<div class="pterm aux open"><div class="ph" data-toggle="__unsched"><span class="chev">›</span><span class="nm">Unscheduled</span><span class="meta">${nf(unsched.reduce((s,e)=>s+num(e.credits),0))}<small> cr</small></span></div>
+      <div class="body"><p class="hint" style="padding:0 0 8px">Saved without a term — open one to give it a term.</p>${ur}</div></div>`;
   }
   const wish=DB.enrollments.filter(e=>e.status==="wishlist").sort(byCode);
   const wcards=wish.map(e=>`<div class="wcard" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
     <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div></div>`).join("");
-  const wishCard=`<div class="pterm open wishsec"><div class="ph" data-toggle="__wish"><span class="chev">›</span><span class="nm">Wishlist</span><span class="badge">ideas</span><span class="meta">${wish.length} saved</span></div>
-    <div class="body">${wcards?`<div class="wgrid">${wcards}</div>`:'<p class="muted" style="padding:2px 0 6px">Courses you might take — saved separately from your plan.</p>'}
+  const wishCard=`<div class="pterm aux open"><div class="ph" data-toggle="__wish"><span class="chev">›</span><span class="nm">Wishlist</span><span class="meta">${wish.length?wish.length:'—'}</span></div>
+    <div class="body">${wcards?`<div class="wgrid">${wcards}</div>`:'<p class="hint" style="padding:0 0 8px">Courses you might take — separate from your plan.</p>'}
       <div class="add-in" data-addwish="1">＋ add a wishlist idea</div></div></div>`;
-  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1></div>${cards}${unschedCard}${wishCard}`;
+  const auxDiv=(unschedCard||wishCard)?`<div class="aux-div">holding area</div>`:"";
+  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1></div>${cards}${auxDiv}${unschedCard}${wishCard}`;
   $("#planner").querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;const c=b.closest(".pterm");c.classList.toggle("open");if(c.classList.contains("open"))EXP.add(id);else EXP.delete(id);});
   $("#planner").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
   $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:statusForTerm(b.dataset.add)}));
@@ -999,10 +1009,15 @@ function renderTagChips(){
 function renderMeetRows(){
   $("#mMeetRows").innerHTML=MMEET.map((m,i)=>`
     <div class="meet-row">
+      <div class="meet-hd"><span class="ml">Meeting ${i+1}</span><button type="button" class="rmrow" data-mrm="${i}">Remove</button></div>
       <div class="meet-days">${SDAYS.map(d=>`<button type="button" data-mday="${i}:${d}" class="${(m.days||[]).includes(d)?'on':''}">${d}</button>`).join("")}</div>
-      <div class="meet-times"><input type="time" data-mfield="${i}:start" value="${esc(m.start||'')}"><input type="time" data-mfield="${i}:end" value="${esc(m.end||'')}"></div>
-      <div class="meet-meta"><input type="text" placeholder="Location" data-mfield="${i}:location" value="${esc(m.location||'')}"><input type="text" placeholder="Sec" style="width:64px" data-mfield="${i}:section" value="${esc(m.section||'')}"><button type="button" class="rmrow" data-mrm="${i}">Remove</button></div>
-    </div>`).join("")||'<p class="hint" style="margin:0 0 8px">No meeting times yet. Fill from the roster above, or add one manually.</p>';
+      <div class="meet-2">
+        <span class="mfw"><label>Start</label><input type="time" data-mfield="${i}:start" value="${esc(m.start||'')}"></span>
+        <span class="mfw"><label>End</label><input type="time" data-mfield="${i}:end" value="${esc(m.end||'')}"></span>
+      </div>
+      <span class="mfw"><label>Location</label><input type="text" placeholder="e.g. Statler 165" data-mfield="${i}:location" value="${esc(m.location||'')}"></span>
+      <span class="mfw"><label>Section</label><input type="text" placeholder="e.g. 001" data-mfield="${i}:section" value="${esc(m.section||'')}"></span>
+    </div>`).join("")||'<p class="hint" style="margin:0 0 8px">No meeting times yet. Pick a class from the roster search, or add one by hand.</p>';
   $("#mMeetRows").querySelectorAll("[data-mday]").forEach(b=>b.onclick=()=>{const[i,d]=b.dataset.mday.split(":");const m=MMEET[+i];m.days=m.days||[];const k=m.days.indexOf(d);if(k>=0)m.days.splice(k,1);else m.days.push(d);b.classList.toggle("on");});
   $("#mMeetRows").querySelectorAll("[data-mfield]").forEach(inp=>inp.onchange=()=>{const[i,f]=inp.dataset.mfield.split(":");MMEET[+i][f]=inp.value;});
   $("#mMeetRows").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{MMEET.splice(+b.dataset.mrm,1);renderMeetRows();});
