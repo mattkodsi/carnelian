@@ -269,6 +269,7 @@
   .results.on{display:block}
   .result{display:flex;gap:9px;align-items:baseline;padding:9px 11px;border-radius:8px;cursor:pointer;font-size:12.5px}
   .result:hover{background:var(--surface-2)} .result .rc{font-weight:800;white-space:nowrap} .result .rt{color:var(--ink-2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .result .rr{color:var(--ink-3);font-weight:700;white-space:nowrap}
+  .result.rhead{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);cursor:default;position:sticky;top:0;background:var(--surface)} .result.rhead:hover{background:var(--surface)}
   /* sticky modal chrome + scroll containment */
   .sheet{overscroll-behavior:contain}
   .sheet .sh{position:sticky;top:0;z-index:6;background:var(--surface);border-radius:16px 16px 0 0}
@@ -1136,10 +1137,14 @@ function parsePattern(p){ const out=[]; let s=String(p||"");
   for(let i=0;i<s.length;){ if(s.substr(i,2)==="Su"){out.push("U");i+=2;} else{ const c=s[i].toUpperCase(); if("MTWRFS".includes(c))out.push(c); i++; } }
   return out; }
 function instructorsOf(mt){ return (((mt&&mt.instructors)||[]).map(i=>[i.firstName,i.lastName].filter(Boolean).join(" ")).filter(Boolean).join(", ")); }
-function meetingsFromClass(cls){ const eg=(cls.enrollGroups||[])[0]||{}; const out=[];
-  (eg.classSections||[]).forEach(sec=>{ (sec.meetings||[]).forEach(mt=>{ const days=parsePattern(mt.pattern), start=parseRosterTime(mt.timeStart), end=parseRosterTime(mt.timeEnd);
-    if(days.length&&start&&end) out.push({component:sec.ssrComponent||"",section:sec.section||"",days,start,end,location:(mt.facilityDescr||"").trim(),instructor:instructorsOf(mt),sd:mt.startDt||"",ed:mt.endDt||""}); }); });
-  return out; }
+// a "section" = one classSection with its own topic/credits/time (special-topics courses have several)
+function sectionsOf(cls){ const out=[]; (cls.enrollGroups||[]).forEach(eg=>{ (eg.classSections||[]).forEach(s=>{
+    out.push({section:s.section||"",component:s.ssrComponent||"",topic:s.topicDescription||"",credits:(eg.unitsMaximum!=null?eg.unitsMaximum:eg.unitsMinimum),s}); }); }); return out; }
+function meetingsFromSection(s){ const out=[]; ((s&&s.meetings)||[]).forEach(mt=>{ const days=parsePattern(mt.pattern), start=parseRosterTime(mt.timeStart), end=parseRosterTime(mt.timeEnd);
+    if(days.length&&start&&end) out.push({component:s.ssrComponent||"",section:s.section||"",days,start,end,location:(mt.facilityDescr||"").trim(),instructor:instructorsOf(mt),sd:mt.startDt||"",ed:mt.endDt||""}); }); return out; }
+function meetingsFromClass(cls){ const secs=sectionsOf(cls); return secs.length?meetingsFromSection(secs[0].s):[]; }
+function fmtRosterWhen(mt){ const days=parsePattern(mt.pattern).map(d=>(SDAY_LABEL[d]||{U:"Sun",S:"Sat"}[d]||d)).join("/"); const s=parseRosterTime(mt.timeStart), e=parseRosterTime(mt.timeEnd);
+  const tt=(s&&e&&hm2min(s)!=null&&hm2min(e)!=null)?(min2label(hm2min(s))+"–"+min2label(hm2min(e))):""; return [days,tt].filter(Boolean).join(" "); }
 function resetDelBtn(b){ b.dataset.armed=""; b.textContent="Delete"; b.style.background=""; b.style.color=""; }
 function armDel(b,fn){ if(b.dataset.armed!=="1"){ b.dataset.armed="1"; b.textContent="Confirm delete"; b.style.background="var(--accent)"; b.style.color="#fff"; clearTimeout(b._t); b._t=setTimeout(()=>resetDelBtn(b),3000); return; } resetDelBtn(b); fn(); }
 function openCourse(id=null, preset={}){
@@ -1177,10 +1182,18 @@ $("#mCancel").onclick=()=>closeModal($("#modal"));
 $("#modal").addEventListener("click",e=>{ if(e.target===$("#modal")) closeModal($("#modal")); });
 /* live roster typeahead on the Code field */
 let SEARCH_CACHE={}, searchTimer=null, MRESULTS=[];
-async function getSubjectClasses(sub){
-  for(const roster of ["FA26","SP26","FA25","SP25","FA24"]){ const key=roster+"|"+sub;
+const ROSTER_FALLBACK=["FA26","SP26","FA25","SP25","FA24"];
+// map a DB term ("Fall 2026 · Baker", starts_on) to a Cornell roster code ("FA26")
+function termRoster(t){ if(!t) return null; const nm=((t.name||'')+' '+(t.starts_on||''));
+  let season=/spring/i.test(nm)?'SP':/summer/i.test(nm)?'SU':/winter/i.test(nm)?'WI':/fall|autumn/i.test(nm)?'FA':null;
+  let ym=(/(20\d\d)/.exec(nm)||[])[1];
+  if((!season||!ym)&&t.starts_on){ const mo=+t.starts_on.slice(5,7)||0; if(!season) season=mo<=1?'WI':mo<=5?'SP':mo<=7?'SU':'FA'; if(!ym) ym=t.starts_on.slice(0,4); }
+  if(!season||!ym) return null; return season+String(ym).slice(2); }
+async function getSubjectClasses(sub, roster){
+  const list = roster ? [roster, ...ROSTER_FALLBACK.filter(r=>r!==roster)] : ROSTER_FALLBACK;
+  for(const rs of list){ const key=rs+"|"+sub;
     if(SEARCH_CACHE[key]!==undefined){ if(SEARCH_CACHE[key]) return SEARCH_CACHE[key]; else continue; }
-    try{ const r=await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${roster}&subject=${sub}`); const j=await r.json();
+    try{ const r=await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${rs}&subject=${sub}`); const j=await r.json();
       if(j.status==="success"){ SEARCH_CACHE[key]=j.data.classes||[]; return SEARCH_CACHE[key]; } SEARCH_CACHE[key]=null; }
     catch(e){ SEARCH_CACHE[key]=null; } }
   return null;
@@ -1190,8 +1203,9 @@ async function runSearch(){
   const q=$("#mCode").value.trim().toUpperCase(); const res=$("#mResults"), msg=$("#mLookupMsg");
   const parts=q.split(/\s+/), sub=parts[0];
   if(q.length<2||!/^[A-Z]{2,7}$/.test(sub)){ res.classList.remove("on"); msg.textContent=""; return; }
+  const roster=termRoster(termById($("#mTerm").value));
   msg.textContent="Searching Cornell roster…";
-  const classes=await getSubjectClasses(sub); msg.textContent="";
+  const classes=await getSubjectClasses(sub, roster); msg.textContent="";
   if(q!==$("#mCode").value.trim().toUpperCase()) return; // stale
   if(!classes){ res.classList.remove("on"); return; }
   const rest=parts.slice(1).join(" ");
@@ -1202,16 +1216,33 @@ async function runSearch(){
   res.querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>pickResult(MRESULTS[+b.dataset.ri],sub));
   res.classList.add("on");
 }
-function pickResult(cls,sub){ const eg=(cls.enrollGroups||[])[0]||{};
-  $("#mCode").value=sub+" "+cls.catalogNbr; $("#mTitleIn").value=cls.titleLong||""; if(eg.unitsMaximum!=null)$("#mCredits").value=eg.unitsMaximum;
+function pickResult(cls,sub){ const secs=sectionsOf(cls);
+  if(secs.length>1){ showSectionPicker(cls,sub,secs); return; }
+  fillFromSection(cls,sub,secs[0]||null); }
+function showSectionPicker(cls,sub,secs){ const res=$("#mResults");
+  res.innerHTML=`<div class="result rhead">${esc(sub)} ${esc(cls.catalogNbr)} · choose your section</div>`+
+    secs.map((sc,i)=>{ const m=(sc.s.meetings||[])[0]; const when=m?fmtRosterWhen(m):"";
+      const line=[sc.topic?esc(sc.topic):"",esc(when||"no set time")].filter(Boolean).join(" · ");
+      return `<div class="result" data-si="${i}"><span class="rc">${esc(sub)} ${esc(cls.catalogNbr)}·${esc(sc.section)}</span><span class="rt">${line}</span><span class="rr">${sc.credits!=null?esc(String(sc.credits))+' cr':''}</span></div>`;
+    }).join("");
+  res.querySelectorAll("[data-si]").forEach(b=>b.onclick=()=>fillFromSection(cls,sub,secs[+b.dataset.si]));
+  res.classList.add("on"); $("#mLookupMsg").textContent="Multiple sections — pick the one you're in."; }
+function fillFromSection(cls,sub,sc){ const eg=(cls.enrollGroups||[])[0]||{};
+  $("#mCode").value=sub+" "+cls.catalogNbr;
+  $("#mTitleIn").value=(sc&&sc.topic)||cls.titleLong||"";
+  const cr=(sc&&sc.credits!=null)?sc.credits:eg.unitsMaximum; if(cr!=null)$("#mCredits").value=cr;
   classTags(cls).forEach(t=>{if(!MTAGS.includes(t))MTAGS.push(t);}); renderTagChips();
-  const mtgs=meetingsFromClass(cls); let msg="Filled from roster.";
   const term=termById($("#mTerm").value); let halfN=0;
+  const mtgs=sc?meetingsFromSection(sc.s):meetingsFromClass(cls);
   mtgs.forEach(m=>{ m.part=detectPart(m.sd,m.ed,term); if(m.part!=='full')halfN++; delete m.sd; delete m.ed; });
-  if(mtgs.length){ MMEET=mtgs; renderMeetRows(); msg="Filled from roster · added "+mtgs.length+" meeting"+(mtgs.length===1?"":"s")+(halfN?" · detected half-term":"")+"."; }
+  let msg;
+  if(mtgs.length){ MMEET=mtgs; msg="Filled from roster · "+(sc&&sc.section?("section "+sc.section+" · "):"")+mtgs.length+" meeting"+(mtgs.length===1?"":"s")+(halfN?" · half-term":""); }
+  else { MMEET=[]; msg="Filled from roster"+(sc&&sc.section?(" · section "+sc.section+" has no set meeting time"):" · no set meeting time"); }
+  renderMeetRows();
   $("#mResults").classList.remove("on"); $("#mLookupMsg").textContent=msg; }
 $("#mCode").addEventListener("input",()=>{ const el=$("#mCode"); const p=el.selectionStart; el.value=el.value.toUpperCase(); try{el.setSelectionRange(p,p);}catch(e){} clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,240); });
 $("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.remove("on"),200));
+$("#mTerm").addEventListener("change",()=>{ if($("#mCode").value.trim().length>=2){ clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,60); } });
 async function rosterLookup(code){
   const parts=code.trim().toUpperCase().split(/\s+/); if(parts.length<2) return null; const sub=parts[0], nbr=parts[1];
   for(const roster of ["FA26","SP26","FA25","SP25","FA24"]){
