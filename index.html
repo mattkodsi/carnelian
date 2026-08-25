@@ -1351,11 +1351,15 @@ function openCourse(id=null, preset={}){
       rows.map(r=>`<label class="satopt" ${r.parent_id?'style="padding-left:44px"':''}><input type="checkbox" data-req="${r.id}" ${cur.has(r.id)?'checked':''}> ${esc(r.name)}</label>`).join("")+`</details>`;
   }
   $("#mSat").innerHTML=html;
-  const n=[...cur].length; const c=$("#mSatCount"); c.textContent=n; c.style.display=n?'inline-block':'none';
+  $("#mSat").querySelectorAll("input[data-req]").forEach(cb=>cb.onchange=updateSatCount);
+  updateSatCount();
+  const n=[...cur].length;
   $("#mSatWrap").style.display=n?"block":"none"; $("#mSatToggle").classList.toggle("open",n>0);
   $("#mDelete").style.display=id!=null?"inline-block":"none";
   openModal($("#modal"));
 }
+// Live count of requirements this course is mapped to — updates as boxes are ticked.
+function updateSatCount(){ const box=$("#mSat"); const c=$("#mSatCount"); if(!box||!c) return; const n=box.querySelectorAll("input:checked").length; c.textContent=n; c.style.display=n?'inline-block':'none'; }
 $("#mDist").onchange=()=>{ const v=$("#mDist").value; if(v&&!MTAGS.includes(v)){MTAGS.push(v);renderTagChips();} $("#mDist").value=""; syncDD($("#mDist")); };
 $("#mSatToggle").onclick=()=>{ const open=$("#mSatWrap").style.display!=="none"; $("#mSatWrap").style.display=open?"none":"block"; $("#mSatToggle").classList.toggle("open",!open); };
 $("#mClose").onclick=()=>closeModal($("#modal"));
