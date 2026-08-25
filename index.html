@@ -468,6 +468,26 @@
   .gc-status{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;margin:2px 0 6px}
   .gc-dot{width:9px;height:9px;border-radius:99px;background:var(--ink-3);flex:0 0 auto} .gc-dot.on{background:var(--ok)}
   .gc-btns{display:flex;gap:9px;margin-top:16px} .gc-btns .btn{flex:1;justify-content:center}
+
+  /* ---- academic calendar ---- */
+  #academic{max-width:760px}
+  .acal-load{color:var(--ink-3);font-size:13px;font-weight:600;padding:30px 4px;text-align:center}
+  .acal-load.err{color:var(--accent)}
+  .acal-load .btn{margin-left:8px}
+  #acal-refresh svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+  #acal-refresh.spin svg{animation:acal-spin .8s linear infinite}
+  @keyframes acal-spin{to{transform:rotate(360deg)}}
+  .acal-month{margin-bottom:18px}
+  .acal-mh{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);padding:0 2px 8px;position:sticky;top:0;background:var(--bg);z-index:2}
+  .acal-row{display:flex;gap:13px;align-items:baseline;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);margin-bottom:7px}
+  .acal-date{flex:0 0 76px;font-size:12.5px;font-weight:800;color:var(--ink);letter-spacing:-.01em;line-height:1.35}
+  .acal-main{flex:1;min-width:0}
+  .acal-title{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.4}
+  .acal-time{font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:2px}
+  .acal-row.past{opacity:.44}
+  .acal-row.next{border-color:var(--accent-line);background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+  .acal-row.next .acal-date{color:var(--accent)}
+  .acal-pill{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 7px;margin-left:8px;vertical-align:middle}
 </style>
 </head>
 <body>
@@ -500,6 +520,7 @@
       <button class="navitem" data-nav="planner"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Planner</button>
       <button class="navitem" data-nav="transcript"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Transcript</button>
       <button class="navitem" data-nav="schedule"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8 13h2M14 13h2M8 17h2"/></svg>Schedule</button>
+      <button class="navitem" data-nav="academic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8.5 15.5l2 2 4-4.5"/></svg>Academic</button>
     </nav>
     <div class="rail-foot">
       <button class="tbtn js-theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Theme</button>
@@ -512,6 +533,7 @@
     <section class="page" id="planner"></section>
     <section class="page" id="transcript"></section>
     <section class="page" id="schedule"></section>
+    <section class="page" id="academic"></section>
   </main>
 </div>
 
@@ -877,7 +899,7 @@ function bar2(donePct,plannedPct,met){ const d=Math.max(0,Math.min(100,donePct))
 const pctPlan=pr=>pr.need?Math.round(100*Math.min(1,(pr.done+(pr.planned||0))/pr.need)):(pr.met?100:0);
 
 /* ---- render ---- */
-function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderSchedule(); showPage(CUR); }
+function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderSchedule(); renderAcademic(); showPage(CUR); }
 function renderRail(){
   const ug=gpa("undergrad"), gr=gpa("grad");
   $("#railGpas").innerHTML=
@@ -1378,6 +1400,68 @@ function renderTranscript(){
   $("#transcript").querySelectorAll("[data-tc]").forEach(b=>b.onclick=()=>{TCAREER=b.dataset.tc;localStorage.setItem("carn_tcareer",TCAREER);renderTranscript();});
 }
 function termGpa(es){ let q=0,c=0; for(const e of es){ const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue; q+=p*num(e.credits); c+=num(e.credits);} return c?q/c:null; }
+
+/* ---- academic calendar ----
+   Cornell's registrar page has no CORS headers, so the edge function scrapes it
+   server-side (deterministic regex, no AI) and returns {title, events:[{month,date,time,title}]}.
+   We cache the result in localStorage (6h) so the tab opens instantly and only
+   re-fetches when stale or on an explicit refresh. Past dates dim; the first
+   still-upcoming entry is highlighted so "where are we now" is obvious. */
+const ACAL_MON={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+function acalYear(ev){ const m=/(\d{4})/.exec(ev.month||""); return m?+m[1]:new Date().getFullYear(); }
+function acalStart(ev){ const m=/([A-Z][a-z]{2})\s+(\d{1,2})/.exec(ev.date||""); if(!m) return null; const mo=ACAL_MON[m[1]]; if(mo==null) return null; return new Date(acalYear(ev),mo,+m[2]); }
+function acalEnd(ev){ const all=[...String(ev.date||"").matchAll(/([A-Z][a-z]{2})\s+(\d{1,2})/g)]; if(all.length<2) return acalStart(ev); const last=all[all.length-1]; const mo=ACAL_MON[last[1]]; const s=acalStart(ev); if(mo==null||!s) return s; let y=acalYear(ev); if(mo<s.getMonth()) y++; return new Date(y,mo,+last[2]); }
+function renderAcademic(){
+  const el=$("#academic"); if(!el) return;
+  el.innerHTML=`<div class="phead"><h1>Academic Calendar</h1>
+    <div class="actions"><button class="btn" id="acal-refresh"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Refresh</button></div>
+    <div class="ph-note" id="acal-note">Cornell University Registrar · deterministically scraped</div></div>
+    <div id="acal-body"><div class="acal-load">Loading academic calendar…</div></div>`;
+  $("#acal-refresh").onclick=()=>loadAcademic(true);
+  try{ const raw=localStorage.getItem("carn_acal"); if(raw){ const o=JSON.parse(raw); if(o&&o.v===1&&Array.isArray(o.events)) paintAcademic(o,false); } }catch(e){}
+}
+function paintAcademic(data,scroll){
+  const body=$("#acal-body"); if(!body) return;
+  const evs=data.events||[], note=$("#acal-note");
+  if(note){ const when=data.at?new Date(data.at):null; note.innerHTML=`${esc(data.title||"Academic Calendar")} · Cornell Registrar${when?" · updated "+when.toLocaleDateString(undefined,{month:"short",day:"numeric"})+" "+when.toLocaleTimeString([],{hour:"numeric",minute:"2-digit"}):""}`; }
+  if(!evs.length){ body.innerHTML=`<p class="muted">No calendar entries found.</p>`; return; }
+  const today=new Date(); today.setHours(0,0,0,0);
+  let nextIdx=-1;
+  const meta=evs.map(ev=>{ const s=acalStart(ev), e=acalEnd(ev)||s; const past=!!(e&&e<today); const now=!!(s&&e&&s<=today&&today<=e); return {past,now}; });
+  for(let i=0;i<meta.length;i++){ if(!meta[i].past){ nextIdx=i; break; } }
+  let html="", curMonth=null;
+  evs.forEach((ev,i)=>{
+    if(ev.month!==curMonth){ if(curMonth!==null) html+=`</div>`; curMonth=ev.month; html+=`<div class="acal-month"><div class="acal-mh">${esc(ev.month||"")}</div>`; }
+    const m=meta[i], cls=[m.past?"past":"", i===nextIdx?"next":""].filter(Boolean).join(" ");
+    const pill=m.now?`<span class="acal-pill">now</span>`:(i===nextIdx&&!m.now?`<span class="acal-pill">next</span>`:"");
+    const time=ev.time?`<div class="acal-time">${esc(ev.time)}</div>`:"";
+    html+=`<div class="acal-row ${cls}"><div class="acal-date">${esc(ev.date||"")}</div><div class="acal-main"><div class="acal-title">${esc(ev.title||"")}${pill}</div>${time}</div></div>`;
+  });
+  if(curMonth!==null) html+=`</div>`;
+  body.innerHTML=html;
+  if(scroll&&CUR==="academic"){ const nx=body.querySelector(".acal-row.next"); if(nx) nx.scrollIntoView({block:"center",behavior:"auto"}); }
+}
+async function loadAcademic(force){
+  const body=$("#acal-body"); if(!body) return;
+  let cache=null;
+  try{ const raw=localStorage.getItem("carn_acal"); if(raw){ const o=JSON.parse(raw); if(o&&o.v===1&&Array.isArray(o.events)) cache=o; } }catch(e){}
+  const fresh=cache&&(Date.now()-(cache.at||0)<6*3600*1000);
+  if(cache) paintAcademic(cache,true);
+  if(fresh&&!force) return;
+  if(!cache) body.innerHTML=`<div class="acal-load">Loading academic calendar…</div>`;
+  const btn=$("#acal-refresh"); if(btn){ btn.disabled=true; btn.classList.add("spin"); }
+  try{
+    const r=await api("academic_calendar");
+    const data={v:1,at:Date.now(),title:r.title,events:r.events||[],source:r.source};
+    localStorage.setItem("carn_acal",JSON.stringify(data));
+    paintAcademic(data,true);
+  }catch(e){
+    if(!cache){ body.innerHTML=`<div class="acal-load err">Couldn't load the academic calendar. <button class="btn" id="acal-retry">Retry</button></div>`; const rt=$("#acal-retry"); if(rt) rt.onclick=()=>loadAcademic(true); }
+    else toast("Couldn't refresh calendar");
+  }finally{
+    const b=$("#acal-refresh"); if(b){ b.disabled=false; b.classList.remove("spin"); }
+  }
+}
 
 /* ---- course modal ---- */
 let EDIT_ID=null, MTAGS=[], MMEET=[];
@@ -1952,6 +2036,7 @@ function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll
   updateFab();
   if(id==="schedule") requestAnimationFrame(fitSchedule);
   if(id==="planner" && changed) requestAnimationFrame(centerPlannerTerm);
+  if(id==="academic") loadAcademic(false);
 }
 // On opening the planner, bring the current term to the vertical middle of the view
 // (the browser clamps naturally when it's the first or last section).

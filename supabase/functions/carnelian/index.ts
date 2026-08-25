@@ -277,8 +277,8 @@ function buildEvent(e: any, m: any, colorId: string) {
 // Reconcile every non-wishlist enrollment-with-meetings against the calendar,
 // touching only what changed (sig compare) so re-syncs are cheap and idempotent.
 async function syncAll(access: string, calId: string) {
-  // All non-wishlist enrollments, ordered like the app (per term, by id) so the
-  // per-course colour index matches the weekly grid exactly.
+  // All non-wishlist enrollments in current/upcoming terms, ordered like the app
+  // (per term, by id) so the per-course colour index matches the weekly grid.
   const rows = await sql`select e.id, e.code, e.title, e.meetings, e.term_id, t.starts_on::text as starts_on, t.ends_on::text as ends_on
     from carnelian.enrollments e left join carnelian.terms t on t.id = e.term_id
     where coalesce(e.status, '') <> 'wishlist'
@@ -330,6 +330,43 @@ async function syncAll(access: string, calId: string) {
     deleted++;
   }
   return { created, updated, deleted, skipped };
+}
+
+// ================= Cornell academic calendar (deterministic scrape) =================
+// The registrar page has no CORS headers, so the browser can't fetch it -- we do it here and parse
+// the fixed markup: <h3>Month YYYY</h3> group headers + .calendar-row-item blocks each holding a
+// .calendar-date, an optional .calendar-time, and a .calendar-date-title. Pure regex, no AI.
+const ACAL_URL = "https://registrar.cornell.edu/calendars-exams/academic-calendar";
+function acalDecode(s: string) {
+  return s
+    .replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(+n))
+    .replace(/&#x([0-9a-fA-F]+);/g, (_m, n) => String.fromCharCode(parseInt(n, 16)))
+    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+function acalClean(s: string) {
+  return acalDecode(String(s || "").replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
+}
+function parseAcademicCalendar(html: string) {
+  const tM = /<h1[^>]*>\s*(Academic Calendar[^<]*)</i.exec(html);
+  const title = tM ? acalClean(tM[1]) : "Academic Calendar";
+  const events: { month: string; date: string; time: string; title: string }[] = [];
+  let month = "";
+  const re = /<h3>\s*([\s\S]*?)\s*<\/h3>|<div class="calendar-row-item[\s\S]*?<span class="calendar-date">\s*([\s\S]*?)\s*<\/span>([\s\S]*?)<span class="calendar-date-title">\s*([\s\S]*?)\s*<\/span>/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(html))) {
+    if (m[1] !== undefined) {
+      const h = acalClean(m[1]);
+      if (/^[A-Z][a-z]+ \d{4}$/.test(h)) month = h;
+      continue;
+    }
+    const date = acalClean(m[2]);
+    const timeM = /<span class="calendar-time">\s*([\s\S]*?)\s*<\/span>/.exec(m[3] || "");
+    const time = timeM ? acalClean(timeM[1]) : "";
+    const t = acalClean(m[4]);
+    if (date || t) events.push({ month, date, time, title: t });
+  }
+  return { title, events };
 }
 
 function connectPage(msg: string, ok: boolean) {
@@ -429,6 +466,21 @@ Deno.serve(async (req) => {
       merged.sessions = cfg.settings?.sessions ?? [];
       await sql`update carnelian.app_config set settings = ${sql.json(merged)}, updated_at = now() where id = 1`;
       return json({ ok: true });
+    }
+
+    // ---- Cornell academic calendar (server-side scrape; registrar has no CORS) ----
+    if (action === "academic_calendar") {
+      try {
+        const ac = new AbortController();
+        const to = setTimeout(() => ac.abort(), 10000);
+        const res = await fetch(ACAL_URL, { headers: { "user-agent": "Mozilla/5.0 (Carnelian degree tracker)" }, signal: ac.signal });
+        clearTimeout(to);
+        const html = await res.text();
+        const parsed = parseAcademicCalendar(html);
+        return json({ ok: true, source: ACAL_URL, ...parsed });
+      } catch (e) {
+        return json({ error: "Couldn't fetch the academic calendar: " + String((e as Error)?.message ?? e) }, 502);
+      }
     }
 
     // ---- Google Calendar ----
