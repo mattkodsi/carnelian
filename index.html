@@ -1411,6 +1411,20 @@ const ACAL_MON={Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:
 function acalYear(ev){ const m=/(\d{4})/.exec(ev.month||""); return m?+m[1]:new Date().getFullYear(); }
 function acalStart(ev){ const m=/([A-Z][a-z]{2})\s+(\d{1,2})/.exec(ev.date||""); if(!m) return null; const mo=ACAL_MON[m[1]]; if(mo==null) return null; return new Date(acalYear(ev),mo,+m[2]); }
 function acalEnd(ev){ const all=[...String(ev.date||"").matchAll(/([A-Z][a-z]{2})\s+(\d{1,2})/g)]; if(all.length<2) return acalStart(ev); const last=all[all.length-1]; const mo=ACAL_MON[last[1]]; const s=acalStart(ev); if(mo==null||!s) return s; let y=acalYear(ev); if(mo<s.getMonth()) y++; return new Date(y,mo,+last[2]); }
+// Normalize the registrar's raw time strings for display (deterministic; keeps the
+// raw value in cache). Fixes ALL-CAPS "DEADLINE", and collapses whole-day multi-day
+// spans ("Oct 15 12:00 AM – Oct 22 11:59 PM") to "All day" since the date column
+// already shows the span. Real windows (e.g. the Nov 7:30 AM enrollment windows,
+// "10:00 AM – 2:00 PM") are left exactly as-is so nothing is misrepresented.
+function acalTime(raw){
+  const t=String(raw||"").trim();
+  if(!t) return "";
+  if(/^all day$/i.test(t)) return "All day";
+  const dl=/^deadline\s+(.+)$/i.exec(t); if(dl) return "Deadline "+dl[1].trim();
+  const sp=/^[A-Z][a-z]{2}\s+\d{1,2}\s+(1?\d:\d{2}\s*[AP]M)\s*[–-]\s*[A-Z][a-z]{2}\s+\d{1,2}\s+(1?\d:\d{2}\s*[AP]M)$/.exec(t);
+  if(sp && /^12:00 AM$/i.test(sp[1].replace(/\s+/g," ")) && /^11:59 PM$/i.test(sp[2].replace(/\s+/g," "))) return "All day";
+  return t;
+}
 function renderAcademic(){
   const el=$("#academic"); if(!el) return;
   el.innerHTML=`<div class="phead"><h1>Academic Calendar</h1>
@@ -1434,7 +1448,7 @@ function paintAcademic(data,scroll){
     if(ev.month!==curMonth){ if(curMonth!==null) html+=`</div>`; curMonth=ev.month; html+=`<div class="acal-month"><div class="acal-mh">${esc(ev.month||"")}</div>`; }
     const m=meta[i], cls=[m.past?"past":"", i===nextIdx?"next":""].filter(Boolean).join(" ");
     const pill=m.now?`<span class="acal-pill">now</span>`:(i===nextIdx&&!m.now?`<span class="acal-pill">next</span>`:"");
-    const time=ev.time?`<div class="acal-time">${esc(ev.time)}</div>`:"";
+    const tt=acalTime(ev.time); const time=tt?`<div class="acal-time">${esc(tt)}</div>`:"";
     html+=`<div class="acal-row ${cls}"><div class="acal-date">${esc(ev.date||"")}</div><div class="acal-main"><div class="acal-title">${esc(ev.title||"")}${pill}</div>${time}</div></div>`;
   });
   if(curMonth!==null) html+=`</div>`;
