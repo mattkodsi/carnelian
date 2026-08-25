@@ -359,7 +359,7 @@
   .ev.conflict{outline:2px solid var(--accent);outline-offset:-2px}
   .now-line{position:absolute;height:0;border-top:1.5px solid var(--accent);z-index:6;pointer-events:none}
   .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
-  .now-time{position:absolute;left:0;width:calc(var(--gutter) - 5px);text-align:right;transform:translateY(-50%);font-size:9px;font-weight:700;color:var(--accent);z-index:7;pointer-events:none;line-height:1.15;white-space:nowrap}
+  .now-time{position:absolute;transform:translate(-100%,-50%);margin-left:-3px;font-size:9px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:1px 4px;z-index:7;pointer-events:none;line-height:1.2;white-space:nowrap}
   .ev.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
   .ev.half .loc{padding-right:16px}
   .ev.dim{opacity:.42;border-left-style:dashed}
@@ -1147,9 +1147,10 @@ function updateNowLine(){
   const d=new Date(), nm=d.getHours()*60+d.getMinutes()+d.getSeconds()/60;
   if(nm<SCHED_NOW.gStart||nm>SCHED_NOW.gEnd){ line.style.display="none"; lab.style.display="none"; return; }
   const top=((nm-SCHED_NOW.gStart)/SCHED_NOW.total)*100, c=SCHED_NOW.col;
-  // confine the line to today's column only
-  line.style.left=`calc(var(--gutter) + (100% - var(--gutter)) * ${c} / 5)`;
-  line.style.width=`calc((100% - var(--gutter)) / 5)`;
+  // confine the line to today's column, and dock the time chip to the line's left edge
+  const colLeft=`calc(var(--gutter) + (100% - var(--gutter)) * ${c} / 5)`;
+  line.style.left=colLeft; line.style.width=`calc((100% - var(--gutter)) / 5)`;
+  lab.style.left=colLeft;
   line.style.display=""; lab.style.display=""; line.style.top=top+"%"; lab.style.top=top+"%";
   lab.textContent=min2label(Math.floor(nm));   // floor to match the wall clock (no rounding up)
 }
