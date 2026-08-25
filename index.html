@@ -261,9 +261,14 @@
   .satprog>summary::before{content:"›";color:var(--ink-3);transition:.2s;font-weight:800}
   .satprog[open]>summary::before{transform:rotate(90deg)}
   .satprog .satopt{padding:9px 13px 9px 30px;border-top:1px solid var(--line);gap:9px}
+  .satopt .sat-nm{flex:1 1 auto;min-width:0}
+  .satopt.auto{cursor:default} .satopt.auto:hover{background:transparent} .satopt.auto .sat-nm{color:var(--ink-2)}
+  .satopt.auto input{accent-color:var(--accent);opacity:.85}
+  .sat-auto{flex:0 0 auto;font-size:10px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 12%,transparent);border-radius:999px;padding:2px 8px;white-space:nowrap}
   .wgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:11px}
   .wcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;box-shadow:var(--shadow);cursor:pointer}
   .wcard .co{font-weight:800;font-size:14.5px} .wcard .ti{font-size:12px;color:var(--ink-2);margin:3px 0 10px} .wcard .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .wc-meets{margin-top:10px}
   /* custom app dropdowns (replace native option lists) */
   .dd{position:relative;min-width:0}
   .dd-btn{display:flex;align-items:center;gap:8px;width:100%;min-width:0;text-align:left;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);font-weight:600;font-size:14px}
@@ -1026,8 +1031,12 @@ function renderPlanner(){
       <div class="body"><p class="hint" style="padding:0 0 8px">Saved without a term — open one to give it a term.</p>${ur}</div></div>`;
   }
   const wish=DB.enrollments.filter(e=>e.status==="wishlist").sort(byCode);
-  const wcards=wish.map(e=>`<div class="wcard" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
-    <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div></div>`).join("");
+  const wcards=wish.map(e=>{
+    const meets=meetInfoHTML(meetingsOf(e));
+    return `<div class="wcard" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
+    <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div>
+    ${meets?`<div class="ci-meets wc-meets">${meets}</div>`:''}</div>`;
+  }).join("");
   const wishCard=`<div class="pterm aux open"><div class="ph" data-toggle="__wish"><span class="chev">›</span><span class="nm">Wishlist</span><span class="meta acount">${wish.length}</span></div>
     <div class="body">${wcards?`<div class="wgrid">${wcards}</div>`:'<p class="hint" style="padding:0 0 8px">Courses you might take — separate from your plan.</p>'}
       <div class="add-in" data-addwish="1">＋ add a wishlist idea</div></div></div>`;
@@ -1185,12 +1194,11 @@ function fitSchedule(){
 window.addEventListener("resize",()=>{ if(CUR==="schedule") fitSchedule(); });
 // read-only course info pane (from the schedule) — Edit button jumps to the full editor
 const DAY_FULL={M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri",S:"Sat",U:"Sun"};
-function openCourseInfo(id){
-  const e=DB.enrollments.find(x=>String(x.id)===String(id)); if(!e) return;
-  const term=termById(e.term_id), mtgs=meetingsOf(e);
-  // Stack each detail on its own line, in the same order the schedule shows it:
-  // day/time, then location, then section, then instructor.
-  const meetsHtml = mtgs.length ? mtgs.map(m=>{
+// Shared meeting-detail block — day/time, then location, section, instructor, each on its own line
+// (same order the schedule shows). Reused by the course info pane and the wishlist card.
+function meetInfoHTML(mtgs){
+  if(!mtgs||!mtgs.length) return "";
+  return mtgs.map(m=>{
     const days=(m.days||[]).map(d=>DAY_FULL[d]||d).join(", ");
     const tt=(hm2min(m.start)!=null&&hm2min(m.end)!=null)?`${min2label(hm2min(m.start))}–${min2label(hm2min(m.end))}`:"";
     const partLbl=m.part==='1'?' · first half':m.part==='2'?' · second half':'';
@@ -1200,7 +1208,12 @@ function openCourseInfo(id){
     if(sec) rows.push(esc(sec));
     if(m.instructor) rows.push(esc(m.instructor));
     return `<div class="ci-meet"><div class="ci-when">${esc([days,tt].filter(Boolean).join(" "))}${partLbl}</div>${rows.map(r=>`<div class="ci-line">${r}</div>`).join("")}</div>`;
-  }).join("") : `<div class="ci-none">No meeting times set.</div>`;
+  }).join("");
+}
+function openCourseInfo(id){
+  const e=DB.enrollments.find(x=>String(x.id)===String(id)); if(!e) return;
+  const term=termById(e.term_id), mtgs=meetingsOf(e);
+  const meetsHtml = mtgs.length ? meetInfoHTML(mtgs) : `<div class="ci-none">No meeting times set.</div>`;
   const tags=(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("");
   const ci=SCHED_CIDX[e.code||('#'+e.id)]!=null?SCHED_CIDX[e.code||('#'+e.id)]:courseColorIdx(e.code);
   const cc=$("#infoCode"); cc.textContent=codeLabel(e); cc.style.setProperty("--h",SCHED_COLORS[ci]);
@@ -1269,7 +1282,7 @@ const compName=c=>COMP_NAME[c]||(c||"Meeting");
 const splitList=v=>v.split(",").map(s=>s.trim()).filter(Boolean);
 function renderTagChips(){
   $("#mTagChips").innerHTML=MTAGS.map((t,i)=>`<span class="chip-x">${esc(t)}<button type="button" data-rmtag="${i}" aria-label="remove">×</button></span>`).join("");
-  $("#mTagChips").querySelectorAll("[data-rmtag]").forEach(b=>b.onclick=()=>{MTAGS.splice(+b.dataset.rmtag,1);renderTagChips();});
+  $("#mTagChips").querySelectorAll("[data-rmtag]").forEach(b=>b.onclick=()=>{MTAGS.splice(+b.dataset.rmtag,1);renderTagChips();renderSatBox();});
 }
 /* meeting-time editor */
 const CLOCK_SVG=`<svg class="tf-clk" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2"/></svg>`;
@@ -1342,25 +1355,54 @@ function openCourse(id=null, preset={}){
   $("#mAnalog").value=e.analog_of||"";
   $("#mInAs").checked = e.in_as===true;
   ["mTerm","mStatus","mGrade","mDist"].forEach(x=>syncDD($("#"+x)));
-  const cur=new Set((DB.satisfactions||[]).filter(s=>String(s.enrollment_id)===String(id)).map(s=>s.requirement_id));
-  let html="";
-  for(const p of DB.programs){ const tops=DB.requirements.filter(r=>r.program_id===p.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort); if(!tops.length) continue;
-    const rows=[]; tops.forEach(r=>{rows.push(r);DB.requirements.filter(x=>x.parent_id===r.id).sort((a,b)=>a.sort-b.sort).forEach(k=>rows.push(k));});
-    const anyHere=rows.some(r=>cur.has(r.id));
-    html+=`<details class="satprog" ${anyHere?'open':''}><summary>${esc(p.name)}</summary>`+
-      rows.map(r=>`<label class="satopt" ${r.parent_id?'style="padding-left:44px"':''}><input type="checkbox" data-req="${r.id}" ${cur.has(r.id)?'checked':''}> ${esc(r.name)}</label>`).join("")+`</details>`;
-  }
-  $("#mSat").innerHTML=html;
-  $("#mSat").querySelectorAll("input[data-req]").forEach(cb=>cb.onchange=updateSatCount);
-  updateSatCount();
-  const n=[...cur].length;
+  SAT_CUR=new Set((DB.satisfactions||[]).filter(s=>String(s.enrollment_id)===String(id)).map(s=>s.requirement_id));
+  renderSatBox();
+  const n=$("#mSat").querySelectorAll("input:checked").length;
   $("#mSatWrap").style.display=n?"block":"none"; $("#mSatToggle").classList.toggle("open",n>0);
   $("#mDelete").style.display=id!=null?"inline-block":"none";
   openModal($("#modal"));
 }
-// Live count of requirements this course is mapped to — updates as boxes are ticked.
+// Explicit requirement mappings the user has ticked for the course being edited (source of truth
+// for what gets saved — auto-matched reqs are never added here since they already count).
+let SAT_CUR=new Set();
+// The course being edited, as a match-testable object built from the live form fields.
+function formCourse(){ return { id:EDIT_ID, code:($("#mCode").value||"").trim().toUpperCase(),
+  analog_of:($("#mAnalog").value||"").trim()||null, tags:MTAGS, status:$("#mStatus").value }; }
+// Does this course auto-count toward req r (by code / subject / attribute)? Mirrors autoMatch's
+// per-course test so the map box can show auto-matches without a saved satisfaction.
+function courseAutoMatchesReq(c, req){ const spec=req.spec||{}, m=spec.match||{};
+  if(m.manual||m.scope||m.pool) return false;
+  if(c.status==="wishlist") return false;
+  if(m.attribute) return (c.tags||[]).includes(m.attribute);
+  if(m.subject){ if(subjectOf(c)!==m.subject) return false; const l=levelOf(c);
+    if(m.levelMin&&l<m.levelMin) return false; if(m.levelMax&&l>m.levelMax) return false;
+    if(spec.exclude&&spec.exclude.x9xx&&isX9xx(c)) return false; return true; }
+  if(m.codes) return m.codes.includes(c.code); return false; }
+// Set of requirement ids the current form course auto-counts toward.
+function autoReqIds(){ const c=formCourse(), s=new Set();
+  for(const r of DB.requirements) if(courseAutoMatchesReq(c,r)) s.add(r.id); return s; }
+// Render the "Map to requirements" box. Auto-matched reqs show as locked "counts automatically"
+// rows; the rest are manual checkboxes reflecting SAT_CUR. Preserves ticks across re-renders.
+function renderSatBox(){
+  const box=$("#mSat"); if(!box) return;
+  const auto=autoReqIds();
+  let html="";
+  for(const p of DB.programs){ const tops=DB.requirements.filter(r=>r.program_id===p.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort); if(!tops.length) continue;
+    const rows=[]; tops.forEach(r=>{rows.push(r);DB.requirements.filter(x=>x.parent_id===r.id).sort((a,b)=>a.sort-b.sort).forEach(k=>rows.push(k));});
+    const anyHere=rows.some(r=>auto.has(r.id)||SAT_CUR.has(r.id));
+    html+=`<details class="satprog" ${anyHere?'open':''}><summary>${esc(p.name)}</summary>`+
+      rows.map(r=>{ const pad=r.parent_id?'style="padding-left:44px"':'';
+        if(auto.has(r.id)) return `<label class="satopt auto" ${pad}><input type="checkbox" checked disabled data-auto="1"> <span class="sat-nm">${esc(r.name)}</span><span class="sat-auto">counts automatically</span></label>`;
+        return `<label class="satopt" ${pad}><input type="checkbox" data-req="${r.id}" ${SAT_CUR.has(r.id)?'checked':''}> <span class="sat-nm">${esc(r.name)}</span></label>`;
+      }).join("")+`</details>`;
+  }
+  box.innerHTML=html;
+  box.querySelectorAll("input[data-req]").forEach(cb=>cb.onchange=()=>{ if(cb.checked) SAT_CUR.add(cb.dataset.req); else SAT_CUR.delete(cb.dataset.req); updateSatCount(); });
+  updateSatCount();
+}
+// Live count of requirements this course counts toward — manual ticks + automatic matches.
 function updateSatCount(){ const box=$("#mSat"); const c=$("#mSatCount"); if(!box||!c) return; const n=box.querySelectorAll("input:checked").length; c.textContent=n; c.style.display=n?'inline-block':'none'; }
-$("#mDist").onchange=()=>{ const v=$("#mDist").value; if(v&&!MTAGS.includes(v)){MTAGS.push(v);renderTagChips();} $("#mDist").value=""; syncDD($("#mDist")); };
+$("#mDist").onchange=()=>{ const v=$("#mDist").value; if(v&&!MTAGS.includes(v)){MTAGS.push(v);renderTagChips();renderSatBox();} $("#mDist").value=""; syncDD($("#mDist")); };
 $("#mSatToggle").onclick=()=>{ const open=$("#mSatWrap").style.display!=="none"; $("#mSatWrap").style.display=open?"none":"block"; $("#mSatToggle").classList.toggle("open",!open); };
 $("#mClose").onclick=()=>closeModal($("#modal"));
 $("#mCancel").onclick=()=>closeModal($("#modal"));
@@ -1368,27 +1410,62 @@ $("#modal").addEventListener("click",e=>{ if(e.target===$("#modal")) closeModal(
 /* live roster typeahead on the Code field */
 let SEARCH_CACHE={}, searchTimer=null, MRESULTS=[];
 const ROSTER_FALLBACK=["FA26","SP26","FA25","SP25","FA24"];
+// which roster a search actually used, and whether it was recycled from an older same-season term
+let CUR_ROSTER="", CUR_RECYCLED=false;
 // map a DB term ("Fall 2026 · Baker", starts_on) to a Cornell roster code ("FA26")
 function termRoster(t){ if(!t) return null; const nm=((t.name||'')+' '+(t.starts_on||''));
   let season=/spring/i.test(nm)?'SP':/summer/i.test(nm)?'SU':/winter/i.test(nm)?'WI':/fall|autumn/i.test(nm)?'FA':null;
   let ym=(/(20\d\d)/.exec(nm)||[])[1];
   if((!season||!ym)&&t.starts_on){ const mo=+t.starts_on.slice(5,7)||0; if(!season) season=mo<=1?'WI':mo<=5?'SP':mo<=7?'SU':'FA'; if(!ym) ym=t.starts_on.slice(0,4); }
   if(!season||!ym) return null; return season+String(ym).slice(2); }
+// sortable key for a roster code so we can find the newest — e.g. FA26 -> 263, SP27 -> 271
+const SEASON_ORD={WI:0,SP:1,SU:2,FA:3};
+function rosterKey(r){ return (parseInt(r.slice(2),10)||0)*10 + (SEASON_ORD[r.slice(0,2)]??9); }
+// the list of rosters Cornell has actually published (cached for the session + localStorage)
+let AVAIL_ROSTERS=null, AVAIL_PROMISE=null;
+async function availRosters(){
+  if(AVAIL_ROSTERS) return AVAIL_ROSTERS;
+  try{ const raw=localStorage.getItem("carn_rosters"); if(raw){ const o=JSON.parse(raw); if(o&&Array.isArray(o.items)&&o.items.length){ AVAIL_ROSTERS=o.items; } } }catch(e){}
+  if(AVAIL_ROSTERS) return AVAIL_ROSTERS;
+  if(AVAIL_PROMISE) return AVAIL_PROMISE;
+  AVAIL_PROMISE=(async()=>{
+    try{ const j=await (await fetch("https://classes.cornell.edu/api/2.0/config/rosters.json")).json();
+      if(j.status==="success"){ const items=(j.data.rosters||[]).map(r=>r.slug).filter(Boolean);
+        if(items.length){ AVAIL_ROSTERS=items; try{ localStorage.setItem("carn_rosters", JSON.stringify({items})); }catch(e){} return items; } } }catch(e){}
+    AVAIL_ROSTERS=ROSTER_FALLBACK.slice(); return AVAIL_ROSTERS;   // offline fallback
+  })();
+  return AVAIL_PROMISE;
+}
+// Resolve the roster to actually search. If `ideal` is published, use it. Otherwise recycle the
+// newest published roster of the SAME SEASON (SP27 -> SP26), since future terms have no roster yet.
+// With no term, use the newest published roster. Returns {roster, recycled}.
+async function resolveRoster(ideal){
+  const avail=await availRosters();
+  const sorted=avail.slice().sort((a,b)=>rosterKey(a)-rosterKey(b));
+  const newest=sorted[sorted.length-1]||null;
+  if(!ideal) return {roster:newest, recycled:false};
+  if(avail.includes(ideal)) return {roster:ideal, recycled:false};
+  const season=ideal.slice(0,2);
+  const sameSeason=sorted.filter(r=>r.slice(0,2)===season);
+  const pick=sameSeason.length?sameSeason[sameSeason.length-1]:newest;
+  return {roster:pick, recycled:!!pick};
+}
 async function getSubjectClasses(sub, roster){
-  const list = roster ? [roster, ...ROSTER_FALLBACK.filter(r=>r!==roster)] : ROSTER_FALLBACK;
-  for(const rs of list){ const key=rs+"|"+sub;
-    if(SEARCH_CACHE[key]!==undefined){ if(SEARCH_CACHE[key]) return SEARCH_CACHE[key]; else continue; }
-    try{ const r=await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${rs}&subject=${sub}`); const j=await r.json();
-      if(j.status==="success"){ SEARCH_CACHE[key]=j.data.classes||[]; return SEARCH_CACHE[key]; } SEARCH_CACHE[key]=null; }
-    catch(e){ SEARCH_CACHE[key]=null; } }
-  return null;
+  if(!roster) return null;
+  const key=roster+"|"+sub;
+  if(SEARCH_CACHE[key]!==undefined) return SEARCH_CACHE[key];
+  try{ const r=await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${roster}&subject=${sub}`); const j=await r.json();
+    SEARCH_CACHE[key]=(j.status==="success")?(j.data.classes||[]):null; }
+  catch(e){ SEARCH_CACHE[key]=null; }
+  return SEARCH_CACHE[key];
 }
 function classTags(cls){ let tags=[]; if(cls.crseAttrValueGroups&&cls.crseAttrValueGroups.length) cls.crseAttrValueGroups.forEach(g=>(g.crseAttrValues||"").split(",").forEach(v=>{const t=v.replace(/[()\s]/g,"");if(t)tags.push(t);})); else if(cls.catalogDistr) cls.catalogDistr.replace(/[()]/g," ").split(/[,\s]+/).forEach(t=>{if(t)tags.push(t);}); return tags; }
 async function runSearch(){
   const q=$("#mCode").value.trim().toUpperCase(); const res=$("#mResults"), msg=$("#mLookupMsg");
   const parts=q.split(/\s+/), sub=parts[0];
   if(q.length<2||!/^[A-Z]{2,7}$/.test(sub)){ res.classList.remove("on"); msg.textContent=""; return; }
-  const roster=termRoster(termById($("#mTerm").value));
+  const {roster,recycled}=await resolveRoster(termRoster(termById($("#mTerm").value)));
+  CUR_ROSTER=roster; CUR_RECYCLED=recycled;
   msg.textContent="Searching Cornell roster…";
   const classes=await getSubjectClasses(sub, roster); msg.textContent="";
   if(q!==$("#mCode").value.trim().toUpperCase()) return; // stale
@@ -1417,11 +1494,24 @@ function buildSectionGroups(cls){
 // Picking a course from search: build its component groups, fill code/title/credits/tags,
 // and fill meetings for the default section of each component.
 function pickResult(cls,sub){
-  MSEC_SUB=sub; buildSectionGroups(cls);
+  MSEC_SUB=sub;
   $("#mCode").value=sub+" "+cls.catalogNbr;
   classTags(cls).forEach(t=>{if(!MTAGS.includes(t))MTAGS.push(t);}); renderTagChips();
   $("#mResults").classList.remove("on");
+  renderSatBox();   // new code/tags may auto-match new requirements — refresh the map box
+  if(CUR_RECYCLED){ fillBasicsOnly(cls); return; }   // future term: trust only code/title/credits
+  buildSectionGroups(cls);
   applySections();
+}
+// Recycled (future) roster: meeting times, rooms and sections move every term, so pull only the
+// stable facts — code, title, credits — and leave meetings for the user to add.
+function fillBasicsOnly(cls){
+  MSEC_CLS=null; MSEC_GROUPS=[]; MSEC_PICK={}; MSEC_EG=(cls.enrollGroups||[])[0]||{};
+  const cr=(MSEC_EG.unitsMaximum!=null?MSEC_EG.unitsMaximum:MSEC_EG.unitsMinimum);
+  $("#mTitleIn").value=cls.titleLong||"";
+  if(cr!=null)$("#mCredits").value=cr;
+  renderMeetSel();   // clears the component pickers
+  $("#mLookupMsg").textContent="Code · title · credits from "+esc(CUR_ROSTER)+" (no roster yet for this term) — add your meeting times below";
 }
 // Build the meeting rows from the currently-picked section of every component.
 function applySections(){
@@ -1458,7 +1548,8 @@ function renderMeetSel(){
 async function loadSectionsForCourse(e){
   const code=(e.code||"").trim().toUpperCase(), parts=code.split(/\s+/);
   if(parts.length<2) return; const sub=parts[0], nbr=parts[1];
-  const roster=termRoster(termById(e.term_id||$("#mTerm").value)); if(!roster) return;
+  const {roster,recycled}=await resolveRoster(termRoster(termById(e.term_id||$("#mTerm").value)));
+  if(!roster||recycled) return;   // future term: no live sections that match this course's real times
   let classes; try{ classes=await getSubjectClasses(sub, roster); }catch(err){ return; }
   const cls=classes&&classes.find(c=>c.catalogNbr===nbr); if(!cls) return;
   if($("#mCode").value.trim().toUpperCase()!==code) return;   // editor moved to another course
@@ -1472,11 +1563,15 @@ async function loadSectionsForCourse(e){
   });
   renderMeetSel(); renderMeetRows();   // meetings unchanged; surfaces the pickers + component labels
 }
-$("#mCode").addEventListener("input",()=>{ const el=$("#mCode"); const p=el.selectionStart; el.value=el.value.toUpperCase(); try{el.setSelectionRange(p,p);}catch(e){} clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,240); });
+$("#mCode").addEventListener("input",()=>{ const el=$("#mCode"); const p=el.selectionStart; el.value=el.value.toUpperCase(); try{el.setSelectionRange(p,p);}catch(e){} clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,240); renderSatBox(); });
 $("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.remove("on"),200));
 // clicking a result/section must not blur the Code field (which would auto-hide the dropdown before the click lands)
 $("#mResults").addEventListener("mousedown",e=>e.preventDefault());
 $("#mTerm").addEventListener("change",()=>{ if($("#mCode").value.trim().length>=2){ clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,60); } });
+// wishlist status turns auto-matching off, and an analog code changes what a course matches —
+// both shift which requirements count automatically, so refresh the map box.
+$("#mStatus").addEventListener("change",renderSatBox);
+$("#mAnalog").addEventListener("input",renderSatBox);
 
 /* ---- search the WHOLE roster by course name (Title box) ----
    The Cornell API requires a subject per query, so a name search needs an index of
@@ -1508,7 +1603,9 @@ async function ensureTitleIndex(roster, onProgress){
 async function runTitleSearch(){
   const q=$("#mTitleIn").value.trim(); const res=$("#mTitleResults"), msg=$("#mTitleMsg");
   if(q.length<3){ res.classList.remove("on"); msg.textContent=""; return; }
-  const roster=termRoster(termById($("#mTerm").value))||ROSTER_FALLBACK[0];
+  const {roster,recycled}=await resolveRoster(termRoster(termById($("#mTerm").value)));
+  CUR_ROSTER=roster; CUR_RECYCLED=recycled;
+  if(!roster){ res.classList.remove("on"); msg.textContent="Roster unavailable"; return; }
   let idx=TITLE_INDEX[roster];
   if(!idx){ msg.textContent="Indexing the roster (one-time)…";
     idx=await ensureTitleIndex(roster,(d,t)=>{ if($("#mTitleIn").value.trim()===q) msg.textContent=`Indexing the roster (one-time)… ${Math.round(d/t*100)}%`; });
@@ -1526,7 +1623,8 @@ async function runTitleSearch(){
   res.classList.add("on");
 }
 async function pickTitleResult(item){
-  const roster=termRoster(termById($("#mTerm").value))||ROSTER_FALLBACK[0];
+  const {roster,recycled}=await resolveRoster(termRoster(termById($("#mTerm").value)));
+  CUR_ROSTER=roster; CUR_RECYCLED=recycled;
   $("#mTitleResults").classList.remove("on"); $("#mTitleMsg").textContent="Loading course…";
   const classes=await getSubjectClasses(item.s, roster);
   $("#mTitleMsg").textContent="";
@@ -1538,17 +1636,16 @@ async function pickTitleResult(item){
 $("#mTitleIn").addEventListener("input",()=>{ clearTimeout(titleTimer); titleTimer=setTimeout(runTitleSearch,320); });
 $("#mTitleIn").addEventListener("blur",()=>setTimeout(()=>$("#mTitleResults").classList.remove("on"),200));
 $("#mTitleResults").addEventListener("mousedown",e=>e.preventDefault());
-async function rosterLookup(code){
+async function rosterLookup(code, idealRoster){
   const parts=code.trim().toUpperCase().split(/\s+/); if(parts.length<2) return null; const sub=parts[0], nbr=parts[1];
-  for(const roster of ["FA26","SP26","FA25","SP25","FA24"]){
-    try{ const r=await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${roster}&subject=${sub}`);
-      const j=await r.json(); if(j.status!=="success") continue;
-      const cls=(j.data.classes||[]).find(c=>c.catalogNbr===nbr); if(!cls) continue;
-      const eg=(cls.enrollGroups||[])[0]||{}; let tags=[];
-      if(cls.crseAttrValueGroups&&cls.crseAttrValueGroups.length) cls.crseAttrValueGroups.forEach(g=>(g.crseAttrValues||"").split(",").forEach(v=>{const t=v.replace(/[()\s]/g,"");if(t)tags.push(t);}));
-      else if(cls.catalogDistr) cls.catalogDistr.replace(/[()]/g," ").split(/[,\s]+/).forEach(t=>{if(t)tags.push(t);});
-      return {title:cls.titleLong, credits:eg.unitsMaximum, tags, roster};
-    }catch(e){}
+  const {roster}=await resolveRoster(idealRoster||null);
+  const tryRosters=[]; if(roster) tryRosters.push(roster);
+  for(const r of ROSTER_FALLBACK) if(!tryRosters.includes(r)) tryRosters.push(r);
+  for(const rs of tryRosters){
+    const classes=await getSubjectClasses(sub, rs); if(!classes) continue;
+    const cls=classes.find(c=>c.catalogNbr===nbr); if(!cls) continue;
+    const eg=(cls.enrollGroups||[])[0]||{};
+    return {title:cls.titleLong, credits:eg.unitsMaximum, tags:classTags(cls), roster:rs};
   }
   return null;
 }
@@ -1563,7 +1660,10 @@ $("#mSave").onclick=async()=>{
     term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null, counts_gpa:GRADE_POINTS[grade]!=null,
     tags:MTAGS.slice(), analog_of:$("#mAnalog").value.trim()||null, in_as:$("#mInAs").checked, meetings };
   if(EDIT_ID!=null) row.id=EDIT_ID;
-  const want=new Set([...$("#mSat").querySelectorAll("input:checked")].map(c=>c.dataset.req));
+  // Only save explicit ticks; auto-matched reqs count on their own, so writing them would be
+  // redundant. Subtracting them also cleans up any stale explicit pins now covered automatically.
+  const autoSet=autoReqIds();
+  const want=new Set([...SAT_CUR].filter(rid=>rid&&!autoSet.has(rid)));
   try{
     const saved=(await api("upsert",{table:"enrollments",row})).row;
     if(EDIT_ID!=null){ const i=DB.enrollments.findIndex(x=>String(x.id)===String(EDIT_ID)); DB.enrollments[i]=saved; } else DB.enrollments.push(saved);
