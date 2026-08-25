@@ -380,7 +380,7 @@
   .sched-allday .ad-col.today{background:var(--accent-soft)}
   .sched-allday .ad-col.has-ev{cursor:pointer}
   .sched-allday .ad-col.has-ev:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
-  .adchip{font-size:9px;font-weight:700;line-height:1.35;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none}
+  .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;white-space:normal;overflow-wrap:anywhere;pointer-events:none}
   .adchip.noclass{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:800}
   .adchip.more{color:var(--ink-3);background:transparent;border-style:dashed;font-weight:800}
   .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
@@ -392,10 +392,8 @@
   .acd-no{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle}
   .acd-meta{font-size:12px;font-weight:600;color:var(--ink-3);margin-top:4px}
   /* share-schedule chooser */
-  .sharepick{display:flex;flex-direction:column;gap:3px;width:100%;text-align:left;padding:13px 15px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);margin-bottom:9px}
+  .sharepick{display:block;width:100%;text-align:left;padding:14px 16px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);margin-bottom:9px;font-size:14.5px;font-weight:800;color:var(--ink)}
   .sharepick:hover{background:var(--surface-2);border-color:var(--accent-line)}
-  .sharepick b{font-size:14.5px;font-weight:800;color:var(--ink)}
-  .sharepick span{font-size:12px;font-weight:600;color:var(--ink-3)}
   /* read-only course info pane */
   /* read-only course info pane — compact: code lives in the slim header, no dead space */
   #infoModal .sheet{max-width:392px}
@@ -702,8 +700,8 @@
   <div class="sheet" style="max-width:360px">
     <div class="sh"><h3>Share schedule</h3><button class="x" id="shareClose" aria-label="Close">×</button></div>
     <div class="sb">
-      <button class="sharepick" id="shareWeek" type="button"><b>This week</b><span id="shareWeekSub">dates included</span></button>
-      <button class="sharepick" id="shareTerm" type="button"><b>Typical week</b><span>the weekly layout, no specific dates</span></button>
+      <button class="sharepick" id="shareWeek" type="button">This week</button>
+      <button class="sharepick" id="shareTerm" type="button">Course schedule</button>
     </div>
   </div>
 </div>
@@ -2266,6 +2264,15 @@ $("#shareTerm").onclick=()=>shareSchedule(null);
 
 /* ============ Save schedule as a PNG image ============ */
 function roundRectPath(x,X,Y,W,H,R){ R=Math.max(0,Math.min(R,W/2,H/2)); x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
+// Greedy word-wrap for canvas text (used by the academic band so full titles never truncate).
+// Long slash-joined tokens (e.g. "Graduate/Professional/Cornell") get soft breaks after each "/".
+function wrapLines(x,text,maxW){
+  const raw=String(text||'').split(/\s+/).filter(Boolean), words=[];
+  for(const w of raw){ if(w.length>16 && w.indexOf('/')>=0){ const parts=w.split('/'); parts.forEach((p,i)=>words.push(i<parts.length-1?p+'/':p)); } else words.push(w); }
+  const lines=[]; let cur='';
+  for(const w of words){ const t=cur?(cur.slice(-1)==='/'?cur+w:cur+' '+w):w; if(!cur||x.measureText(t).width<=maxW){ cur=t; } else { lines.push(cur); cur=w; } }
+  if(cur) lines.push(cur); return lines.length?lines:[''];
+}
 // weekMon set → snapshot the specific visible week (real dates, break/half-term suppression, matching
 // the on-screen grid). weekMon null → the generic "typical week" (every meeting, both halves, no dates).
 function schedImageData(termId, weekMon){
@@ -2289,7 +2296,8 @@ function schedImageData(termId, weekMon){
       const cc=[]; for(const ev of cl){ let pl=false; for(let c=0;c<cc.length;c++){ if(cc[c]<=ev.s){ ev.col=c; cc[c]=ev.en; pl=true; break; } } if(!pl){ ev.col=cc.length; cc.push(ev.en); } } cl.forEach(ev=>ev.ncols=cc.length); i=j+1; } }
   const credits=es.reduce((s,e)=>s+num(e.credits),0);
   const wk=weekMon?(()=>{const o={};SDAYS.forEach(d=>{const D=dateOf(d);o[d]=(D.getMonth()+1)+"/"+D.getDate();});return o;})():null;
-  return {term,es,events,byDay,startH,endH,credits,wk,titleSub:weekMon?weekLabel(weekMon):null};
+  const adByDay=weekMon?(()=>{const o={};SDAYS.forEach(d=>{const D=dateOf(d);o[d]=ac.overlay.filter(x=>D>=x.s&&D<=x.e);});return o;})():null;
+  return {term,es,events,byDay,startH,endH,credits,wk,adByDay,titleSub:weekMon?weekLabel(weekMon):null};
 }
 // Decode a data: URL to a Blob *synchronously* — keeps us inside the click gesture
 // so iOS lets navigator.share attach the PNG to a text (async toBlob would break it).
@@ -2300,10 +2308,7 @@ function dataURLtoBlob(durl){
   return new Blob([u8],{type:mime});
 }
 // Ask which snapshot to share: the specific visible week (with dates) or the generic weekly layout.
-function openShareChooser(){
-  const sub=$("#shareWeekSub"); if(sub) sub.textContent=(SCHED_WEEK?weekLabel(SCHED_WEEK):"current week")+" · dates included";
-  openModal($("#shareModal"));
-}
+function openShareChooser(){ openModal($("#shareModal")); }
 // weekMon: a Monday Date for the week snapshot, or null for the generic "typical week".
 function shareSchedule(weekMon){
   closeModal($("#shareModal"));
@@ -2347,9 +2352,24 @@ function buildSchedCanvas(termId, weekMon){
   if(!d.events.length){ return null; }
   const cs=getComputedStyle(document.body), v=n=>(cs.getPropertyValue(n)||'').trim()||'#000000';
   const surface=v('--surface'), ink=v('--ink'), ink2=v('--ink-2'), ink3=v('--ink-3'), line=v('--line'), surface2=v('--surface-2');
+  const accent=v('--accent'), accentSoft=v('--accent-soft'), accentLine=v('--accent-line');
   const S=2, pad=16, gutter=48, colW=152, headH=64, hourH=54; const dayH=d.wk?38:30;
   const rows=d.endH-d.startH, total=rows*60, gStart=d.startH*60, gridH=rows*hourH;
-  const W=gutter+colW*5+pad, H=headH+dayH+gridH+pad;
+  const W=gutter+colW*5+pad;
+  // academic-dates band (week mode only): full, wrapped, never truncated — grows the image as needed
+  const adBy=d.adByDay||{}; const bandFont=10, bandLH=13, boxPadX=6, boxPadY=4, boxGap=5, bandPad=7;
+  const bandLines={}; let bandH=0;
+  if(d.wk && SDAYS.some(dd=>(adBy[dd]||[]).length)){
+    const mc=document.createElement('canvas').getContext('2d');
+    mc.font=`700 ${bandFont}px -apple-system,system-ui,sans-serif`;
+    let maxH=0;
+    SDAYS.forEach(dd=>{ const evs=adBy[dd]||[]; let h=0; bandLines[dd]=[];
+      for(const o of evs){ const lines=wrapLines(mc, acalShort(o.title), colW-8-boxPadX*2);
+        bandLines[dd].push({o,lines}); h += lines.length*bandLH + boxPadY*2 + boxGap; }
+      maxH=Math.max(maxH,h); });
+    if(maxH>0) bandH=maxH - boxGap + bandPad*2;
+  }
+  const H=headH+dayH+bandH+gridH+pad;
   const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
   const x=cv.getContext('2d'); x.scale(S,S);
   x.fillStyle=surface; x.fillRect(0,0,W,H);
@@ -2358,13 +2378,24 @@ function buildSchedCanvas(termId, weekMon){
   x.fillText(d.term?d.term.name:'Schedule', pad, 36);
   x.fillStyle=ink3; x.font='700 12.5px -apple-system,system-ui,sans-serif';
   x.fillText(`${d.es.length} course${d.es.length===1?'':'s'} · ${nf(d.credits)} credits${d.titleSub?'   ·   '+d.titleSub:''}`, pad, 54);
-  const gx0=gutter, gy0=headH+dayH;
+  const gx0=gutter, gy0=headH+dayH+bandH;
   x.fillStyle=surface2; x.fillRect(pad,headH,W-pad*2,dayH);
   x.textAlign='center'; x.textBaseline='middle';
   SDAYS.forEach((dd,i)=>{ const cx=gx0+colW*i+colW/2;
     if(d.wk){ x.fillStyle=ink2; x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(SDAY_LABEL[dd], cx, headH+dayH/2-6);
       x.fillStyle=ink3; x.font='700 10px -apple-system,system-ui,sans-serif'; x.fillText(d.wk[dd], cx, headH+dayH/2+8); }
     else { x.fillStyle=ink2; x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(SDAY_LABEL[dd], cx, headH+dayH/2); } });
+  // academic-dates band: one wrapped, full-text box per event, stacked per day column
+  if(bandH){ const bandY=headH+dayH;
+    x.fillStyle=surface2; x.fillRect(pad,bandY,W-pad*2,bandH);
+    x.textAlign='left'; x.textBaseline='top';
+    SDAYS.forEach((dd,i)=>{ let yy=bandY+bandPad; const bx=gx0+colW*i+4, bw=colW-8;
+      for(const it of (bandLines[dd]||[])){ const boxH=it.lines.length*bandLH+boxPadY*2;
+        roundRectPath(x,bx,yy,bw,boxH,5); x.fillStyle=it.o.noclass?accentSoft:surface; x.fill();
+        x.strokeStyle=it.o.noclass?accentLine:line; x.lineWidth=1; roundRectPath(x,bx+0.5,yy+0.5,bw-1,boxH-1,5); x.stroke();
+        x.fillStyle=it.o.noclass?accent:ink2; x.font=`${it.o.noclass?'800':'700'} ${bandFont}px -apple-system,system-ui,sans-serif`;
+        it.lines.forEach((ln,li)=>x.fillText(ln, bx+boxPadX, yy+boxPadY+li*bandLH));
+        yy+=boxH+boxGap; } }); }
   x.strokeStyle=line; x.lineWidth=1; x.textAlign='right'; x.font='700 10px -apple-system,system-ui,sans-serif';
   for(let hh=d.startH; hh<=d.endH; hh++){ const gy=gy0+((hh*60-gStart)/total)*gridH;
     x.beginPath(); x.moveTo(gx0,Math.round(gy)+0.5); x.lineTo(W-pad,Math.round(gy)+0.5); x.stroke();
