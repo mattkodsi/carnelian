@@ -184,11 +184,30 @@
   .aux-div{display:flex;align-items:center;gap:11px;margin:22px 3px 11px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
   .aux-div::before,.aux-div::after{content:"";flex:1;height:1px;background:var(--line)}
   .pterm .body{border-top:1px solid var(--line);padding:6px 15px 12px;display:none} .pterm.open .body{display:block}
-  .prow{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer}
+  .prow{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:start;padding:9px 0;border-bottom:1px solid var(--line);cursor:pointer}
   .prow:last-child{border-bottom:0}
-  .prow .co{font-weight:700;font-size:12.5px;white-space:nowrap} .prow .co.nonas{color:var(--accent)}
-  .prow .ti{color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
-  .prow .cc{font-weight:700;font-size:12px;color:var(--ink-3);text-align:right;white-space:nowrap}
+  .prow .co{font-weight:700;font-size:12.5px;white-space:nowrap;line-height:1.35} .prow .co.nonas{color:var(--accent)}
+  .prow .ti{display:flex;flex-direction:column;gap:1px;min-width:0}
+  .prow .ti .tn{color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
+  .prow .ti .prof{font-size:10px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prow .cc{font-weight:700;font-size:12px;color:var(--ink-3);text-align:right;white-space:nowrap;line-height:1.35}
+  .prow.flagged{background:color-mix(in srgb,var(--accent) 5%,transparent)}
+  .rflag{align-self:center;font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,transparent);border-radius:999px;padding:2px 7px;white-space:nowrap}
+  .wc-prof{font-size:11px;color:var(--ink-3);margin-top:6px}
+  .wc-await{font-size:10.5px;color:var(--ink-3);margin-top:8px;font-style:italic;opacity:.85}
+  .wcard.flagged{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+  .rcheck-btn{font:inherit;font-size:12.5px;font-weight:700;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;box-shadow:var(--shadow)}
+  .rcheck-btn:hover{background:var(--surface-2)} .rcheck-btn.busy{opacity:.6;pointer-events:none}
+  .rc-panel{background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 30%,var(--line));border-radius:var(--r);box-shadow:var(--shadow);padding:6px 4px;margin-bottom:18px;overflow:hidden}
+  .rc-head{display:flex;align-items:center;gap:10px;padding:8px 12px 10px}
+  .rc-title{font-weight:800;font-size:13px} .rc-close{margin-left:auto;font:inherit;font-size:11.5px;font-weight:700;color:var(--ink-3);background:none;border:0;cursor:pointer}
+  .rc-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-top:1px solid var(--line);flex-wrap:wrap}
+  .rc-info{flex:1 1 220px;min-width:0} .rc-line{display:flex;gap:9px;align-items:baseline;flex-wrap:wrap}
+  .rc-code{font-weight:800;font-size:13px} .rc-term{font-size:11px;color:var(--ink-3)}
+  .rc-note{font-size:11.5px;color:var(--ink-2);margin-top:3px;line-height:1.45}
+  .rc-actions{display:flex;gap:7px;flex-shrink:0}
+  .rc-act{font:inherit;font-size:12px;font-weight:700;color:#fff;background:var(--accent);border:0;border-radius:8px;padding:7px 13px;cursor:pointer;white-space:nowrap}
+  .rc-act.ghost{color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line)}
   .pterm.unsched{border-color:var(--warn-line,var(--line))} .pterm .badge.warn{background:var(--warn-bg,var(--surface-2));color:var(--warn)}
   .pterm .tstat{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px}
   .pterm .tstat.done{background:var(--ok-bg);color:var(--ok)} .pterm .tstat.now{background:var(--warn-bg);color:var(--warn)} .pterm .tstat.soon{background:var(--plan-bg);color:var(--plan)}
@@ -1003,8 +1022,30 @@ function reqBlocks(prog){
 const byCode=(a,b)=>String(codeLabel(a)).localeCompare(String(codeLabel(b)),undefined,{numeric:true});
 // what to show as a course's "code" — Oxford/transferred courses have no Cornell code, so label them "Oxford"
 const codeLabel=e=>{ const c=(e.code||'').trim(); return (c&&c!=='OXON')?c:'Oxford'; };
-const prowHTML=e=>`<div class="prow" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti">${esc(e.title||'')}</span><span class="cc num">${nf(num(e.credits))}</span></div>`;
+const prowHTML=e=>{ const p=profInfo(e); const fl=RCHECK_FLAG.has(String(e.id));
+  const sub=p.name?`<span class="prof">${esc(p.name)}${p.likely?' · likely':''}</span>`:'';
+  return `<div class="prow${fl?' flagged':''}" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti"><span class="tn">${esc(e.title||'')}</span>${sub}</span>${fl?'<span class="rflag">update</span>':''}<span class="cc num">${nf(num(e.credits))}</span></div>`; };
 const TSTAT={completed:{c:"done",l:"completed"},in_progress:{c:"now",l:"in progress"},planned:{c:"soon",l:"upcoming"}};
+function fmtDiff(d){ if(d.field==="credits") return nf(d.from)+"→"+nf(d.to); return "→ “"+String(d.to).slice(0,44)+"”"; }
+// The "Roster check" results panel shown atop the planner after a check finds something actionable.
+function rcheckPanelHTML(){
+  if(!RCHECK.ran || !RCHECK.items.length) return "";
+  const rows=RCHECK.items.map(({e,st})=>{
+    const term=termById(e.term_id), tn=term?term.name:"";
+    let note="", act="";
+    if(st.state==="available"){
+      note=st.single?"roster now live — meeting times available":"roster now live — pick your section";
+      if(st.diffs&&st.diffs.length) note+=" · "+st.diffs.map(d=>d.field+" "+fmtDiff(d)).join(", ");
+      act=st.single?`<button class="rc-act" data-rc-update="${e.id}">Update</button>`:`<button class="rc-act" data-rc-pick="${e.id}">Pick sections</button>`;
+    } else if(st.state==="notoffered"){
+      note="not in the published "+esc(st.ideal)+" roster — may not be offered";
+      act=`<button class="rc-act ghost" data-rc-open="${e.id}">Open</button>`;
+    }
+    return `<div class="rc-item"><div class="rc-info"><div class="rc-line"><span class="rc-code">${esc(codeLabel(e))}</span><span class="rc-term">${esc(tn)}</span></div><div class="rc-note">${note}</div></div>
+      <div class="rc-actions">${act}<button class="rc-act ghost" data-rc-dismiss="${e.id}">Dismiss</button></div></div>`;
+  }).join("");
+  return `<div class="rc-panel"><div class="rc-head"><span class="rc-title">Roster check</span><button class="rc-close" data-rc-clear="1">Clear</button></div>${rows}</div>`;
+}
 function renderPlanner(){
   const terms=[...DB.terms].sort((a,b)=>a.sort-b.sort);
   const t=today();
@@ -1032,20 +1073,43 @@ function renderPlanner(){
   }
   const wish=DB.enrollments.filter(e=>e.status==="wishlist").sort(byCode);
   const wcards=wish.map(e=>{
-    const meets=meetInfoHTML(meetingsOf(e));
-    return `<div class="wcard" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
+    const meets=meetInfoHTML(meetingsOf(e)); const p=profInfo(e); const aw=awaitingRoster(e);
+    const prof=(p.likely&&p.name)?`<div class="wc-prof">${esc(p.name)} · likely prof</div>`:'';
+    const await_=aw?`<div class="wc-await">${esc(aw)} roster not out yet · code/title/credits only</div>`:'';
+    return `<div class="wcard${RCHECK_FLAG.has(String(e.id))?' flagged':''}" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
     <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div>
-    ${meets?`<div class="ci-meets wc-meets">${meets}</div>`:''}</div>`;
+    ${prof}${meets?`<div class="ci-meets wc-meets">${meets}</div>`:''}${await_}</div>`;
   }).join("");
   const wishCard=`<div class="pterm aux open"><div class="ph" data-toggle="__wish"><span class="chev">›</span><span class="nm">Wishlist</span><span class="meta acount">${wish.length}</span></div>
     <div class="body">${wcards?`<div class="wgrid">${wcards}</div>`:'<p class="hint" style="padding:0 0 8px">Courses you might take — separate from your plan.</p>'}
       <div class="add-in" data-addwish="1">＋ add a wishlist idea</div></div></div>`;
   const auxDiv=(unschedCard||wishCard)?`<div class="aux-div">holding area</div>`:"";
-  $("#planner").innerHTML=`<div class="phead"><h1>Planner</h1></div>${cards}${auxDiv}${unschedCard}${wishCard}`;
+  const head=`<div class="phead"><h1>Planner</h1><div class="actions"><button id="rosterCheckBtn" class="rcheck-btn" type="button">↻ Check rosters</button></div></div>`;
+  $("#planner").innerHTML=`${head}${rcheckPanelHTML()}${cards}${auxDiv}${unschedCard}${wishCard}`;
   $("#planner").querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;const c=b.closest(".pterm");c.classList.toggle("open");if(c.classList.contains("open"))EXP.add(id);else EXP.delete(id);});
   $("#planner").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
   $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:statusForTerm(b.dataset.add)}));
   $("#planner").querySelectorAll("[data-addwish]").forEach(b=>b.onclick=()=>openCourse(null,{status:"wishlist"}));
+  const rcb=$("#rosterCheckBtn"); if(rcb) rcb.onclick=runRosterCheck;
+  wireRcheckActions();
+  // fill in likely professors for planned/wishlist courses, then re-render once if any were learned
+  if(!renderPlanner._hy){ renderPlanner._hy=true;
+    hydrateProfessors(DB.enrollments.filter(e=>{const d=displayStatus(e);return d==="planned"||d==="in_progress"||d==="wishlist";}))
+      .then(ch=>{ renderPlanner._hy=false; if(ch) renderPlanner(); }).catch(()=>{ renderPlanner._hy=false; }); }
+}
+// Wire the Roster-check panel's per-course action buttons.
+function wireRcheckActions(){
+  const findIt=id=>RCHECK.items.find(x=>String(x.e.id)===String(id));
+  const drop=id=>{ RCHECK.items=RCHECK.items.filter(x=>String(x.e.id)!==String(id)); RCHECK_FLAG.delete(String(id)); };
+  const doUpdate=async(id,mode)=>{ const it=findIt(id); if(!it) return;
+    try{ await applyRosterUpdate(it.e, it.st, mode); drop(id); toast("Updated "+codeLabel(it.e)); renderAll(); gcalAutoSync(); }
+    catch(err){ toast(err.message||"Error"); } };
+  $("#planner").querySelectorAll("[data-rc-update]").forEach(b=>b.onclick=()=>doUpdate(b.dataset.rcUpdate,"fill"));
+  $("#planner").querySelectorAll("[data-rc-facts]").forEach(b=>b.onclick=()=>doUpdate(b.dataset.rcFacts,"facts"));
+  $("#planner").querySelectorAll("[data-rc-pick]").forEach(b=>b.onclick=()=>openCourse(b.dataset.rcPick));
+  $("#planner").querySelectorAll("[data-rc-open]").forEach(b=>b.onclick=()=>openCourse(b.dataset.rcOpen));
+  $("#planner").querySelectorAll("[data-rc-dismiss]").forEach(b=>b.onclick=()=>{ RCHECK_DISMISSED.add(String(b.dataset.rcDismiss)); drop(b.dataset.rcDismiss); renderPlanner(); });
+  $("#planner").querySelectorAll("[data-rc-clear]").forEach(b=>b.onclick=()=>{ RCHECK.ran=false; RCHECK.items=[]; RCHECK_FLAG.clear(); renderPlanner(); });
 }
 /* ---- schedule (weekly grid) ---- */
 const SDAYS=["M","T","W","R","F"];
@@ -1073,10 +1137,18 @@ function detectPart(sd,ed,t){ const ts=pdate(t&&t.starts_on), te=pdate(t&&t.ends
 let SCHED_TERM=null;
 let SCHED_FOCUS=localStorage.getItem("carn_schedfocus")==="1";
 let GCAL={connected:false,email:null,count:0};   // Google Calendar sync status (from gcal_status)
+// Terms selectable in the Schedule tab: any term with meeting data, PLUS any term that has real
+// courses and whose Cornell roster is now published (so a future term becomes viewable the moment
+// its roster drops — its courses just show as "no meeting time" chips until you fill them).
 function schedTermsWithData(){ const ids=new Set(DB.enrollments.filter(e=>meetingsOf(e).length&&e.term_id).map(e=>e.term_id));
+  if(AVAIL_ROSTERS){ for(const t of DB.terms){ if(ids.has(t.id)) continue;
+    if(!DB.enrollments.some(e=>e.term_id===t.id&&displayStatus(e)!=="wishlist")) continue;
+    const ideal=termRoster(t); if(ideal&&AVAIL_ROSTERS.includes(ideal)) ids.add(t.id); } }
   return DB.terms.filter(t=>ids.has(t.id)); }
 function todayDayCode(){ return {1:"M",2:"T",3:"W",4:"R",5:"F"}[new Date().getDay()]||null; }
 function renderSchedule(){
+  // once the published-roster list loads, re-render so newly-eligible future terms appear
+  if(!AVAIL_ROSTERS && !renderSchedule._av){ renderSchedule._av=true; availRosters().then(()=>renderSchedule()); }
   const withData=schedTermsWithData();
   const cur=currentTerm();
   const termList=(withData.length?withData:DB.terms).slice().sort((a,b)=>a.sort-b.sort);
@@ -1392,7 +1464,7 @@ function renderSatBox(){
     const anyHere=rows.some(r=>auto.has(r.id)||SAT_CUR.has(r.id));
     html+=`<details class="satprog" ${anyHere?'open':''}><summary>${esc(p.name)}</summary>`+
       rows.map(r=>{ const pad=r.parent_id?'style="padding-left:44px"':'';
-        if(auto.has(r.id)) return `<label class="satopt auto" ${pad}><input type="checkbox" checked disabled data-auto="1"> <span class="sat-nm">${esc(r.name)}</span><span class="sat-auto">counts automatically</span></label>`;
+        if(auto.has(r.id)) return `<label class="satopt auto" ${pad}><input type="checkbox" checked disabled data-auto="1"> <span class="sat-nm">${esc(r.name)}</span><span class="sat-auto">auto</span></label>`;
         return `<label class="satopt" ${pad}><input type="checkbox" data-req="${r.id}" ${SAT_CUR.has(r.id)?'checked':''}> <span class="sat-nm">${esc(r.name)}</span></label>`;
       }).join("")+`</details>`;
   }
@@ -1460,6 +1532,94 @@ async function getSubjectClasses(sub, roster){
   return SEARCH_CACHE[key];
 }
 function classTags(cls){ let tags=[]; if(cls.crseAttrValueGroups&&cls.crseAttrValueGroups.length) cls.crseAttrValueGroups.forEach(g=>(g.crseAttrValues||"").split(",").forEach(v=>{const t=v.replace(/[()\s]/g,"");if(t)tags.push(t);})); else if(cls.catalogDistr) cls.catalogDistr.replace(/[()]/g," ").split(/[,\s]+/).forEach(t=>{if(t)tags.push(t);}); return tags; }
+
+/* ---- likely professor + roster freshness (cards, wishlist, "Check rosters") ---- */
+// Synchronous roster resolve — usable only after availRosters() has loaded the published list once
+// (it has, right after app start). Returns "" until then; the async resolveRoster is the real one.
+function resolveRosterSync(ideal){ if(!AVAIL_ROSTERS) return "";
+  const sorted=AVAIL_ROSTERS.slice().sort((a,b)=>rosterKey(a)-rosterKey(b)); const newest=sorted[sorted.length-1]||"";
+  if(!ideal) return newest; if(AVAIL_ROSTERS.includes(ideal)) return ideal;
+  const same=sorted.filter(r=>r.slice(0,2)===ideal.slice(0,2)); return same.length?same[same.length-1]:newest; }
+// the instructor already saved on one of a course's meetings, if any
+function savedInstructor(e){ for(const m of meetingsOf(e)){ if(m&&(m.instructor||"").trim()) return m.instructor.trim(); } return ""; }
+// the main section's instructor for a roster class (prefer the section that has a real meeting time)
+function primaryInstructorOf(cls){ const secs=sectionsOf(cls); if(!secs.length) return "";
+  const pick=secs.find(x=>((x.s.meetings||[]).some(m=>m.timeStart)))||secs[0]; const mt=(pick.s.meetings||[])[0]; return mt?instructorsOf(mt):""; }
+let PROF_CACHE={};   // "SUB NBR|ROSTER" -> instructor ("" once looked up and none found)
+// Professor to show for a course: the saved instructor, else the instructor Cornell listed on the
+// resolved roster (recycled = last year's same-season term, on the assumption the prof carries over).
+// Returns {name, likely}; likely=true when it's a same-season guess rather than saved data.
+function profInfo(e){ const s=savedInstructor(e); if(s) return {name:s, likely:false};
+  const parts=(e.code||"").trim().toUpperCase().split(/\s+/); if(parts.length<2) return {name:"", likely:false};
+  const roster=resolveRosterSync(termRoster(termById(e.term_id))); if(!roster) return {name:"", likely:false};
+  const nm=PROF_CACHE[parts[0]+" "+parts[1]+"|"+roster];
+  // "likely" only when it's a same-season guess (the term's own roster isn't published yet)
+  return {name:nm||"", likely:!!nm && !!awaitingRoster(e)}; }
+// Fill PROF_CACHE for courses that lack a saved instructor. Resolves true if a new name was learned,
+// so the caller re-renders once. Cheap — getSubjectClasses is cached per subject+roster.
+async function hydrateProfessors(list){ await availRosters(); let learned=false;
+  for(const e of list){ if(savedInstructor(e)) continue;
+    const parts=(e.code||"").trim().toUpperCase().split(/\s+/); if(parts.length<2) continue;
+    const {roster}=await resolveRoster(termRoster(termById(e.term_id))); if(!roster) continue;
+    const key=parts[0]+" "+parts[1]+"|"+roster; if(key in PROF_CACHE) continue;
+    const classes=await getSubjectClasses(parts[0], roster); const cls=classes&&classes.find(c=>c.catalogNbr===parts[1]);
+    const nm=cls?primaryInstructorOf(cls):""; PROF_CACHE[key]=nm; if(nm) learned=true; }
+  return learned; }
+// The ideal roster code for a course's term if Cornell hasn't published it yet (else ""). Sync.
+function awaitingRoster(e){ if(!AVAIL_ROSTERS) return ""; const ideal=termRoster(termById(e.term_id));
+  return (ideal && !AVAIL_ROSTERS.includes(ideal)) ? ideal : ""; }
+// A roster class is unambiguous (one-tap fill) only when it has exactly one section.
+function rosterSingleSection(cls){ return sectionsOf(cls).length===1; }
+// Where a planned/wishlist course stands vs. its term's published roster:
+// 'awaiting' (roster not out) · 'available' (out, needs times) · 'changed' (has times, title/credits
+// differ) · 'notoffered' (course not in the published roster) · 'ok'.
+async function courseRosterState(e){
+  const ideal=termRoster(termById(e.term_id)); if(!ideal) return {state:'ok'};
+  const avail=await availRosters(); if(!avail.includes(ideal)) return {state:'awaiting', ideal};
+  const parts=(e.code||"").trim().toUpperCase().split(/\s+/); if(parts.length<2) return {state:'ok'};
+  const classes=await getSubjectClasses(parts[0], ideal); const cls=classes&&classes.find(c=>c.catalogNbr===parts[1]);
+  if(!cls) return {state:'notoffered', ideal};
+  const eg=(cls.enrollGroups||[])[0]||{}; const rTitle=cls.titleLong||""; const rCr=(eg.unitsMaximum!=null?eg.unitsMaximum:eg.unitsMinimum);
+  const diffs=[]; if(rTitle && rTitle!==(e.title||"")) diffs.push({field:"title", from:e.title||"", to:rTitle});
+  if(rCr!=null && Number(rCr)!==Number(num(e.credits))) diffs.push({field:"credits", from:num(e.credits), to:Number(rCr)});
+  const single=rosterSingleSection(cls);
+  const hasTimes=meetingsOf(e).some(m=>m.days&&m.days.length&&hm2min(m.start)!=null);
+  // Only flag courses that still need meeting times. A course that already has times was curated by
+  // the user (their real section, credits, title) — re-flagging it against the roster's first section
+  // would invite clobbering their intentional values, so we leave it alone.
+  if(!hasTimes) return {state:'available', ideal, cls, diffs, single};
+  return {state:'ok'};
+}
+// Apply a roster update to a course and persist it. mode 'fill' also fills meetings from the class's
+// single section (times/room/instructor); mode 'facts' updates only title/credits.
+async function applyRosterUpdate(e, st, mode){
+  const row={ id:e.id, code:e.code, title:e.title, credits:e.credits, term_id:e.term_id, status:e.status,
+    grade:e.grade, counts_gpa:e.counts_gpa, tags:(e.tags||[]).slice(), analog_of:e.analog_of, in_as:e.in_as, meetings:meetingsOf(e).slice() };
+  for(const d of (st.diffs||[])){ if(d.field==="title") row.title=d.to; if(d.field==="credits") row.credits=d.to; }
+  if(mode==="fill" && st.cls){ const term=termById(e.term_id);
+    row.meetings=meetingsFromClass(st.cls).map(m=>{ m.part=detectPart(m.sd,m.ed,term); delete m.sd; delete m.ed; return m; }); }
+  const saved=(await api("upsert",{table:"enrollments",row})).row;
+  const i=DB.enrollments.findIndex(x=>String(x.id)===String(e.id)); if(i>=0) DB.enrollments[i]=saved; else DB.enrollments.push(saved);
+  return saved;
+}
+// Results of the last "Check rosters" run. RCHECK_FLAG = ids to badge; DISMISSED = user-hidden this session.
+let RCHECK={ran:false, items:[]}, RCHECK_FLAG=new Set(), RCHECK_DISMISSED=new Set(), RCHECK_BUSY=false;
+async function runRosterCheck(){
+  if(RCHECK_BUSY) return; RCHECK_BUSY=true;
+  const btn=$("#rosterCheckBtn"); if(btn){ btn.classList.add("busy"); btn.disabled=true; }
+  try{
+    const cands=DB.enrollments.filter(e=>{const ds=displayStatus(e); return ds==="planned"||ds==="in_progress"||ds==="wishlist";});
+    const states=await Promise.all(cands.map(async e=>({e, st:await courseRosterState(e)})));
+    RCHECK.ran=true;
+    RCHECK.items=states.filter(x=>["available","notoffered"].includes(x.st.state) && !RCHECK_DISMISSED.has(String(x.e.id)));
+    RCHECK_FLAG=new Set(RCHECK.items.map(x=>String(x.e.id)));
+    renderPlanner();
+    const n=k=>RCHECK.items.filter(x=>x.st.state===k).length;
+    const bits=[]; if(n("available"))bits.push(n("available")+" with new roster data"); if(n("changed"))bits.push(n("changed")+" changed"); if(n("notoffered"))bits.push(n("notoffered")+" may not be offered");
+    toast(bits.length?("Roster check — "+bits.join(" · ")):"Roster check — everything's current");
+  }catch(err){ toast(err.message||"Roster check failed"); }
+  finally{ RCHECK_BUSY=false; const b=$("#rosterCheckBtn"); if(b){ b.classList.remove("busy"); b.disabled=false; } }
+}
 async function runSearch(){
   const q=$("#mCode").value.trim().toUpperCase(); const res=$("#mResults"), msg=$("#mLookupMsg");
   const parts=q.split(/\s+/), sub=parts[0];
