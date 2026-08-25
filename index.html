@@ -150,7 +150,7 @@
   .subhead .dot{width:8px;height:8px;border-radius:99px}
   .indent{padding-left:12px;border-left:2px solid var(--line);margin-left:3px}
   .req{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:9px;overflow:hidden;box-shadow:var(--shadow)}
-  .req .bh{display:flex;align-items:center;gap:11px;padding:13px 15px;width:100%;text-align:left}
+  .req .bh{display:flex;align-items:center;gap:11px;padding:13px 15px;width:100%;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .req .bh:hover{background:var(--surface-2)}
   .req .chev{width:11px;color:var(--ink-3);transition:transform .2s;flex:0 0 auto} .req.open .chev{transform:rotate(90deg)}
   /* name flexes to fill so the bar + count sit in fixed, aligned right-hand columns */
@@ -170,7 +170,7 @@
 
   /* ---- planner ---- */
   .pterm{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);margin-bottom:9px;overflow:hidden;box-shadow:var(--shadow)}
-  .pterm .ph{display:flex;align-items:center;gap:11px;padding:13px 15px;width:100%;text-align:left}
+  .pterm .ph{display:flex;align-items:center;gap:11px;padding:13px 15px;width:100%;text-align:left;cursor:pointer;-webkit-tap-highlight-color:transparent}
   .pterm .ph:hover{background:var(--surface-2)}
   .pterm .chev{width:11px;color:var(--ink-3);transition:transform .2s;flex:0 0 auto} .pterm.open .chev{transform:rotate(90deg)}
   .pterm .nm{font-weight:800;font-size:13.5px}
@@ -194,6 +194,8 @@
   .pterm .tstat.done{background:var(--ok-bg);color:var(--ok)} .pterm .tstat.now{background:var(--warn-bg);color:var(--warn)} .pterm .tstat.soon{background:var(--plan-bg);color:var(--plan)}
   .segrow{margin:2px 0 14px} .segrow .seg{margin-bottom:6px} .segnote{font-size:11.5px;color:var(--ink-3);line-height:1.45;max-width:60ch}
   .crow.waivernote .grow{font-size:11.5px;color:var(--warn);font-weight:600}
+  .crow.termhdr{padding:11px 0 3px;border-bottom:0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
+  .crow.termhdr:first-child{padding-top:3px}
   .add-in{display:flex;align-items:center;gap:7px;padding:9px 0 3px;color:var(--accent);font-weight:700;font-size:12px}
   .ideas{background:var(--surface);border:1px dashed var(--line-strong);border-radius:var(--r);padding:13px 15px;margin-bottom:14px}
   .ideas .ih{display:flex;align-items:center;gap:8px;font-weight:800;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);margin-bottom:2px}
@@ -939,10 +941,22 @@ function renderRequirements(){
     html+=`</div>`;
   }
   $("#requirements").innerHTML=html;
-  $("#requirements").querySelectorAll("[data-rt]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();const id=b.dataset.rt;const req=b.closest(".req");req.classList.toggle("open");if(req.classList.contains("open"))REXP.add(id);else REXP.delete(id);});
+  $("#requirements").querySelectorAll("[data-rt]").forEach(b=>{ const tog=(ev)=>{ev.stopPropagation();const id=b.dataset.rt;const req=b.closest(".req");req.classList.toggle("open");if(req.classList.contains("open"))REXP.add(id);else REXP.delete(id);}; b.onclick=tog; b.onkeydown=(ev)=>{ if(ev.key==="Enter"||ev.key===" "){ ev.preventDefault(); tog(ev); } }; });
   $("#requirements").querySelectorAll("#bakerSeg button").forEach(b=>b.onclick=()=>{BAKER_VIEW=b.dataset.bv;renderRequirements();});
   $("#requirements").querySelectorAll("[data-editreq]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();openReq(b.dataset.editreq);});
   $("#requirements").querySelectorAll(".co[data-cid]").forEach(b=>b.onclick=(ev)=>{ev.stopPropagation();openCourse(b.dataset.cid);});
+}
+// Render a requirement's course list grouped by term (chronological) and sorted by
+// course code within each term. Used when a requirement's spec sets groupByTerm.
+function courseRowHTML(e){ return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${nf(num(e.credits))} cr</span></div>`; }
+function coursesByTermHTML(courses){
+  const groups=new Map();
+  for(const e of courses){ const k=e.term_id||'~none'; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(e); }
+  const order=[...groups.keys()].map(id=>termById(id)||{id,name:'No term',sort:1e9}).sort((a,b)=>(a.sort??1e9)-(b.sort??1e9));
+  return order.map(t=>{
+    const list=groups.get(t.id).slice().sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),undefined,{numeric:true}));
+    return `<div class="crow termhdr"><span class="grow">${esc(t.name||t.id)}</span></div>`+list.map(courseRowHTML).join("");
+  }).join("");
 }
 function reqBlocks(prog){
   const tops=DB.requirements.filter(r=>r.program_id===prog.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort);
@@ -961,7 +975,7 @@ function reqBlocks(prog){
       const note=(BAKER_VIEW==='plan'&&req.spec&&req.spec.note)?`<div class="crow waivernote"><span class="grow">${esc(req.spec.note)}</span></div>`:"";
       let detail=note;
       if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);return `<div class="crow"><span class="cdot dot ${km?'ok':(kc.length?'warn':'none')}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
-      else if(r.courses&&r.courses.length){ detail=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${nf(num(e.credits))} cr</span></div>`).join(""); }
+      else if(r.courses&&r.courses.length){ detail=(req.spec&&req.spec.groupByTerm)?coursesByTermHTML(r.courses):r.courses.map(courseRowHTML).join(""); }
       inner=bar+detail;
     } else {
       const list=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="pill ${STATUS_CLASS[displayStatus(e)]}">${STATUS_LABEL[displayStatus(e)]}</span></div>`).join("");
@@ -969,10 +983,10 @@ function reqBlocks(prog){
     }
     const pct=r.need?Math.min(100,100*r.done/r.need):(r.met?100:0);
     const openByDefault=REXP.has(r.req.id);
-    return `<div class="req ${openByDefault?'open':''}"><div class="bh">
-      <button class="chev" data-rt="${r.req.id}" aria-label="toggle">›</button>
+    return `<div class="req ${openByDefault?'open':''}"><div class="bh" data-rt="${r.req.id}" role="button" tabindex="0" aria-label="Toggle ${esc(r.req.name)}">
+      <span class="chev">›</span>
       <span class="cdot dot ${r.met?'ok':((pct>0||(r.planned||0)>0)?'warn':'none')}"></span>
-      <span class="nm" data-rt="${r.req.id}">${esc(r.req.name)}</span>
+      <span class="nm">${esc(r.req.name)}</span>
       <span class="mini">${bar2(pct,pctPlan(r),r.met)}</span>
       <span class="cr ${r.met?'c-ok':''}">${r.kind==='flag'?(r.met?'✓':'—'):nf(r.done)+'/'+nf(r.need)}</span>
       <button class="edit" data-editreq="${r.req.id}">edit</button></div>
@@ -1609,6 +1623,9 @@ $("#rSave").onclick=async()=>{
     else m.manual=true;
     spec.match=m;
   }
+  // Preserve author-only spec fields the editor UI doesn't expose (caps, overflowTo,
+  // groupByTerm, note, standard, …) so editing a requirement never silently drops them.
+  if(R_EDIT){ const prev=DB.requirements.find(r=>r.id===R_EDIT); if(prev&&prev.spec) for(const k in prev.spec) if(!(k in spec)) spec[k]=prev.spec[k]; }
   const prog=$("#rProg").value;
   const sibs=DB.requirements.filter(r=>r.program_id===prog); const sort=R_EDIT?(DB.requirements.find(r=>r.id===R_EDIT).sort):(sibs.length?Math.max(...sibs.map(s=>s.sort||0))+1:1);
   const row={ program_id:prog, parent_id:$("#rParent").value||null, name:$("#rName").value.trim()||"Requirement", kind:kind==="credits"?"credits":(kind==="flag"?"flag":kind), credits_required:kind==="credits"?n:null, count_required:kind==="courses"?n:null, sort, spec };
