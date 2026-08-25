@@ -86,6 +86,7 @@
   .tbtn:hover{background:var(--surface-2);color:var(--ink)}
 
   .main{min-width:0;padding:26px 30px 60px}
+  .main.fit{padding-bottom:0}   /* schedule page fits the viewport; no scroll padding */
   .phead{display:flex;align-items:center;gap:16px;margin-bottom:20px;flex-wrap:wrap}
   .phead h1{font-size:26px;font-weight:800}
   .phead .actions{margin-left:auto;display:flex;gap:9px}
@@ -270,6 +271,12 @@
   .result{display:flex;gap:9px;align-items:baseline;padding:9px 11px;border-radius:8px;cursor:pointer;font-size:12.5px}
   .result:hover{background:var(--surface-2)} .result .rc{font-weight:800;white-space:nowrap} .result .rt{color:var(--ink-2);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .result .rr{color:var(--ink-3);font-weight:700;white-space:nowrap}
   .result.rhead{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);cursor:default;position:sticky;top:0;background:var(--surface)} .result.rhead:hover{background:var(--surface)}
+  .result.secopt{display:block;padding:9px 11px}
+  .result.secopt .so-top{display:flex;align-items:baseline;gap:8px}
+  .result.secopt .so-top .rc{color:var(--ink-3);font-weight:800}
+  .result.secopt .so-topic{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink);font-weight:700}
+  .result.secopt .so-top .rr{color:var(--ink-3);font-weight:700;white-space:nowrap}
+  .result.secopt .so-when{font-size:12px;color:var(--ink-2);font-weight:600;margin-top:2px}
   /* sticky modal chrome + scroll containment */
   .sheet{overscroll-behavior:contain}
   .sheet .sh{position:sticky;top:0;z-index:6;background:var(--surface);border-radius:16px 16px 0 0}
@@ -368,12 +375,12 @@
     .schead .summ small{display:inline;margin-left:6px}
     .sched-days .d{font-size:10px;padding:7px 2px}
     .ev{padding:3px 4px;border-radius:6px;border-left-width:3px}
-    .ev .c{font-size:9.5px;letter-spacing:-.02em}
-    .ev .m{font-size:9px}
-    .ev .m .tf,.ev .m .sec{display:none} .ev .m .tm{display:inline}
-    .ev .loc{display:none}
+    .ev .c{font-size:9.5px;letter-spacing:-.03em;white-space:normal;line-height:1.08}
+    .ev .m{font-size:8px;letter-spacing:-.02em;white-space:nowrap}
+    .ev .m .tm,.ev .m .sec{display:none} .ev .m .tf{display:inline}
+    .ev .loc{display:block;font-size:8px;letter-spacing:-.01em}
     .ev.narrow .c{white-space:normal;line-height:1.05;font-size:9px}
-    .ev.narrow .m{display:none}
+    .ev.narrow .m,.ev.narrow .loc{display:none}
     .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
 </style>
@@ -1011,7 +1018,7 @@ function renderSchedule(){
       const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half"); if(dim)cls.push("dim");
       return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}" style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
-        <div class="m">${plabel?`<span class="pl">${plabel} · </span>`:''}<span class="tf">${min2label(ev.s)}–${min2label(ev.en)}</span><span class="tm">${min2label(ev.s)}</span><span class="sec">${secLbl}</span></div>
+        <div class="m">${plabel?`<span class="pl">${plabel} · </span>`:''}<span class="tf">${min2label(ev.s).replace(/[ap]m$/,'')}–${min2label(ev.en).replace(/[ap]m$/,'')}</span><span class="tm">${min2label(ev.s)}</span><span class="sec">${secLbl}</span></div>
         ${showLoc&&ev.m.location?`<div class="loc">${esc(ev.m.location)}</div>`:''}
       </div>`;
     }).join("");
@@ -1031,16 +1038,23 @@ function renderSchedule(){
   requestAnimationFrame(fitSchedule);
 }
 // Size the weekly grid to the remaining viewport so the page itself never scrolls.
+// The grid's bottom edge is pinned just above the actual bottom nav (measured, not
+// guessed) — and the schedule page drops .main's tall scroll padding via .main.fit —
+// so nothing spills under the nav and the document height never exceeds the viewport.
 function fitSchedule(){
   const wrap=$("#schedule .sched"); if(!wrap) return;
   const body=wrap.querySelector(".sched-body"); if(!body){ wrap.style.height=""; return; }
   const top=wrap.getBoundingClientRect().top;
   const isMobile=matchMedia("(max-width:760px)").matches;
-  const bottomChrome=isMobile?96:28;                 // mobile bottom nav / desktop breathing room
-  const unsched=wrap.querySelector(".sched-unsched");
-  const reserve=(unsched?unsched.offsetHeight:0);
-  const h=Math.round(window.innerHeight-top-bottomChrome-reserve);
-  wrap.style.height=Math.max(360,h)+"px";
+  let floor;
+  if(isMobile){
+    const rail=document.querySelector(".rail");
+    floor=(rail?rail.getBoundingClientRect().top:window.innerHeight)-10;   // sit just above the tab bar
+  }else{
+    floor=window.innerHeight-28;                                           // desktop breathing room
+  }
+  const h=Math.round(floor-top);
+  wrap.style.height=Math.max(320,h)+"px";
 }
 window.addEventListener("resize",()=>{ if(CUR==="schedule") fitSchedule(); });
 // read-only course info pane (from the schedule) — Edit button jumps to the full editor
@@ -1221,12 +1235,13 @@ function pickResult(cls,sub){ const secs=sectionsOf(cls);
   fillFromSection(cls,sub,secs[0]||null); }
 function showSectionPicker(cls,sub,secs){ const res=$("#mResults");
   res.innerHTML=`<div class="result rhead">${esc(sub)} ${esc(cls.catalogNbr)} · choose your section</div>`+
-    secs.map((sc,i)=>{ const m=(sc.s.meetings||[])[0]; const when=m?fmtRosterWhen(m):"";
-      const line=[sc.topic?esc(sc.topic):"",esc(when||"no set time")].filter(Boolean).join(" · ");
-      return `<div class="result" data-si="${i}"><span class="rc">${esc(sub)} ${esc(cls.catalogNbr)}·${esc(sc.section)}</span><span class="rt">${line}</span><span class="rr">${sc.credits!=null?esc(String(sc.credits))+' cr':''}</span></div>`;
+    secs.map((sc,i)=>{ const m=(sc.s.meetings||[])[0]; const when=m?fmtRosterWhen(m):"No set meeting time";
+      return `<div class="result secopt" data-si="${i}">
+        <div class="so-top"><span class="rc">${esc(sc.section)}</span><span class="so-topic">${esc(sc.topic||cls.titleLong||'')}</span><span class="rr">${sc.credits!=null?esc(String(sc.credits))+' cr':''}</span></div>
+        <div class="so-when">${esc(when)}</div></div>`;
     }).join("");
   res.querySelectorAll("[data-si]").forEach(b=>b.onclick=()=>fillFromSection(cls,sub,secs[+b.dataset.si]));
-  res.classList.add("on"); $("#mLookupMsg").textContent="Multiple sections — pick the one you're in."; }
+  res.classList.add("on"); $("#mLookupMsg").textContent="Multiple sections — pick the one you're in. Its time fills the meeting-times box below."; }
 function fillFromSection(cls,sub,sc){ const eg=(cls.enrollGroups||[])[0]||{};
   $("#mCode").value=sub+" "+cls.catalogNbr;
   $("#mTitleIn").value=(sc&&sc.topic)||cls.titleLong||"";
@@ -1242,6 +1257,8 @@ function fillFromSection(cls,sub,sc){ const eg=(cls.enrollGroups||[])[0]||{};
   $("#mResults").classList.remove("on"); $("#mLookupMsg").textContent=msg; }
 $("#mCode").addEventListener("input",()=>{ const el=$("#mCode"); const p=el.selectionStart; el.value=el.value.toUpperCase(); try{el.setSelectionRange(p,p);}catch(e){} clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,240); });
 $("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.remove("on"),200));
+// clicking a result/section must not blur the Code field (which would auto-hide the dropdown before the click lands)
+$("#mResults").addEventListener("mousedown",e=>e.preventDefault());
 $("#mTerm").addEventListener("change",()=>{ if($("#mCode").value.trim().length>=2){ clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,60); } });
 async function rosterLookup(code){
   const parts=code.trim().toUpperCase().split(/\s+/); if(parts.length<2) return null; const sub=parts[0], nbr=parts[1];
@@ -1344,7 +1361,20 @@ $("#rDelete").onclick=()=>{ if(R_EDIT==null) return;
     try{ await api("delete",{table:"requirements",id:R_EDIT}); DB.requirements=DB.requirements.filter(x=>x.id!==R_EDIT); closeModal($("#rmodal")); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } }); };
 
 /* ---- nav / theme / zoom ---- */
-function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); if(changed) scrollTo(0,0); updateFab(); if(id==="schedule") requestAnimationFrame(fitSchedule); }
+function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id));
+  const main=document.querySelector(".main"); if(main) main.classList.toggle("fit", id==="schedule");
+  if(changed && id!=="planner") scrollTo(0,0);
+  updateFab();
+  if(id==="schedule") requestAnimationFrame(fitSchedule);
+  if(id==="planner" && changed) requestAnimationFrame(centerPlannerTerm);
+}
+// On opening the planner, bring the current term to the vertical middle of the view
+// (the browser clamps naturally when it's the first or last section).
+function centerPlannerTerm(){
+  const p=$("#planner"); if(!p){ scrollTo(0,0); return; }
+  const el=p.querySelector(".pterm.now")||p.querySelector(".pterm:not(.past):not(.aux)");
+  if(el) el.scrollIntoView({block:"center",behavior:"auto"}); else scrollTo(0,0);
+}
 // floating add button — contextual to the page, so you never scroll up to add
 const FAB_ACT={ planner:()=>openCourse(), requirements:()=>openReq() };
 function updateFab(){ const f=$("#fab"); if(!f) return; const act=FAB_ACT[CUR];
