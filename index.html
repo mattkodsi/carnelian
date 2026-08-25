@@ -17,6 +17,9 @@
     --accent:#A81F23; --accent-ink:#FFFFFF; --accent-soft:#F8E9E7; --accent-line:#E9C9C6;
     --ok:#2E8B57; --ok-bg:#E4F1E9; --ok-line:#BFE0CC; --warn:#B9770F; --warn-bg:#F8EDD6; --warn-line:#EAD3A0;
     --plan:#39699F; --plan-bg:#E7EEF6; --plan-line:#C7D8EA;
+    --ev-strength:91%; --ev-mixc:#000000; --ev-ink:#fff; --ev-ink2:rgba(255,255,255,.93); --ev-ink3:rgba(255,255,255,.85); --ev-title:#fff;
+    --ev-bd:color-mix(in srgb, var(--h), #000 12%); --ev-bl:color-mix(in srgb, var(--h), #000 30%); --ev-shadow:0 1px 3px rgba(30,20,12,.18);
+    --sched-band:color-mix(in srgb, var(--ink) 3.5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 7%, transparent);
     --shadow:0 1px 2px rgba(60,40,30,.04), 0 12px 30px -18px rgba(80,40,30,.28);
     --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
     --font-display:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",system-ui,sans-serif;
@@ -28,6 +31,9 @@
     --accent:#F0665F; --accent-ink:#1a0f0e; --accent-soft:#2B1A1C; --accent-line:#4B2A2C;
     --ok:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
     --plan:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
+    --ev-strength:26%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 74%, var(--ink));
+    --ev-bd:color-mix(in srgb, var(--h) 34%, var(--surface)); --ev-bl:var(--h); --ev-shadow:none;
+    --sched-band:color-mix(in srgb, var(--ink) 5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 11%, transparent);
     --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72);
   }}
   :root[data-theme="dark"]{
@@ -36,6 +42,9 @@
     --accent:#F0665F; --accent-ink:#1a0f0e; --accent-soft:#2B1A1C; --accent-line:#4B2A2C;
     --ok:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
     --plan:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
+    --ev-strength:26%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 74%, var(--ink));
+    --ev-bd:color-mix(in srgb, var(--h) 34%, var(--surface)); --ev-bl:var(--h); --ev-shadow:none;
+    --sched-band:color-mix(in srgb, var(--ink) 5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 11%, transparent);
     --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72);
   }
   *{box-sizing:border-box} html,body{margin:0}
@@ -271,44 +280,54 @@
   .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--bg);padding:11px 17px;border-radius:99px;font-size:12.5px;font-weight:700;opacity:0;transition:.25s;z-index:120;pointer-events:none} .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
 
   /* ---- schedule (weekly grid) ---- */
-  :root{--gutter:44px;--hourH:56px}
-  .schead{display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+  :root{--gutter:46px}
+  .schead{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
   .schead h1{font-size:26px;font-weight:800}
   .schead select{appearance:none;-webkit-appearance:none;padding:8px 30px 8px 12px;border:1px solid var(--line-strong);border-radius:9px;background-color:var(--surface);color:var(--ink);font-weight:700;font-size:13px}
   .schead .summ{margin-left:auto;text-align:right;font-weight:800;font-size:13px}
   .schead .summ small{display:block;font-size:11px;color:var(--ink-3);font-weight:700}
   .schead .summ small.cf{color:var(--accent)}
-  .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
-  .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2)}
-  .sched-days .d{padding:9px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2);border-left:1px solid var(--line)}
-  .sched-days .d:first-child{border-left:0}
+  .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
+  .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto}
+  .sched-days .d{padding:9px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2)}
   .sched-days .d.today{color:var(--accent)}
-  .sched-body{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr)}
-  .sched-gutter{position:relative;height:calc(var(--rows) * var(--hourH))}
-  .sched-gutter .hr{position:absolute;left:0;right:6px;text-align:right;font-size:9.5px;font-weight:700;color:var(--ink-3);transform:translateY(-50%)}
-  .sched-col{position:relative;height:calc(var(--rows) * var(--hourH));border-left:1px solid var(--line);
-    background-image:repeating-linear-gradient(to bottom,var(--line) 0 1px,transparent 1px var(--hourH))}
+  .sched-body{position:relative;display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);flex:1 1 auto;min-height:0;
+    background:repeating-linear-gradient(to bottom,var(--sched-band) 0,var(--sched-band) calc(100%/var(--rows)),transparent calc(100%/var(--rows)),transparent calc(200%/var(--rows)))}
+  .sched-gutter{position:relative;height:100%}
+  .sched-gutter .hr{position:absolute;left:0;right:7px;text-align:right;font-size:9.5px;font-weight:700;color:var(--ink-3);padding-top:3px}
+  .sched-col{position:relative;height:100%;border-left:1px solid var(--sched-line)}
   .sched-col:first-of-type{border-left:0}
   .sched-col.today{background-color:var(--accent-soft)}
-  .ev{position:absolute;border-radius:7px;padding:4px 6px;overflow:hidden;cursor:pointer;
-    background:color-mix(in srgb,var(--h) 15%,var(--surface));
-    border:1px solid color-mix(in srgb,var(--h) 32%,var(--surface));
-    border-left:3px solid var(--h);box-shadow:0 1px 2px rgba(60,40,30,.06)}
-  .ev:hover{background:color-mix(in srgb,var(--h) 24%,var(--surface))}
-  .ev .c{font-weight:800;font-size:11px;line-height:1.15;color:color-mix(in srgb,var(--h) 62%,var(--ink));white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ev .m{font-size:9.5px;font-weight:700;color:var(--ink-2);line-height:1.2;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev{position:absolute;border-radius:8px;padding:5px 7px;overflow:hidden;cursor:pointer;
+    background:color-mix(in srgb,var(--h) var(--ev-strength),var(--ev-mixc));
+    border:1px solid var(--ev-bd);border-left:4px solid var(--ev-bl);box-shadow:var(--ev-shadow);color:var(--ev-ink)}
+  .ev:hover{filter:brightness(1.05)}
+  .ev .c{font-weight:800;font-size:11.5px;line-height:1.15;color:var(--ev-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev .m{font-size:10px;font-weight:700;color:var(--ev-ink2);line-height:1.25;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev .m .tm{display:none}
-  .ev .loc{font-size:9.5px;color:var(--ink-3);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ev.conflict{outline:1.5px solid var(--accent);outline-offset:-1.5px}
-  .ev.narrow.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3,var(--ink-3));opacity:.85;pointer-events:none}
+  .ev .loc{font-size:10px;color:var(--ev-ink3);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev.conflict{outline:2px solid var(--accent);outline-offset:-2px}
+  .ev.narrow.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
   .ev.dim{opacity:.42;border-left-style:dashed}
-  .ev .m .pl{font-weight:800;color:color-mix(in srgb,var(--h) 55%,var(--ink))}
+  .ev .m .pl{font-weight:800;color:var(--ev-title)}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
   .uchip .dot{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
   .uchip small{color:var(--ink-3);font-weight:700}
   .sched-empty{padding:40px 22px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.6}
+  /* read-only course info pane */
+  .ci-head{display:flex;align-items:center;gap:10px;margin-bottom:5px}
+  .ci-code{font-weight:800;font-size:16px;color:var(--ink);border-left:4px solid var(--h);padding-left:9px}
+  .ci-cr{margin-left:auto;font-weight:800;font-size:13px;color:var(--ink-3)}
+  .ci-title{font-size:14.5px;font-weight:700;color:var(--ink);margin-bottom:2px}
+  .ci-term{font-size:12.5px;color:var(--ink-3);font-weight:700;margin-bottom:14px}
+  .ci-meets{display:grid;gap:9px}
+  .ci-meet{border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:var(--surface-2)}
+  .ci-when{font-weight:800;font-size:13.5px;color:var(--ink)}
+  .ci-sub{font-size:12.5px;color:var(--ink-2);margin-top:3px}
+  .ci-none{color:var(--ink-3);font-size:13px}
+  .ci-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
   /* ---- meeting-times editor (course modal) ---- */
   .meetbox{border:1px solid var(--line);border-radius:11px;padding:10px;background:var(--surface)}
   .meet-empty{margin:2px 2px 10px;color:var(--ink-3);font-size:12.5px}
@@ -342,17 +361,17 @@
     .statgrid{grid-template-columns:1fr 1fr;gap:9px}
     .frow{grid-template-columns:1fr}
     .sheet .frow{grid-template-columns:1fr 1fr;gap:10px}
-    :root{--gutter:30px;--hourH:46px}
+    :root{--gutter:36px}
     .schead h1{font-size:23px}
     .schead .summ{margin-left:0;flex-basis:100%;text-align:left}
     .schead .summ small{display:inline;margin-left:6px}
     .sched-days .d{font-size:10px;padding:7px 2px}
-    .ev{padding:2px 3px;border-radius:6px;border-left-width:2.5px}
-    .ev .c{font-size:8.5px;letter-spacing:-.02em}
-    .ev .m{font-size:8.5px}
+    .ev{padding:3px 4px;border-radius:6px;border-left-width:3px}
+    .ev .c{font-size:9.5px;letter-spacing:-.02em}
+    .ev .m{font-size:9px}
     .ev .m .tf,.ev .m .sec{display:none} .ev .m .tm{display:inline}
     .ev .loc{display:none}
-    .ev.narrow .c{white-space:normal;line-height:1.05;font-size:8.5px}
+    .ev.narrow .c{white-space:normal;line-height:1.05;font-size:9px}
     .ev.narrow .m{display:none}
     .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
@@ -450,6 +469,15 @@
       <div class="sf-main"><button class="btn" id="mCancel" type="button">Cancel</button>
       <button class="btn primary" id="mSave" type="button">Save</button></div>
     </div>
+  </div>
+</div>
+
+<!-- course info (read-only, opened from the schedule) -->
+<div class="modal" id="infoModal">
+  <div class="sheet">
+    <div class="sh"><h3>Course</h3><button class="x" id="infoClose" aria-label="Close">×</button></div>
+    <div class="sb" id="infoBody"></div>
+    <div class="sf"><div class="sf-main"><button class="btn primary" id="infoEdit" type="button">Edit course</button></div></div>
   </div>
 </div>
 
@@ -965,7 +993,7 @@ function renderSchedule(){
     }
   }
   const dayHead=SDAYS.map(d=>`<div class="d ${d===showToday?'today':''}">${SDAY_LABEL[d]}</div>`).join("");
-  const gutter=Array.from({length:rows+1},(_,k)=>{const tm=(startH+k)*60;const top=((tm-gStart)/total)*100;
+  const gutter=Array.from({length:rows},(_,k)=>{const tm=(startH+k)*60;const top=((tm-gStart)/total)*100;
     return `<div class="hr" style="top:${top}%">${min2label(tm)}</div>`;}).join("");
   const cols=SDAYS.map(d=>{
     const blocks=byDay[d].map(ev=>{
@@ -994,8 +1022,46 @@ function renderSchedule(){
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
   $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}</div>${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;renderSchedule();};
-  $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
+  $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
+  requestAnimationFrame(fitSchedule);
 }
+// Size the weekly grid to the remaining viewport so the page itself never scrolls.
+function fitSchedule(){
+  const wrap=$("#schedule .sched"); if(!wrap) return;
+  const body=wrap.querySelector(".sched-body"); if(!body){ wrap.style.height=""; return; }
+  const top=wrap.getBoundingClientRect().top;
+  const isMobile=matchMedia("(max-width:760px)").matches;
+  const bottomChrome=isMobile?96:28;                 // mobile bottom nav / desktop breathing room
+  const unsched=wrap.querySelector(".sched-unsched");
+  const reserve=(unsched?unsched.offsetHeight:0);
+  const h=Math.round(window.innerHeight-top-bottomChrome-reserve);
+  wrap.style.height=Math.max(360,h)+"px";
+}
+window.addEventListener("resize",()=>{ if(CUR==="schedule") fitSchedule(); });
+// read-only course info pane (from the schedule) — Edit button jumps to the full editor
+const DAY_FULL={M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri",S:"Sat",U:"Sun"};
+function openCourseInfo(id){
+  const e=DB.enrollments.find(x=>String(x.id)===String(id)); if(!e) return;
+  const term=termById(e.term_id), mtgs=meetingsOf(e);
+  const meetsHtml = mtgs.length ? mtgs.map(m=>{
+    const days=(m.days||[]).map(d=>DAY_FULL[d]||d).join(", ");
+    const tt=(hm2min(m.start)!=null&&hm2min(m.end)!=null)?`${min2label(hm2min(m.start))}–${min2label(hm2min(m.end))}`:"";
+    const partLbl=m.part==='1'?' · first half':m.part==='2'?' · second half':'';
+    const sub=[]; if(m.location)sub.push(esc(m.location)); if(m.section)sub.push("Section "+esc(m.section)); if(m.instructor)sub.push(esc(m.instructor));
+    return `<div class="ci-meet"><div class="ci-when">${esc([days,tt].filter(Boolean).join("  "))}${partLbl}</div>${sub.length?`<div class="ci-sub">${sub.join(" · ")}</div>`:""}</div>`;
+  }).join("") : `<div class="ci-none">No meeting times set.</div>`;
+  const tags=(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("");
+  $("#infoBody").innerHTML=`
+    <div class="ci-head"><span class="ci-code" style="--h:${SCHED_COLORS[courseColorIdx(e.code)]}">${esc(codeLabel(e))}</span><span class="ci-cr">${nf(num(e.credits))} cr</span></div>
+    ${e.title?`<div class="ci-title">${esc(e.title)}</div>`:""}
+    <div class="ci-term">${esc(term?term.name:"No term")}</div>
+    <div class="ci-meets">${meetsHtml}</div>
+    ${tags?`<div class="ci-tags">${tags}</div>`:""}`;
+  $("#infoEdit").onclick=()=>{ closeModal($("#infoModal")); openCourse(id); };
+  openModal($("#infoModal"));
+}
+$("#infoClose").onclick=()=>closeModal($("#infoModal"));
+$("#infoModal").addEventListener("click",e=>{ if(e.target===$("#infoModal")) closeModal($("#infoModal")); });
 
 function renderTranscript(){
   const asC=creditsScope("as"), allC=creditsScope("all"), nonAs=Math.round((allC-asC)*10)/10;
@@ -1058,16 +1124,17 @@ function renderMeetRows(){
   $("#mMeetRows").querySelectorAll("[data-mfield]").forEach(inp=>inp.onchange=()=>{const[i,f]=inp.dataset.mfield.split(":");MMEET[+i][f]=inp.value;});
   $("#mMeetRows").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{MMEET.splice(+b.dataset.mrm,1);renderMeetRows();});
 }
-$("#mMeetAdd").onclick=()=>{ MMEET.push({component:"",section:"",days:[],start:"",end:"",location:"",part:"full"}); renderMeetRows(); };
+$("#mMeetAdd").onclick=()=>{ MMEET.push({component:"",section:"",days:[],start:"",end:"",location:"",instructor:"",part:"full"}); renderMeetRows(); };
 // parse Cornell roster meeting patterns/times into our shape
 function parseRosterTime(s){ const m=/^(\d{1,2}):(\d{2})\s*([AP])M?$/i.exec(String(s||"").trim()); if(!m) return "";
   let h=+m[1]%12; if(/p/i.test(m[3])) h+=12; return String(h).padStart(2,"0")+":"+m[2]; }
 function parsePattern(p){ const out=[]; let s=String(p||"");
   for(let i=0;i<s.length;){ if(s.substr(i,2)==="Su"){out.push("U");i+=2;} else{ const c=s[i].toUpperCase(); if("MTWRFS".includes(c))out.push(c); i++; } }
   return out; }
+function instructorsOf(mt){ return (((mt&&mt.instructors)||[]).map(i=>[i.firstName,i.lastName].filter(Boolean).join(" ")).filter(Boolean).join(", ")); }
 function meetingsFromClass(cls){ const eg=(cls.enrollGroups||[])[0]||{}; const out=[];
   (eg.classSections||[]).forEach(sec=>{ (sec.meetings||[]).forEach(mt=>{ const days=parsePattern(mt.pattern), start=parseRosterTime(mt.timeStart), end=parseRosterTime(mt.timeEnd);
-    if(days.length&&start&&end) out.push({component:sec.ssrComponent||"",section:sec.section||"",days,start,end,location:(mt.facilityDescr||"").trim(),sd:mt.startDt||"",ed:mt.endDt||""}); }); });
+    if(days.length&&start&&end) out.push({component:sec.ssrComponent||"",section:sec.section||"",days,start,end,location:(mt.facilityDescr||"").trim(),instructor:instructorsOf(mt),sd:mt.startDt||"",ed:mt.endDt||""}); }); });
   return out; }
 function resetDelBtn(b){ b.dataset.armed=""; b.textContent="Delete"; b.style.background=""; b.style.color=""; }
 function armDel(b,fn){ if(b.dataset.armed!=="1"){ b.dataset.armed="1"; b.textContent="Confirm delete"; b.style.background="var(--accent)"; b.style.color="#fff"; clearTimeout(b._t); b._t=setTimeout(()=>resetDelBtn(b),3000); return; } resetDelBtn(b); fn(); }
@@ -1080,7 +1147,7 @@ function openCourse(id=null, preset={}){
   $("#mStatus").value=e.status||"planned";
   $("#mGrade").innerHTML=`<option value="">—</option>`+["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"].map(g=>`<option>${g}</option>`).join(""); $("#mGrade").value=e.grade||"";
   MTAGS=[...(e.tags||[])]; renderTagChips(); $("#mDist").value="";
-  MMEET=meetingsOf(e).map(m=>({component:m.component||"",section:m.section||"",days:[...(m.days||[])],start:m.start||"",end:m.end||"",location:m.location||"",part:partOf(m)}));
+  MMEET=meetingsOf(e).map(m=>({component:m.component||"",section:m.section||"",days:[...(m.days||[])],start:m.start||"",end:m.end||"",location:m.location||"",instructor:m.instructor||"",part:partOf(m)}));
   $("#mMeetSel").innerHTML=""; renderMeetRows();
   $("#mAnalog").value=e.analog_of||"";
   $("#mInAs").checked = e.in_as===true;
@@ -1160,7 +1227,7 @@ $("#mSave").onclick=async()=>{
   if(SAVING) return; SAVING=true; const btn=$("#mSave"); btn.classList.add("busy");
   const grade=$("#mGrade").value;
   const meetings=MMEET.map(m=>({component:(m.component||"").trim(),section:(m.section||"").trim(),
-      days:SDAYS.filter(d=>(m.days||[]).includes(d)),start:m.start||"",end:m.end||"",location:(m.location||"").trim(),part:partOf(m)}))
+      days:SDAYS.filter(d=>(m.days||[]).includes(d)),start:m.start||"",end:m.end||"",location:(m.location||"").trim(),instructor:(m.instructor||"").trim(),part:partOf(m)}))
     .filter(m=>m.days.length&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
   const row={ code:$("#mCode").value.trim().toUpperCase(), title:$("#mTitleIn").value.trim(), credits:num($("#mCredits").value),
     term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null, counts_gpa:GRADE_POINTS[grade]!=null,
@@ -1242,7 +1309,7 @@ $("#rDelete").onclick=()=>{ if(R_EDIT==null) return;
     try{ await api("delete",{table:"requirements",id:R_EDIT}); DB.requirements=DB.requirements.filter(x=>x.id!==R_EDIT); closeModal($("#rmodal")); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } }); };
 
 /* ---- nav / theme / zoom ---- */
-function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); if(changed) scrollTo(0,0); updateFab(); }
+function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id)); if(changed) scrollTo(0,0); updateFab(); if(id==="schedule") requestAnimationFrame(fitSchedule); }
 // floating add button — contextual to the page, so you never scroll up to add
 const FAB_ACT={ planner:()=>openCourse(), requirements:()=>openReq() };
 function updateFab(){ const f=$("#fab"); if(!f) return; const act=FAB_ACT[CUR];
