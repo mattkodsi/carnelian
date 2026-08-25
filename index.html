@@ -229,10 +229,13 @@
   .fld{display:grid;gap:5px} .fld label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
   .fld{min-width:0} .fld input,.fld select{padding:10px 12px;font-size:14px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);width:100%;min-width:0;box-sizing:border-box}
   .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px} .frow>.fld{min-width:0}
+  .sheet .frow.stack{grid-template-columns:1fr}   /* long-value selects (program / parent) get full width */
   .chkrow{display:flex;align-items:center;gap:11px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);cursor:pointer;font-size:14px;font-weight:600;color:var(--ink)}
   .chkrow input{width:18px;height:18px;flex:0 0 auto;margin:0;accent-color:var(--accent)}
   .lookup{display:flex;gap:8px} .lookup input{flex:1}
   .chkline{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
+  .fld label.chkline{text-transform:none;letter-spacing:normal;font-size:12.5px;font-weight:600;color:var(--ink);padding-top:9px}
+  .chkline input[type=checkbox]{width:16px;height:16px;flex:0 0 auto;padding:0;margin:0;accent-color:var(--accent)}
   .satbox{border:1px solid var(--line);border-radius:9px;max-height:170px;overflow:auto;padding:6px}
   .satgrp{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);padding:6px 6px 3px}
   .satopt{display:flex;align-items:center;gap:8px;padding:5px 6px;font-size:12px;border-radius:6px} .satopt:hover{background:var(--surface-2)}
@@ -260,8 +263,8 @@
   .wcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px 15px;box-shadow:var(--shadow);cursor:pointer}
   .wcard .co{font-weight:800;font-size:14.5px} .wcard .ti{font-size:12px;color:var(--ink-2);margin:3px 0 10px} .wcard .meta{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
   /* custom app dropdowns (replace native option lists) */
-  .dd{position:relative}
-  .dd-btn{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);font-weight:600;font-size:14px}
+  .dd{position:relative;min-width:0}
+  .dd-btn{display:flex;align-items:center;gap:8px;width:100%;min-width:0;text-align:left;padding:10px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);font-weight:600;font-size:14px}
   .dd-btn .dd-lbl{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .dd-btn .dd-lbl.ph{color:var(--ink-3);font-weight:600}
   .dd-btn .dd-chev{color:var(--ink-3);font-weight:800;transition:.2s} .dd.open .dd-btn .dd-chev{transform:rotate(90deg)} .dd.open .dd-btn{border-color:var(--accent)}
   .dd-menu{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:30;background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;box-shadow:var(--shadow);max-height:244px;overflow:auto;padding:5px;display:none;overscroll-behavior:contain}
@@ -540,18 +543,18 @@
   <div class="sheet">
     <div class="sh"><h3 id="rTitle">Requirement</h3><button class="x" id="rClose" aria-label="Close">×</button></div>
     <div class="sb">
-      <div class="frow">
+      <div class="frow stack">
         <div class="fld"><label>Program</label><select id="rProg"></select></div>
         <div class="fld"><label>Nested under</label><select id="rParent"></select></div>
       </div>
       <div class="fld"><label>Name</label><input id="rName"></div>
-      <div class="frow">
+      <div class="frow" id="rTypeRow">
         <div class="fld"><label>Type</label><select id="rKind">
           <option value="credits">Credit total</option>
-          <option value="courses">Number of courses</option>
-          <option value="coverage">Category coverage</option>
-          <option value="flag">Checkbox (done / not)</option></select></div>
-        <div class="fld"><label>How many</label><input id="rNeed" type="number" step="0.5" inputmode="decimal"></div>
+          <option value="courses">Course count</option>
+          <option value="coverage">Coverage</option>
+          <option value="flag">Checkbox</option></select></div>
+        <div class="fld" id="rNeedFld"><label>How many</label><input id="rNeed" type="number" step="0.5" inputmode="decimal"></div>
       </div>
       <div class="fld" id="rMatchWrap"><label>Matches courses by</label>
         <select id="rMatchType">
@@ -567,7 +570,7 @@
         <div class="frow"><div class="fld"><label>Subject</label><input id="rSubj"></div>
           <div class="fld"><label>Level min</label><input id="rLmin" type="number" inputmode="numeric"></div></div>
         <div class="frow"><div class="fld"><label>Level max</label><input id="rLmax" type="number" inputmode="numeric"></div>
-          <div class="fld"><label>Exclude x9xx?</label><label class="chkline" style="padding-top:9px"><input type="checkbox" id="rX9"> yes</label></div></div>
+          <div class="fld"><label>Exclude x9xx?</label><label class="chkline"><input type="checkbox" id="rX9"><span>Yes</span></label></div></div>
       </div>
       <div class="fld" id="rMV_codes" style="display:none"><label>Codes (comma separated)</label><input id="rCodes"></div>
       <div class="fld" id="rMV_scope" style="display:none"><label>Pool</label><select id="rScope"><option value="as">A&amp;S credits</option><option value="all">All undergrad credits</option><option value="grad">Grad credits</option></select></div>
@@ -1532,9 +1535,12 @@ function openReq(id=null){
 }
 function fillParents(){ const pid=$("#rProg").value; const opts=DB.requirements.filter(r=>r.program_id===pid&&r.id!==R_EDIT);
   $("#rParent").innerHTML=`<option value="">— top level —</option>`+opts.map(r=>`<option value="${r.id}">${esc(r.name)}</option>`).join(""); syncDD($("#rParent")); }
-function syncMatchUI(){ const k=$("#rKind").value, mt=$("#rMatchType").value;
-  $("#rMatchWrap").style.display=k==="flag"?"none":"grid";
-  ["attribute","subject","codes","scope"].forEach(x=>$("#rMV_"+x).style.display=(k!=="flag"&&mt===x)?(x==="subject"?"block":"grid"):"none");
+function syncMatchUI(){ const k=$("#rKind").value, mt=$("#rMatchType").value, flag=k==="flag";
+  // A checkbox flag is just done/not — "how many" and the course matcher don't apply.
+  $("#rNeedFld").style.display=flag?"none":"grid";
+  $("#rTypeRow").style.gridTemplateColumns=flag?"1fr":"";
+  $("#rMatchWrap").style.display=flag?"none":"grid";
+  ["attribute","subject","codes","scope"].forEach(x=>$("#rMV_"+x).style.display=(!flag&&mt===x)?(x==="subject"?"block":"grid"):"none");
 }
 $("#rKind").onchange=syncMatchUI; $("#rMatchType").onchange=syncMatchUI;
 $("#rClose").onclick=()=>closeModal($("#rmodal"));
