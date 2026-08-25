@@ -333,9 +333,6 @@
   .schead .summ .scount{text-align:right}
   .schead .summ small{display:block;font-size:11px;color:var(--ink-3);font-weight:700}
   .schead .summ small.cf{color:var(--accent)}
-  .schead .halftog{appearance:none;-webkit-appearance:none;border:0;background:none;margin:0;padding:2px 0;font:inherit;font-size:11px;font-weight:700;color:var(--ink-3);cursor:pointer;white-space:nowrap;line-height:1;opacity:.72;transition:color .12s,opacity .12s}
-  .schead .halftog:hover{opacity:1;color:var(--ink)}
-  .schead .halftog.on{color:var(--accent);opacity:1}
   .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
   .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto}
   .sched-days .d{padding:8px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2);display:flex;flex-direction:column;gap:1px;line-height:1.2}
@@ -362,13 +359,28 @@
   .now-time{position:absolute;transform:translate(-100%,-50%);margin-left:-3px;font-size:9px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:1px 4px;z-index:7;pointer-events:none;line-height:1.2;white-space:nowrap}
   .ev.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
   .ev.half .loc{padding-right:16px}
-  .ev.dim{opacity:.42;border-left-style:dashed}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
   .uchip .dot{width:8px;height:8px;border-radius:99px;flex:0 0 auto}
   .uchip small{color:var(--ink-3);font-weight:700}
   .sched-empty{padding:40px 22px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.6}
+  /* week navigator */
+  .schedweek{display:flex;align-items:center;gap:9px;margin:0 0 12px}
+  .schedweek .wknav{width:30px;height:30px;flex:0 0 auto;display:grid;place-items:center;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:18px;font-weight:700;line-height:1}
+  .schedweek .wknav:hover{background:var(--surface-2)}
+  .schedweek .wknav:disabled{opacity:.3;pointer-events:none}
+  .schedweek .wklbl{font-size:13.5px;font-weight:800;color:var(--ink);min-width:104px;text-align:center}
+  .schedweek .wknow{margin-left:2px;font-size:11.5px;font-weight:800;color:var(--accent);border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:99px;padding:5px 12px}
+  /* academic-calendar overlay strip (breaks / deadlines / finals, above the time grid) */
+  .sched-allday{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto;max-height:26%;overflow-y:auto}
+  .sched-allday .ad-col{padding:3px;display:flex;flex-direction:column;gap:3px;border-left:1px solid var(--sched-line);min-width:0}
+  .sched-allday .ad-col:first-of-type{border-left:0}
+  .sched-allday .ad-col.noclass{background:color-mix(in srgb,var(--ink) 4%,transparent)}
+  .sched-allday .ad-col.today{background:var(--accent-soft)}
+  .adchip{font-size:8.5px;font-weight:700;line-height:1.22;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .adchip.noclass{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:800}
+  .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* read-only course info pane */
   /* read-only course info pane — compact: code lives in the slim header, no dead space */
   #infoModal .sheet{max-width:392px}
@@ -899,7 +911,7 @@ function bar2(donePct,plannedPct,met){ const d=Math.max(0,Math.min(100,donePct))
 const pctPlan=pr=>pr.need?Math.round(100*Math.min(1,(pr.done+(pr.planned||0))/pr.need)):(pr.met?100:0);
 
 /* ---- render ---- */
-function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderSchedule(); renderAcademic(); showPage(CUR); }
+function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderAcademic(); renderSchedule(); showPage(CUR); }
 function renderRail(){
   const ug=gpa("undergrad"), gr=gpa("grad");
   $("#railGpas").innerHTML=
@@ -1158,8 +1170,7 @@ function termMid(t){ if(!t) return null; const s=pdate(t.starts_on), e=pdate(t.e
 function detectPart(sd,ed,t){ const ts=pdate(t&&t.starts_on), te=pdate(t&&t.ends_on), ms=pdate(sd), me=pdate(ed);
   if(!ts||!te||!ms||!me) return 'full'; const span=te-ts; if(span<=0||(me-ms)>span*0.7) return 'full';
   return ((ms.getTime()+me.getTime())/2 < (ts.getTime()+te.getTime())/2) ? '1' : '2'; }
-let SCHED_TERM=null;
-let SCHED_FOCUS=localStorage.getItem("carn_schedfocus")==="1";
+let SCHED_TERM=null, SCHED_WEEK=null;   // SCHED_WEEK = Monday (Date) of the visible week; null = auto (current/opening week)
 // current-time indicator state: {gStart,gEnd,total} in grid minutes while today is shown, else null
 let SCHED_NOW=null, schedNowTimer=null;
 // Position the "now" line + gutter time at the live clock, or hide it when outside the grid's hours.
@@ -1186,18 +1197,40 @@ function schedTermsWithData(){ const ids=new Set(DB.enrollments.filter(e=>meetin
     const ideal=termRoster(t); if(ideal&&AVAIL_ROSTERS.includes(ideal)) ids.add(t.id); } }
   return DB.terms.filter(t=>ids.has(t.id)); }
 function todayDayCode(){ return {1:"M",2:"T",3:"W",4:"R",5:"F"}[new Date().getDay()]||null; }
-// Dates (m/d) for Mon–Fri under the day headers: this week if today falls inside the displayed
-// term, otherwise the term's opening week.
-function schedWeekDates(term){
-  const now=new Date();
-  const s=term&&term.starts_on?pdate(String(term.starts_on).slice(0,10)):null;
-  const e=term&&term.ends_on?pdate(String(term.ends_on).slice(0,10)):null;
-  const anchor=(s&&e&&now>=s&&now<=e)?now:(s||now);
-  const off=anchor.getDay()===0?-6:1-anchor.getDay();
-  const mon=new Date(anchor.getFullYear(),anchor.getMonth(),anchor.getDate()+off);
-  const map={}; SDAYS.forEach((d,i)=>{ const dt=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i); map[d]=(dt.getMonth()+1)+"/"+dt.getDate(); });
-  return map;
+// ---- week-aware schedule: navigation + academic-calendar overlay/suppression ----
+function mondayOf(d){ const x=new Date(d.getFullYear(),d.getMonth(),d.getDate()); const off=x.getDay()===0?-6:1-x.getDay(); x.setDate(x.getDate()+off); return x; }
+function sameDay(a,b){ return !!a&&!!b&&a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate(); }
+function defaultWeekMon(term){ const now=new Date(); const s=term&&term.starts_on?pdate(String(term.starts_on).slice(0,10)):null; const e=term&&term.ends_on?pdate(String(term.ends_on).slice(0,10)):null; return mondayOf((s&&e&&now>=s&&now<=e)?now:(s||now)); }
+const ACAL_MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+function weekLabel(mon){ const fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4); const a=ACAL_MONTHS[mon.getMonth()]+" "+mon.getDate(); const b=(mon.getMonth()===fri.getMonth()?"":ACAL_MONTHS[fri.getMonth()]+" ")+fri.getDate(); return a+" – "+b; }
+// Cached academic-calendar events (from the deterministic scrape), or null if not loaded yet.
+function academicEvents(){ try{ const raw=localStorage.getItem("carn_acal"); if(raw){ const o=JSON.parse(raw); if(o&&o.v===1&&Array.isArray(o.events)) return o.events; } }catch(e){} return null; }
+// Short chip label: drop the "Fall 2026:" term prefix; for break/holiday rows keep just the name.
+function acalShort(t){ let s=String(t||"").replace(/^(Fall|Spring|Winter|Summer)\s+\d{4}:\s*/i,""); if(/\/\s*(no classes|holiday)/i.test(s)) s=s.split("/")[0].trim(); return s; }
+// Derive a term's class-affecting structure straight from the registrar text: "No classes" ranges,
+// the last day of instruction (classes stop after it → finals/study handled for free), and the
+// 7-week half boundaries. Degrades gracefully to plain term dates when a term has no scraped data.
+function termAcademics(term){
+  const ts=term&&term.starts_on?pdate(String(term.starts_on).slice(0,10)):null;
+  const te=term&&term.ends_on?pdate(String(term.ends_on).slice(0,10)):null;
+  const mid=(ts&&te)?new Date((ts.getTime()+te.getTime())/2):null;
+  const res={ts,te,mid,noClass:[],overlay:[],classEnd:te,half1End:null,half2Start:null,has:false};
+  const evs=academicEvents(); if(!evs||!ts||!te) return res;
+  let lastInstr=null;
+  for(const ev of evs){ const s=acalStart(ev); if(!s) continue; const e=acalEnd(ev)||s;
+    if(e<ts||s>te) continue; res.has=true;
+    const title=ev.title||"", isNo=/no class/i.test(title);
+    if(isNo) res.noClass.push({s,e});
+    if(/last day of instruction/i.test(title)){ if(/7\s*week\s*1/i.test(title)) res.half1End=e; else if(!/7\s*week/i.test(title)){ if(!lastInstr||e>lastInstr) lastInstr=e; } }
+    if(/7\s*week\s*2/i.test(title)&&/instruction begins/i.test(title)) res.half2Start=s;
+    res.overlay.push({s,e,title,noclass:isNo});
+  }
+  if(lastInstr) res.classEnd=lastInstr;
+  return res;
 }
+function isNoClassDay(D,ac){ for(const iv of ac.noClass){ if(D>=iv.s&&D<=iv.e) return true; } return false; }
+function meetingActiveOn(part,D,ac){ if(ac.ts&&D<ac.ts) return false; if(ac.classEnd&&D>ac.classEnd) return false;
+  if(part==='1') return !ac.mid||D<=(ac.half1End||ac.mid); if(part==='2') return !ac.mid||D>=(ac.half2Start||ac.mid); return true; }
 function renderSchedule(){
   // once the published-roster list loads, re-render so newly-eligible future terms appear
   if(!AVAIL_ROSTERS && !renderSchedule._av){ renderSchedule._av=true; availRosters().then(()=>renderSchedule()); }
@@ -1208,27 +1241,35 @@ function renderSchedule(){
     SCHED_TERM=(cur&&termList.find(t=>t.id===cur.id))?cur.id:(termList[0]||{}).id;
   }
   const term=termById(SCHED_TERM);
+  // reset the visible week whenever the term changes, then default to the current/opening week
+  if(renderSchedule._lastTerm!==SCHED_TERM){ renderSchedule._lastTerm=SCHED_TERM; SCHED_WEEK=null; }
+  const ac=termAcademics(term);
+  // one-time academic-calendar fetch so the overlay + no-class suppression can populate
+  if(!academicEvents() && !renderSchedule._acal){ renderSchedule._acal=true; try{ loadAcademic(false).then(()=>renderSchedule()); }catch(e){} }
+  if(!SCHED_WEEK) SCHED_WEEK=defaultWeekMon(term);
+  const firstMon=mondayOf(ac.ts||new Date()), lastMon=mondayOf(ac.te||SCHED_WEEK);
+  if(SCHED_WEEK<firstMon) SCHED_WEEK=new Date(firstMon.getTime());
+  if(SCHED_WEEK>lastMon) SCHED_WEEK=new Date(lastMon.getTime());
+  const weekMon=SCHED_WEEK, todayD=new Date();
+  const dateOf=d=>{ const i=SDAYS.indexOf(d); return new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+i); };
   const es=DB.enrollments.filter(e=>e.term_id===SCHED_TERM&&displayStatus(e)!=="wishlist");
   // assign a distinct palette color to each course in this term (no repeats until >10 courses)
   SCHED_CIDX={}; let _ci=0; es.forEach(e=>{ const k=e.code||('#'+e.id); if(SCHED_CIDX[k]==null){ SCHED_CIDX[k]=_ci%SCHED_COLORS.length; _ci++; } });
   const cidxOf=e=>{ const k=e.code||('#'+e.id); return SCHED_CIDX[k]!=null?SCHED_CIDX[k]:courseColorIdx(e.code); };
-  const showToday=cur&&term&&cur.id===term.id?todayDayCode():null;
-  const activeHalf=(cur&&term&&cur.id===term.id&&termMid(term))?(new Date()<termMid(term)?'1':'2'):null;
-  // "Current half only": an opt-in view filter that hides the OTHER half of a split term so the
-  // in-session half fills the grid. It touches ONLY what's drawn — course count and credits below
-  // are always the full term. It flips on its own at the midpoint because activeHalf tracks today.
-  const hasHalf=es.some(e=>meetingsOf(e).some(m=>partOf(m)!=='full'));
-  const focusOn=SCHED_FOCUS && !!activeHalf && hasHalf;
+  // today's column shows only when the visible week is the real current week and today is in-term
+  const inTermNow=ac.ts&&ac.te&&todayD>=ac.ts&&todayD<=ac.te;
+  const showToday=(inTermNow&&sameDay(mondayOf(todayD),weekMon))?todayDayCode():null;
   const credits=es.reduce((s,e)=>s+num(e.credits),0);
+  const termHasTimed=es.some(e=>meetingsOf(e).some(m=>m.days&&m.days.length&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start)));
   const events=[], unsched=[];
   for(const e of es){
     const mtgs=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
     if(!mtgs.length){ unsched.push(e); continue; }
-    const vis=focusOn?mtgs.filter(m=>partOf(m)==='full'||partOf(m)===activeHalf):mtgs;
-    if(!vis.length) continue;   // every meeting is the other half — hidden from the grid, still counted above
     const ci=cidxOf(e);
-    for(const m of vis) for(const d of m.days){ if(!SDAYS.includes(d)) continue;
-      events.push({e,ci,day:d,s:hm2min(m.start),en:hm2min(m.end),m,part:partOf(m)}); }
+    for(const m of mtgs){ const part=partOf(m);
+      for(const d of m.days){ if(!SDAYS.includes(d)) continue; const D=dateOf(d);
+        if(isNoClassDay(D,ac)||!meetingActiveOn(part,D,ac)) continue;   // break day, or the meeting's half isn't in session this week
+        events.push({e,ci,day:d,s:hm2min(m.start),en:hm2min(m.end),m,part}); } }
   }
   let minS=Infinity,maxE=-Infinity;
   for(const ev of events){minS=Math.min(minS,ev.s);maxE=Math.max(maxE,ev.en);}
@@ -1259,7 +1300,7 @@ function renderSchedule(){
       if(x.s<y.en && y.s<x.en && partsOverlap(x.part,y.part)){ x.hard=true; y.hard=true; conflictAny=true; }
     }
   }
-  const wk=schedWeekDates(term);
+  const wk={}; SDAYS.forEach(d=>{ const D=dateOf(d); wk[d]=(D.getMonth()+1)+"/"+D.getDate(); });
   const dayHead=SDAYS.map(d=>`<div class="d ${d===showToday?'today':''}"><span class="dn">${SDAY_LABEL[d]}</span><span class="dd">${wk[d]}</span></div>`).join("");
   const gutter=Array.from({length:rows},(_,k)=>{const tm=(startH+k)*60;const top=((tm-gStart)/total)*100;
     return `<div class="hr" style="top:${top}%">${min2label(tm)}</div>`;}).join("");
@@ -1270,9 +1311,9 @@ function renderSchedule(){
       const showLoc=dur>=50 && ev.ncols===1;
       const timeLbl=`${min2label(ev.s).replace(/[ap]m$/,'')} – ${min2label(ev.en).replace(/[ap]m$/,'')}`;
       const secLbl=[ev.m.component,ev.m.section].map(s=>(s||'').trim()).filter(Boolean).join(' ');
-      // The half (1st/2nd) is shown by the H1/H2 corner badge + left/right placement, so no text label.
-      const dim=activeHalf&&(ev.part==='1'||ev.part==='2')&&ev.part!==activeHalf;
-      const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half"); if(dim)cls.push("dim");
+      // The half (1st/2nd) is shown by the H1/H2 corner badge; with the week-by-week view the other
+      // half simply doesn't appear in the weeks it isn't in session.
+      const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half");
       return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}" style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
         <div class="et">${esc(timeLbl)}</div>
@@ -1287,19 +1328,35 @@ function renderSchedule(){
   }</div>`:"";
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
   const scount=`<span class="scount">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</span>`;
-  const focusToggle=(activeHalf&&hasHalf)
-    ? `<button id="schedFocus" class="halftog${focusOn?' on':''}" role="switch" aria-checked="${focusOn?'true':'false'}" title="Show only the half of the term that's currently in session. Affects the grid only — your course count and credits don't change.">${focusOn?'✓ ':''}Current half</button>`
-    : '';
-  const summ=`<div class="summ">${scount}${focusToggle}</div>`;
+  const summ=`<div class="summ">${scount}</div>`;
   const nowEls = SCHED_NOW ? `<div class="now-time" style="display:none"></div><div class="now-line" style="display:none"></div>` : '';
-  const body=events.length
-    ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}${nowEls}</div>${unschedHtml}</div>`
-    : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
+  // academic-calendar overlay strip for the visible week (breaks/holidays/deadlines/finals)
+  const adcols=SDAYS.map(d=>{ const D=dateOf(d);
+    const chips=ac.overlay.filter(o=>D>=o.s&&D<=o.e).map(o=>`<div class="adchip${o.noclass?' noclass':''}" title="${esc(o.title)}">${esc(acalShort(o.title))}</div>`).join("");
+    return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}">${chips}</div>`; }).join("");
+  const hasAd=ac.overlay.some(o=>SDAYS.some(d=>{const D=dateOf(d);return D>=o.s&&D<=o.e;}));
+  const alldayHtml=hasAd?`<div class="sched-allday"><div class="ad-gut"></div>${adcols}</div>`:"";
+  // week navigator (bounded to the term); "Today" resets to the current/opening week
+  const wkbar=(term&&(termHasTimed||ac.has))
+    ? `<div class="schedweek"><button class="wknav" id="wkPrev" aria-label="Previous week"${weekMon<=firstMon?' disabled':''}>‹</button><span class="wklbl">${esc(weekLabel(weekMon))}</span><button class="wknav" id="wkNext" aria-label="Next week"${weekMon>=lastMon?' disabled':''}>›</button>${!sameDay(weekMon,defaultWeekMon(term))?`<button class="wknow" id="wkNow">Today</button>`:''}</div>`
+    : '';
+  let bodyInner;
+  if(events.length){ bodyInner=`<div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}${nowEls}</div>`; }
+  else if(!termHasTimed){ bodyInner=`<div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>`; }
+  else { // the term has classes, just not this week — say why (break / after last day of instruction)
+    const wkNo=[...new Set(ac.overlay.filter(o=>o.noclass&&SDAYS.some(d=>{const D=dateOf(d);return D>=o.s&&D<=o.e;})).map(o=>acalShort(o.title)))];
+    const afterEnd=ac.classEnd&&SDAYS.every(d=>dateOf(d)>ac.classEnd);
+    const note=afterEnd?"Classes have ended for the term.":(wkNo.length?("No classes this week — "+wkNo.join(", ")+"."):"No classes scheduled this week.");
+    bodyInner=`<div class="sched-noweek">${esc(note)}</div>`;
+  }
+  const body=`<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div>${alldayHtml}${bodyInner}${unschedHtml}</div>`;
   const tools=`<div class="shtools"><button id="schedImg" class="shbtn" title="Share this schedule as an image">${ICO.share} Share</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" title="Sync to Google Calendar">${GCAL.connected?ICO.check+' Calendar':ICO.cal+' Calendar'}</button></div>`;
-  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}${tools}</div>${body}`;
-  const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;renderSchedule();};
+  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}${tools}</div>${wkbar}${body}`;
+  const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;SCHED_WEEK=null;renderSchedule();};
   { const bi=$("#schedImg"); if(bi) bi.onclick=scheduleImage; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
-  const fc=$("#schedFocus"); if(fc) fc.onclick=()=>{ SCHED_FOCUS=!SCHED_FOCUS; localStorage.setItem("carn_schedfocus",SCHED_FOCUS?"1":"0"); renderSchedule(); };
+  const wp=$("#wkPrev"); if(wp) wp.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()-7); renderSchedule(); };
+  const wnx=$("#wkNext"); if(wnx) wnx.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+7); renderSchedule(); };
+  const wnw=$("#wkNow"); if(wnw) wnw.onclick=()=>{ SCHED_WEEK=defaultWeekMon(term); renderSchedule(); };
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
   clearInterval(schedNowTimer); schedNowTimer=null;
   if(SCHED_NOW){ updateNowLine(); schedNowTimer=setInterval(updateNowLine, 20000); }
