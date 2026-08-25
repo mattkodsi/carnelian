@@ -300,13 +300,9 @@
   .ev .m .tm{display:none}
   .ev .loc{font-size:9.5px;color:var(--ink-3);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev.conflict{outline:1.5px solid var(--accent);outline-offset:-1.5px}
-  .ev.half{border-left-style:dashed;border-left-width:3px}
-  .ev.narrow.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ink-3);opacity:.85;pointer-events:none}
-  .ev.dim{opacity:.4}
+  .ev.narrow.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3,var(--ink-3));opacity:.85;pointer-events:none}
+  .ev.dim{opacity:.42;border-left-style:dashed}
   .ev .m .pl{font-weight:800;color:color-mix(in srgb,var(--h) 55%,var(--ink))}
-  .sched-legend{padding:9px 15px 0;font-size:10.5px;color:var(--ink-3);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
-  .sched-legend .k{display:inline-flex;align-items:center;gap:5px}
-  .sched-legend .swatch{width:15px;height:12px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,var(--surface));border:1px solid var(--line);border-left:3px dashed var(--ink-3)}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
@@ -314,6 +310,10 @@
   .uchip small{color:var(--ink-3);font-weight:700}
   .sched-empty{padding:40px 22px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* ---- meeting-times editor (course modal) ---- */
+  .meetbox{border:1px solid var(--line);border-radius:11px;padding:10px;background:var(--surface)}
+  .meet-empty{margin:2px 2px 10px;color:var(--ink-3);font-size:12.5px}
+  .addmeet{width:100%;padding:10px;border:1px dashed var(--line-strong);border-radius:9px;background:var(--surface-2);color:var(--accent);font-weight:800;font-size:13px}
+  .addmeet:hover{background:var(--accent-soft);border-color:var(--accent-line)}
   .meet-row{border:1px solid var(--line);border-radius:10px;padding:11px 12px;margin-bottom:9px;display:grid;gap:9px;background:var(--surface-2)}
   .meet-hd{display:flex;align-items:center;justify-content:space-between}
   .meet-hd .ml{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3)}
@@ -408,15 +408,13 @@
   <div class="sheet">
     <div class="sh"><h3 id="mTitle">Course</h3><button class="x" id="mClose" aria-label="Close">×</button></div>
     <div class="sb">
+      <div class="fld"><label>Term</label><select id="mTerm"></select></div>
       <div class="fld searchfld"><label>Code</label>
         <input id="mCode" autocomplete="off">
         <div class="results" id="mResults"></div>
         <div class="hint" id="mLookupMsg"></div></div>
       <div class="fld"><label>Title</label><input id="mTitleIn"></div>
-      <div class="frow">
-        <div class="fld"><label>Credits</label><input id="mCredits" type="number" step="0.5" inputmode="decimal"></div>
-        <div class="fld"><label>Term</label><select id="mTerm"></select></div>
-      </div>
+      <div class="fld"><label>Credits</label><input id="mCredits" type="number" step="0.5" inputmode="decimal"></div>
       <div class="frow">
         <div class="fld"><label>Status</label><select id="mStatus">
           <option value="wishlist">Wishlist</option><option value="planned">Planned</option>
@@ -437,11 +435,10 @@
         </select>
         <div class="chips" id="mTagChips" style="margin-top:8px"></div></div>
       <div class="fld"><label>Meeting times</label>
-        <button class="btn ghost-btn" id="mMeetToggle" type="button">＋ Add meeting times</button>
-        <div id="mMeetWrap" style="display:none;margin-top:8px">
+        <div class="meetbox">
           <div id="mMeetSel"></div>
           <div id="mMeetRows"></div>
-          <button class="btn ghost-btn" id="mMeetAdd" type="button">＋ Add a meeting manually</button>
+          <button class="addmeet" id="mMeetAdd" type="button">＋ Add a meeting</button>
         </div></div>
       <div class="fld"><label>Equivalent Cornell course</label><input id="mAnalog"></div>
       <label class="chkrow"><input type="checkbox" id="mInAs"><span>Counts toward A&amp;S credit</span></label>
@@ -899,7 +896,7 @@ const SDAYS=["M","T","W","R","F"];
 const SDAY_LABEL={M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri"};
 const SCHED_COLORS=["#2F6FE0","#0E9C8A","#7A54D6","#C8467F","#C67A12","#3E9E4F","#2C93A8","#4A73A8","#8A6E2E","#9A5CC6"];
 const hm2min=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||""));return m?(+m[1])*60+(+m[2]):null;};
-function min2label(t){let h=Math.floor(t/60),m=t%60;const ap=h>=12?"p":"a";h=h%12||12;return m?`${h}:${String(m).padStart(2,"0")}${ap}`:`${h}${ap}`;}
+function min2label(t){let h=Math.floor(t/60),m=t%60;const ap=h>=12?"pm":"am";h=h%12||12;return m?`${h}:${String(m).padStart(2,"0")}${ap}`:`${h}${ap}`;}
 function courseColorIdx(code){let h=0;const s=String(code||"");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%SCHED_COLORS.length;}
 const meetingsOf=e=>Array.isArray(e.meetings)?e.meetings:[];
 // part-of-term: a meeting runs the 'full' term, first half ('1'), or second half ('2').
@@ -992,12 +989,10 @@ function renderSchedule(){
   }</div>`:"";
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
   const summ=`<div class="summ">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':(events.length?'<small>no conflicts</small>':'')}</div>`;
-  const anyHalf=events.some(ev=>ev.part!=='full');
-  const legendHtml=anyHalf?`<div class="sched-legend"><span class="k"><span class="swatch"></span>half-semester course</span>${activeHalf?'<span class="k">faded = other half (not now)</span>':''}<span class="k">same time, different halves = no clash</span></div>`:"";
   const body=events.length
     ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}</div>${unschedHtml}</div>`
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
-  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}</div>${legendHtml}${body}`;
+  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}</div>${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;renderSchedule();};
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
 }
@@ -1058,14 +1053,12 @@ function renderMeetRows(){
           <option value="2" ${m.part==='2'?'selected':''}>Second half</option>
         </select></span>
       </div>
-    </div>`).join("")||'<p class="hint" style="margin:0 0 8px">No meeting times yet. Pick a class from the roster search, or add one by hand.</p>';
+    </div>`).join("")||'<p class="hint meet-empty">No meeting times set.</p>';
   $("#mMeetRows").querySelectorAll("[data-mday]").forEach(b=>b.onclick=()=>{const[i,d]=b.dataset.mday.split(":");const m=MMEET[+i];m.days=m.days||[];const k=m.days.indexOf(d);if(k>=0)m.days.splice(k,1);else m.days.push(d);b.classList.toggle("on");});
   $("#mMeetRows").querySelectorAll("[data-mfield]").forEach(inp=>inp.onchange=()=>{const[i,f]=inp.dataset.mfield.split(":");MMEET[+i][f]=inp.value;});
   $("#mMeetRows").querySelectorAll("[data-mrm]").forEach(b=>b.onclick=()=>{MMEET.splice(+b.dataset.mrm,1);renderMeetRows();});
 }
-function showMeetEditor(open){ $("#mMeetWrap").style.display=open?"block":"none"; $("#mMeetToggle").textContent=open?"Hide meeting times":(MMEET.length?`Meeting times (${MMEET.length})`:"＋ Add meeting times"); }
-$("#mMeetToggle").onclick=()=>showMeetEditor($("#mMeetWrap").style.display==="none");
-$("#mMeetAdd").onclick=()=>{ MMEET.push({component:"",section:"",days:[],start:"",end:"",location:"",part:"full"}); renderMeetRows(); showMeetEditor(true); };
+$("#mMeetAdd").onclick=()=>{ MMEET.push({component:"",section:"",days:[],start:"",end:"",location:"",part:"full"}); renderMeetRows(); };
 // parse Cornell roster meeting patterns/times into our shape
 function parseRosterTime(s){ const m=/^(\d{1,2}):(\d{2})\s*([AP])M?$/i.exec(String(s||"").trim()); if(!m) return "";
   let h=+m[1]%12; if(/p/i.test(m[3])) h+=12; return String(h).padStart(2,"0")+":"+m[2]; }
@@ -1088,7 +1081,7 @@ function openCourse(id=null, preset={}){
   $("#mGrade").innerHTML=`<option value="">—</option>`+["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"].map(g=>`<option>${g}</option>`).join(""); $("#mGrade").value=e.grade||"";
   MTAGS=[...(e.tags||[])]; renderTagChips(); $("#mDist").value="";
   MMEET=meetingsOf(e).map(m=>({component:m.component||"",section:m.section||"",days:[...(m.days||[])],start:m.start||"",end:m.end||"",location:m.location||"",part:partOf(m)}));
-  $("#mMeetSel").innerHTML=""; renderMeetRows(); showMeetEditor(MMEET.length>0);
+  $("#mMeetSel").innerHTML=""; renderMeetRows();
   $("#mAnalog").value=e.analog_of||"";
   $("#mInAs").checked = e.in_as===true;
   ["mTerm","mStatus","mGrade","mDist"].forEach(x=>syncDD($("#"+x)));
@@ -1144,7 +1137,7 @@ function pickResult(cls,sub){ const eg=(cls.enrollGroups||[])[0]||{};
   const mtgs=meetingsFromClass(cls); let msg="Filled from roster.";
   const term=termById($("#mTerm").value); let halfN=0;
   mtgs.forEach(m=>{ m.part=detectPart(m.sd,m.ed,term); if(m.part!=='full')halfN++; delete m.sd; delete m.ed; });
-  if(mtgs.length){ MMEET=mtgs; renderMeetRows(); showMeetEditor(true); msg="Filled from roster · added "+mtgs.length+" meeting"+(mtgs.length===1?"":"s")+(halfN?" · detected half-term":"")+"."; }
+  if(mtgs.length){ MMEET=mtgs; renderMeetRows(); msg="Filled from roster · added "+mtgs.length+" meeting"+(mtgs.length===1?"":"s")+(halfN?" · detected half-term":"")+"."; }
   $("#mResults").classList.remove("on"); $("#mLookupMsg").textContent=msg; }
 $("#mCode").addEventListener("input",()=>{ const el=$("#mCode"); const p=el.selectionStart; el.value=el.value.toUpperCase(); try{el.setSelectionRange(p,p);}catch(e){} clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,240); });
 $("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.remove("on"),200));
