@@ -237,17 +237,19 @@ function firstOccur(ws: Date, days: string[]) {
   for (let i = 0; i < 7; i++) { if (wanted.has(d.getDay())) return new Date(d); d.setDate(d.getDate() + 1); }
   return null;
 }
-function buildEvent(e: any, m: any, colorId: string) {
+function buildEvent(e: any, m: any, colorId: string, ta?: any) {
   const days = (m.days || []).filter((d: string) => BYDAY[d]);
   if (!days.length) return null;
   if (hm(m.start) < 0 || hm(m.end) < 0 || hm(m.end) <= hm(m.start)) return null;
   const ts = pdate(e.starts_on), te = pdate(e.ends_on);
   if (!ts || !te) return null;            // need term dates to place a recurring event
-  let ws = ts, we = te;
-  if (m.part === "1" || m.part === "2") {
-    const mid = new Date((ts.getTime() + te.getTime()) / 2);
-    if (m.part === "1") we = mid; else ws = mid;
-  }
+  // Class window from the academic calendar: classes end at the last day of instruction (not the
+  // term's admin end date), and half-term (7-week) courses use their session bounds.
+  const A = ta || { ts, te, mid: new Date((ts.getTime() + te.getTime()) / 2), classEnd: te, half1End: null, half2Start: null, noClass: [] };
+  const part = (m.part === "1" || m.part === "2") ? m.part : "full";
+  let ws: Date = A.ts || ts, we: Date = A.classEnd || te;
+  if (part === "1") we = A.half1End || A.mid || te;
+  else if (part === "2") ws = A.half2Start || A.mid || ts;
   const first = firstOccur(ws, days);
   if (!first) return null;
   const dstr = `${first.getFullYear()}-${p2(first.getMonth() + 1)}-${p2(first.getDate())}`;
@@ -256,6 +258,18 @@ function buildEvent(e: any, m: any, colorId: string) {
   const endDT = `${dstr}T${p2(+eh)}:${p2(+em)}:00`;
   const until = new Date(we); until.setDate(until.getDate() + 1);
   const rrule = `RRULE:FREQ=WEEKLY;UNTIL=${until.getFullYear()}${p2(until.getMonth() + 1)}${p2(until.getDate())}T035959Z;BYDAY=${days.map((d: string) => BYDAY[d]).join(",")}`;
+  // Exclude "No classes" break/holiday days that fall on this meeting's weekdays within the window.
+  const wanted = new Set(days.map((d: string) => DOW[d]));
+  const ex: string[] = [];
+  for (const iv of (A.noClass || [])) {
+    let d = new Date(Math.max(iv.s.getTime(), ws.getTime()));
+    const end = new Date(Math.min(iv.e.getTime(), we.getTime()));
+    for (; d <= end; d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) {
+      if (wanted.has(d.getDay())) ex.push(`${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}T${p2(+sh)}${p2(+sm)}00`);
+    }
+  }
+  const recurrence = [rrule];
+  if (ex.length) recurrence.push(`EXDATE;TZID=${TZ}:${ex.join(",")}`);
   const desc: string[] = [];
   const cs = `${m.component || ""} ${m.section || ""}`.trim(); if (cs) desc.push(cs);
   if (m.instructor) desc.push(m.instructor);
@@ -268,9 +282,9 @@ function buildEvent(e: any, m: any, colorId: string) {
     colorId,
     start: { dateTime: startDT, timeZone: TZ },
     end: { dateTime: endDT, timeZone: TZ },
-    recurrence: [rrule],
+    recurrence,
   };
-  const sig = JSON.stringify([summary, body.location || "", startDT, endDT, rrule, colorId]);
+  const sig = JSON.stringify([summary, body.location || "", startDT, endDT, rrule, ex.join(","), colorId]);
   return { body, sig };
 }
 
@@ -284,6 +298,17 @@ async function syncAll(access: string, calId: string) {
     where coalesce(e.status, '') <> 'wishlist'
       and (t.ends_on is null or t.ends_on >= current_date)
     order by e.term_id, e.id`;
+  // Per-term academic structure (last day of instruction, breaks, 7-week bounds) for recurrence + EXDATE.
+  const acEvents = await fetchAcademic();
+  const taCache = new Map<string, any>();
+  const taFor = (row: any) => {
+    const key = row.term_id || "_";
+    if (taCache.has(key)) return taCache.get(key);
+    const ts = pdate(row.starts_on), te = pdate(row.ends_on);
+    const ta = (ts && te) ? termAcademicsFor(acEvents, ts, te) : null;
+    taCache.set(key, ta);
+    return ta;
+  };
   const tcol = new Map<string, { map: Map<string, number>; n: number }>();
   const colorIndexFor = (e: any) => {
     const t = e.term_id || "_"; if (!tcol.has(t)) tcol.set(t, { map: new Map(), n: 0 });
@@ -296,8 +321,9 @@ async function syncAll(access: string, calId: string) {
   for (const e of rows as any[]) {
     const colorId = colorIdForIndex(colorIndexFor(e));
     const meetings = Array.isArray(e.meetings) ? e.meetings : [];
+    const ta = taFor(e);
     meetings.forEach((m: any, i: number) => {
-      const built = buildEvent(e, m, colorId);
+      const built = buildEvent(e, m, colorId, ta);
       if (!built) { skipped++; return; }
       desired.set(`${e.id}::${i}`, { enrId: e.id, mkey: String(i), body: built.body, sig: built.sig });
     });
@@ -330,6 +356,56 @@ async function syncAll(access: string, calId: string) {
     deleted++;
   }
   return { created, updated, deleted, skipped };
+}
+
+// Second Google calendar: Cornell academic dates (breaks/deadlines/finals) as all-day events,
+// filtered to the user's cohort. Kept separate so it can be toggled independently of classes.
+async function ensureAcademicCalendar(access: string) {
+  const cfg = await gcalCfg();
+  if (cfg.calendar_academic) return cfg.calendar_academic as string;
+  const { status, j } = await gapi(access, "POST", "/calendars", { summary: "Carnelian - Academic", timeZone: TZ });
+  if (status >= 300 || !j.id) throw new Error("could not create academic calendar");
+  await sql`update carnelian.gcal_config set calendar_academic = ${j.id} where id = 1`;
+  return j.id as string;
+}
+async function syncAcademic(access: string, calId: string) {
+  const evs = (await fetchAcademic()).filter((ev: any) => acalRelevant(ev.title || ""));
+  const desired = new Map<string, { body: any; sig: string }>();
+  for (const ev of evs) {
+    const s = acalStart(ev); if (!s) continue;
+    const e = acalEnd(ev) || s;
+    const start = dfmt(s);
+    const end = dfmt(new Date(e.getFullYear(), e.getMonth(), e.getDate() + 1)); // all-day end is exclusive
+    const summary = acalTitleShort(ev.title || "") || "Academic date";
+    const akey = (await sha256hex(`${ev.month}|${ev.date}|${ev.title}`)).slice(0, 32);
+    const body: any = { summary, description: "Cornell academic calendar\nSynced from Carnelian", transparency: "transparent", colorId: "8", start: { date: start }, end: { date: end } };
+    desired.set(akey, { body, sig: JSON.stringify([summary, start, end]) });
+  }
+  const existing = await sql`select akey, event_id, sig from carnelian.gcal_academic`;
+  const exMap = new Map((existing as any[]).map((r) => [r.akey, r]));
+  let created = 0, updated = 0, deleted = 0;
+  const ev = (id: string) => `/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(id)}`;
+  for (const [akey, d] of desired) {
+    const ex = exMap.get(akey);
+    if (ex) {
+      if (ex.sig === d.sig) continue;
+      const { status } = await gapi(access, "PATCH", ev(ex.event_id), d.body);
+      if (status === 404 || status === 410) {
+        const ins = await gapi(access, "POST", `/calendars/${encodeURIComponent(calId)}/events`, d.body);
+        if (ins.j?.id) { await sql`update carnelian.gcal_academic set event_id = ${ins.j.id}, sig = ${d.sig} where akey = ${akey}`; created++; }
+      } else { await sql`update carnelian.gcal_academic set sig = ${d.sig} where akey = ${akey}`; updated++; }
+    } else {
+      const ins = await gapi(access, "POST", `/calendars/${encodeURIComponent(calId)}/events`, d.body);
+      if (ins.j?.id) { await sql`insert into carnelian.gcal_academic (akey, event_id, sig) values (${akey}, ${ins.j.id}, ${d.sig}) on conflict (akey) do update set event_id = ${ins.j.id}, sig = ${d.sig}`; created++; }
+    }
+  }
+  for (const [akey, r] of exMap) {
+    if (desired.has(akey)) continue;
+    try { await gapi(access, "DELETE", ev(r.event_id)); } catch { /* ignore */ }
+    await sql`delete from carnelian.gcal_academic where akey = ${akey}`;
+    deleted++;
+  }
+  return { created, updated, deleted };
 }
 
 // ================= Cornell academic calendar (deterministic scrape) =================
@@ -368,6 +444,45 @@ function parseAcademicCalendar(html: string) {
   }
   return { title, events };
 }
+
+// Cache the scraped academic calendar for a warm isolate so one sync doesn't refetch the registrar.
+let ACAL_CACHE: { at: number; events: any[] } | null = null;
+async function fetchAcademic(): Promise<any[]> {
+  if (ACAL_CACHE && Date.now() - ACAL_CACHE.at < 3600_000) return ACAL_CACHE.events;
+  try {
+    const ac = new AbortController();
+    const to = setTimeout(() => ac.abort(), 10000);
+    const res = await fetch(ACAL_URL, { headers: { "user-agent": "Mozilla/5.0 (Carnelian degree tracker)" }, signal: ac.signal });
+    clearTimeout(to);
+    const parsed = parseAcademicCalendar(await res.text());
+    ACAL_CACHE = { at: Date.now(), events: parsed.events };
+    return parsed.events;
+  } catch { return ACAL_CACHE?.events ?? []; }
+}
+const ACAL_MON: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+function acalYear(ev: any) { const m = /(\d{4})/.exec(ev.month || ""); return m ? +m[1] : new Date().getFullYear(); }
+function acalStart(ev: any): Date | null { const m = /([A-Z][a-z]{2})\s+(\d{1,2})/.exec(ev.date || ""); if (!m) return null; const mo = ACAL_MON[m[1]]; if (mo == null) return null; return new Date(acalYear(ev), mo, +m[2]); }
+function acalEnd(ev: any): Date | null { const all = [...String(ev.date || "").matchAll(/([A-Z][a-z]{2})\s+(\d{1,2})/g)]; if (all.length < 2) return acalStart(ev); const last = all[all.length - 1]; const mo = ACAL_MON[last[1]]; const s = acalStart(ev); if (mo == null || !s) return s; let y = acalYear(ev); if (mo < s.getMonth()) y++; return new Date(y, mo, +last[2]); }
+// Hide enrollment/add-drop notices aimed at cohorts that aren't the user (Baker = Graduate/Professional + senior).
+function acalRelevant(title: string) { return !/\bfor\s+(Juniors?|Sophomores?|First[-\s]?Years?)\b/i.test(String(title || "")); }
+function acalTitleShort(t: string) { return String(t || "").replace(/^(Fall|Spring|Winter|Summer)\s+\d{4}:\s*/i, "").trim(); }
+// Server mirror of the app's termAcademics: no-class ranges, last day of instruction, 7-week bounds.
+function termAcademicsFor(evs: any[], ts: Date, te: Date) {
+  const mid = new Date((ts.getTime() + te.getTime()) / 2);
+  const res: any = { ts, te, mid, noClass: [] as { s: Date; e: Date }[], classEnd: te, half1End: null as Date | null, half2Start: null as Date | null };
+  let lastInstr: Date | null = null;
+  for (const ev of evs) {
+    const s = acalStart(ev); if (!s) continue; const e = acalEnd(ev) || s;
+    if (e < ts || s > te) continue;
+    const title = ev.title || "";
+    if (/no class/i.test(title)) res.noClass.push({ s, e });
+    if (/last day of instruction/i.test(title)) { if (/7\s*week\s*1/i.test(title)) res.half1End = e; else if (!/7\s*week/i.test(title)) { if (!lastInstr || e > lastInstr) lastInstr = e; } }
+    if (/7\s*week\s*2/i.test(title) && /instruction begins/i.test(title)) res.half2Start = s;
+  }
+  if (lastInstr) res.classEnd = lastInstr;
+  return res;
+}
+const dfmt = (d: Date) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
 
 function connectPage(msg: string, ok: boolean) {
   const back = ok ? `<p style="margin-top:14px"><a href="${APP_URL}" style="color:#A81F23;font-weight:700;text-decoration:none">Back to Carnelian ›</a></p>` : "";
@@ -487,7 +602,8 @@ Deno.serve(async (req) => {
     if (action === "gcal_status") {
       const cfg = await gcalCfg();
       const cnt = (await sql`select count(*)::int as n from carnelian.gcal_events`)[0].n;
-      return json({ ok: true, connected: !!cfg.refresh_token, email: cfg.email ?? null, calendar: !!cfg.calendar_id, count: cnt });
+      const acnt = (await sql`select count(*)::int as n from carnelian.gcal_academic`)[0].n;
+      return json({ ok: true, connected: !!cfg.refresh_token, email: cfg.email ?? null, calendar: !!cfg.calendar_id, count: cnt, sync_academic: !!cfg.sync_academic, academic_count: acnt });
     }
     if (action === "gcal_auth_url") {
       if (!GOOGLE_CLIENT_SECRET) return json({ error: "Server is missing GOOGLE_CLIENT_SECRET — set it in Supabase Edge Function secrets." }, 500);
@@ -509,7 +625,34 @@ Deno.serve(async (req) => {
         const access = await accessToken();
         const calId = await ensureCalendar(access);
         const res = await syncAll(access, calId);
-        return json({ ok: true, ...res });
+        let academic = null;
+        const cfg = await gcalCfg();
+        if (cfg.sync_academic) { const acId = await ensureAcademicCalendar(access); academic = await syncAcademic(access, acId); }
+        return json({ ok: true, ...res, academic });
+      } catch (e) {
+        if (e && (e as any).reauth) return json({ ok: false, reconnect: true, error: "reauth" });
+        return json({ error: String((e as Error)?.message ?? e) }, 500);
+      }
+    }
+    // Toggle the academic-dates layer: on → create/sync its calendar; off → delete it and forget it.
+    if (action === "gcal_academic_toggle") {
+      try {
+        const on = !!body.enabled;
+        await sql`update carnelian.gcal_config set sync_academic = ${on} where id = 1`;
+        if (on) {
+          const access = await accessToken();
+          const acId = await ensureAcademicCalendar(access);
+          const res = await syncAcademic(access, acId);
+          return json({ ok: true, sync_academic: true, ...res });
+        }
+        const cfg = await gcalCfg();
+        if (cfg.calendar_academic) {
+          const access = await accessToken().catch(() => null);
+          if (access) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_academic)}`); } catch { /* ignore */ } }
+        }
+        await sql`delete from carnelian.gcal_academic`;
+        await sql`update carnelian.gcal_config set calendar_academic = null where id = 1`;
+        return json({ ok: true, sync_academic: false });
       } catch (e) {
         if (e && (e as any).reauth) return json({ ok: false, reconnect: true, error: "reauth" });
         return json({ error: String((e as Error)?.message ?? e) }, 500);
@@ -521,11 +664,13 @@ Deno.serve(async (req) => {
         if (cfg.refresh_token) {
           const access = await accessToken().catch(() => null);
           if (access && cfg.calendar_id) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_id)}`); } catch { /* ignore */ } }
+          if (access && cfg.calendar_academic) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_academic)}`); } catch { /* ignore */ } }
           await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(cfg.refresh_token), { method: "POST" }).catch(() => {});
         }
       } catch { /* ignore */ }
       await sql`delete from carnelian.gcal_events`;
-      await sql`update carnelian.gcal_config set refresh_token = null, access_token = null, access_expiry = null, calendar_id = null, email = null, connected_at = null, oauth_state = null, oauth_state_at = null where id = 1`;
+      await sql`delete from carnelian.gcal_academic`;
+      await sql`update carnelian.gcal_config set refresh_token = null, access_token = null, access_expiry = null, calendar_id = null, calendar_academic = null, sync_academic = false, email = null, connected_at = null, oauth_state = null, oauth_state_at = null where id = 1`;
       return json({ ok: true });
     }
 

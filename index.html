@@ -480,6 +480,21 @@
   .gc-status{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;margin:2px 0 6px}
   .gc-dot{width:9px;height:9px;border-radius:99px;background:var(--ink-3);flex:0 0 auto} .gc-dot.on{background:var(--ok)}
   .gc-btns{display:flex;gap:9px;margin-top:16px} .gc-btns .btn{flex:1;justify-content:center}
+  /* Google sync layers (each = a separate, independently toggle-able calendar) */
+  .gc-layers{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+  .gc-layer{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+  .gc-layer.soon{opacity:.6}
+  .gc-lmain{flex:1;min-width:0}
+  .gc-lname{font-size:13.5px;font-weight:800;color:var(--ink)}
+  .gc-lsub{font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:2px}
+  .gc-lsub b{color:var(--ink-2);font-weight:700}
+  .gc-on{flex:0 0 auto;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ok,#2e7d5b);border:1px solid color-mix(in srgb,var(--ok,#2e7d5b) 40%,transparent);border-radius:99px;padding:3px 9px}
+  .gc-soon{flex:0 0 auto;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);border:1px solid var(--line-strong);border-radius:99px;padding:3px 9px}
+  .gc-sw{flex:0 0 auto;width:42px;height:25px;border-radius:99px;background:var(--line-strong);border:0;padding:0;position:relative;cursor:pointer;transition:background .15s}
+  .gc-sw.on{background:var(--accent)}
+  .gc-sw:disabled{opacity:.6;pointer-events:none}
+  .gc-knob{position:absolute;top:3px;left:3px;width:19px;height:19px;border-radius:50%;background:#fff;transition:left .15s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .gc-sw.on .gc-knob{left:20px}
 
   /* ---- academic calendar ---- */
   #academic{max-width:760px}
@@ -1187,7 +1202,7 @@ function updateNowLine(){
   line.style.display=""; lab.style.display=""; line.style.top=top+"%"; lab.style.top=top+"%";
   lab.textContent=min2label(Math.floor(nm));   // floor to match the wall clock (no rounding up)
 }
-let GCAL={connected:false,email:null,count:0};   // Google Calendar sync status (from gcal_status)
+let GCAL={connected:false,email:null,count:0,syncAcademic:false,academicCount:0};   // Google Calendar sync status (from gcal_status)
 // Terms selectable in the Schedule tab: any term with meeting data, PLUS any term that has real
 // courses and whose Cornell roster is now published (so a future term becomes viewable the moment
 // its roster drops — its courses just show as "no meeting time" chips until you fill them).
@@ -2137,7 +2152,7 @@ $("#gateInput2").addEventListener("input",()=>{ if($("#gateInput").value.length=
 /* ============ Google Calendar sync (client side; secrets live in Supabase) ============ */
 async function gcalRefresh(){
   try{ const r=await api("gcal_status"); const was=GCAL.connected;
-    GCAL={connected:!!r.connected,email:r.email||null,count:r.count||0};
+    GCAL={connected:!!r.connected,email:r.email||null,count:r.count||0,syncAcademic:!!r.sync_academic,academicCount:r.academic_count||0};
     if(was!==GCAL.connected && CUR==="schedule") renderSchedule();
   }catch(e){}
 }
@@ -2165,15 +2180,26 @@ function openGcal(){ renderGcalModal(); openModal($("#gcalModal")); }
 function renderGcalModal(){
   const b=$("#gcalBody");
   if(GCAL.connected){
+    // Each layer is its own Google calendar you can toggle independently. Classes sync automatically;
+    // Academic dates is opt-in; Deadlines is a placeholder until the assignments module exists.
+    const clsLayer=`<div class="gc-layer"><div class="gc-lmain"><div class="gc-lname">Classes</div><div class="gc-lsub">${GCAL.count} event${GCAL.count===1?'':'s'} · <b>Carnelian</b></div></div><span class="gc-on">On</span></div>`;
+    const acadLayer=`<div class="gc-layer"><div class="gc-lmain"><div class="gc-lname">Academic dates</div><div class="gc-lsub">${GCAL.syncAcademic?`${GCAL.academicCount} event${GCAL.academicCount===1?'':'s'} · <b>Carnelian – Academic</b>`:'Cornell breaks, deadlines &amp; finals'}</div></div><button class="gc-sw${GCAL.syncAcademic?' on':''}" id="gcAcad" role="switch" aria-checked="${GCAL.syncAcademic?'true':'false'}" aria-label="Sync academic dates"><span class="gc-knob"></span></button></div>`;
+    const dlLayer=`<div class="gc-layer soon"><div class="gc-lmain"><div class="gc-lname">Class deadlines</div><div class="gc-lsub">Assignment due dates</div></div><span class="gc-soon">Soon</span></div>`;
     b.innerHTML=`<p class="gc-status"><span class="gc-dot on"></span> Connected${GCAL.email?` · <b>${esc(GCAL.email)}</b>`:''}</p>
-      <p class="hint">${GCAL.count} class event${GCAL.count===1?'':'s'} in your <b>Carnelian</b> calendar. Edits here sync automatically.</p>
+      <div class="gc-layers">${clsLayer}${acadLayer}${dlLayer}</div>
       <div class="gc-btns"><button class="btn" id="gcSync">Sync now</button><button class="btn del" id="gcDisc">Disconnect</button></div>`;
-    $("#gcSync").onclick=async()=>{ const btn=$("#gcSync"); btn.textContent="Syncing…";
+    const acad=$("#gcAcad"); if(acad) acad.onclick=async()=>{ const on=!GCAL.syncAcademic; acad.disabled=true; acad.classList.toggle("on",on);
+      try{ const r=await api("gcal_academic_toggle",{enabled:on});
+        if(r&&r.reconnect){ GCAL.connected=false; toast("Reconnect needed"); if(CUR==="schedule")renderSchedule(); closeModal($("#gcalModal")); return; }
+        await gcalRefresh(); toast(on?`Added ${GCAL.academicCount} academic date${GCAL.academicCount===1?'':'s'}`:"Academic calendar removed"); renderGcalModal();
+      }catch(e){ toast(e.message||"Error"); renderGcalModal(); } };
+    $("#gcSync").onclick=async()=>{ const btn=$("#gcSync"); btn.textContent="Syncing…"; btn.disabled=true;
       try{ const r=await api("gcal_sync");
         if(r&&r.reconnect){ GCAL.connected=false; toast("Reconnect needed"); if(CUR==="schedule")renderSchedule(); closeModal($("#gcalModal")); return; }
-        toast(`Synced · +${r.created||0} ~${r.updated||0} −${r.deleted||0}`); await gcalRefresh(); renderGcalModal();
-      }catch(e){ toast(e.message||"Error"); btn.textContent="Sync now"; } };
-    $("#gcDisc").onclick=()=>armDel($("#gcDisc"),async()=>{ try{ await api("gcal_disconnect"); GCAL={connected:false,email:null,count:0}; toast("Disconnected"); if(CUR==="schedule")renderSchedule(); renderGcalModal(); }catch(e){ toast(e.message||"Error"); } });
+        const a=r&&r.academic; const extra=a?` · academic +${a.created||0} ~${a.updated||0} −${a.deleted||0}`:'';
+        toast(`Synced · classes +${r.created||0} ~${r.updated||0} −${r.deleted||0}${extra}`); await gcalRefresh(); renderGcalModal();
+      }catch(e){ toast(e.message||"Error"); btn.textContent="Sync now"; btn.disabled=false; } };
+    $("#gcDisc").onclick=()=>armDel($("#gcDisc"),async()=>{ try{ await api("gcal_disconnect"); GCAL={connected:false,email:null,count:0,syncAcademic:false,academicCount:0}; toast("Disconnected"); if(CUR==="schedule")renderSchedule(); renderGcalModal(); }catch(e){ toast(e.message||"Error"); } });
   } else {
     b.innerHTML=`<p class="hint" style="margin-top:2px">Add your classes to a dedicated <b>Carnelian</b> calendar in Google — recurring weekly through each term's end. Edits here keep it in sync.</p>
       <div class="gc-btns"><button class="btn primary" id="gcConn">Connect Google Calendar</button></div>`;
