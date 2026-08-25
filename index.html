@@ -427,6 +427,15 @@
     .ev.narrow .m,.ev.narrow .loc{display:none}
     .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
+  /* schedule toolbar + google-calendar modal */
+  .shtools{display:flex;gap:6px;margin-left:8px}
+  .shbtn{font-size:11.5px;font-weight:700;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);border-radius:99px;padding:5px 11px;white-space:nowrap}
+  .shbtn:hover{background:var(--surface-2);color:var(--ink)}
+  .shbtn.on{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+  @media (max-width:760px){ .shtools{margin-left:0;flex-basis:100%} }
+  .gc-status{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;margin:2px 0 6px}
+  .gc-dot{width:9px;height:9px;border-radius:99px;background:var(--ink-3);flex:0 0 auto} .gc-dot.on{background:var(--ok)}
+  .gc-btns{display:flex;gap:9px;margin-top:16px} .gc-btns .btn{flex:1;justify-content:center}
 </style>
 </head>
 <body>
@@ -592,6 +601,14 @@
 </div>
 
 <button class="fab" id="fab" type="button" aria-label="Add">＋</button>
+<!-- Google Calendar modal -->
+<div class="modal" id="gcalModal">
+  <div class="sheet" style="max-width:380px">
+    <div class="sh"><h3>Google Calendar</h3><button class="x" id="gcalClose" aria-label="Close">×</button></div>
+    <div class="sb" id="gcalBody"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -666,7 +683,7 @@ $("#gateForm").addEventListener("submit", async e=>{
 });
 function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="grid"; if(innerWidth<=760)$(".mobar").style.display="flex";
   ["mTerm","mStatus","mGrade","mDist","rProg","rParent","rKind","rMatchType","rScope"].forEach(id=>enhanceDD(document.getElementById(id)));
-  renderAll(); }
+  renderAll(); gcalRefresh(); handleGcalReturn(); }
 $("#logoutBtn").addEventListener("click",()=>{ localStorage.removeItem("carn_token"); location.reload(); });
 
 /* ---- helpers ---- */
@@ -998,6 +1015,7 @@ function detectPart(sd,ed,t){ const ts=pdate(t&&t.starts_on), te=pdate(t&&t.ends
   return ((ms.getTime()+me.getTime())/2 < (ts.getTime()+te.getTime())/2) ? '1' : '2'; }
 let SCHED_TERM=null;
 let SCHED_FOCUS=localStorage.getItem("carn_schedfocus")==="1";
+let GCAL={connected:false,email:null,count:0};   // Google Calendar sync status (from gcal_status)
 function schedTermsWithData(){ const ids=new Set(DB.enrollments.filter(e=>meetingsOf(e).length&&e.term_id).map(e=>e.term_id));
   return DB.terms.filter(t=>ids.has(t.id)); }
 function todayDayCode(){ return {1:"M",2:"T",3:"W",4:"R",5:"F"}[new Date().getDay()]||null; }
@@ -1092,8 +1110,10 @@ function renderSchedule(){
   const body=events.length
     ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}</div>${unschedHtml}</div>`
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
-  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}</div>${body}`;
+  const tools=`<div class="shtools"><button id="schedImg" class="shbtn" title="Save this schedule as an image">Image</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" title="Sync to Google Calendar">${GCAL.connected?'Calendar ✓':'＋ Calendar'}</button></div>`;
+  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}${tools}</div>${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;renderSchedule();};
+  { const bi=$("#schedImg"); if(bi) bi.onclick=scheduleImage; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
   const fc=$("#schedFocus"); if(fc) fc.onclick=()=>{ SCHED_FOCUS=!SCHED_FOCUS; localStorage.setItem("carn_schedfocus",SCHED_FOCUS?"1":"0"); renderSchedule(); };
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
   requestAnimationFrame(fitSchedule);
@@ -1496,7 +1516,7 @@ $("#mSave").onclick=async()=>{
     const saved=(await api("upsert",{table:"enrollments",row})).row;
     if(EDIT_ID!=null){ const i=DB.enrollments.findIndex(x=>String(x.id)===String(EDIT_ID)); DB.enrollments[i]=saved; } else DB.enrollments.push(saved);
     // course itself is saved — close immediately so it never feels laggy
-    closeModal($("#modal")); renderAll(); toast("Saved");
+    closeModal($("#modal")); renderAll(); toast("Saved"); gcalAutoSync();
     // reconcile requirement mappings in the background
     const eid=saved.id;
     const have=(DB.satisfactions||[]).filter(s=>String(s.enrollment_id)===String(eid));
@@ -1509,7 +1529,7 @@ $("#mSave").onclick=async()=>{
 };
 $("#mDelete").onclick=()=>{ if(EDIT_ID==null) return;
   confirmDelete("Delete this course?", $("#mCode").value||"This course", async()=>{
-    try{ await api("delete",{table:"enrollments",id:EDIT_ID}); DB.enrollments=DB.enrollments.filter(x=>String(x.id)!==String(EDIT_ID)); DB.satisfactions=(DB.satisfactions||[]).filter(s=>String(s.enrollment_id)!==String(EDIT_ID)); closeModal($("#modal")); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } }); };
+    try{ await api("delete",{table:"enrollments",id:EDIT_ID}); DB.enrollments=DB.enrollments.filter(x=>String(x.id)!==String(EDIT_ID)); DB.satisfactions=(DB.satisfactions||[]).filter(s=>String(s.enrollment_id)!==String(EDIT_ID)); closeModal($("#modal")); renderAll(); toast("Deleted"); gcalAutoSync(); }catch(err){ toast(err.message||"Error"); } }); };
 
 /* ---- requirement modal ---- */
 let R_EDIT=null;
@@ -1601,6 +1621,130 @@ window.openCourse=openCourse;
 ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
 $("#gateInput").addEventListener("input",()=>{ if($("#gateForm").dataset.mode==="login" && $("#gateInput").value.length===4) $("#gateForm").requestSubmit(); });
 $("#gateInput2").addEventListener("input",()=>{ if($("#gateInput").value.length===4 && $("#gateInput2").value.length===4) $("#gateForm").requestSubmit(); });
+
+/* ============ Google Calendar sync (client side; secrets live in Supabase) ============ */
+async function gcalRefresh(){
+  try{ const r=await api("gcal_status"); const was=GCAL.connected;
+    GCAL={connected:!!r.connected,email:r.email||null,count:r.count||0};
+    if(was!==GCAL.connected && CUR==="schedule") renderSchedule();
+  }catch(e){}
+}
+function handleGcalReturn(){
+  const q=new URLSearchParams(location.search);
+  if(q.get("gcal")==="connected"){
+    history.replaceState(null,"",location.pathname);
+    toast("Google Calendar connected — syncing…");
+    api("gcal_sync").then(async r=>{ await gcalRefresh(); if(r&&r.ok) toast(`Synced ${r.created||0} classes to Google Calendar`); }).catch(()=>{});
+  }
+}
+async function gcalConnect(){
+  try{ const r=await api("gcal_auth_url"); if(r&&r.url) location.href=r.url; else toast((r&&r.error)||"Couldn't start Google sign-in"); }
+  catch(e){ toast(e.message||"Error"); }
+}
+let GSYNC=false;
+function gcalAutoSync(){   // fire-and-forget re-sync after any course change
+  if(!GCAL.connected||GSYNC) return; GSYNC=true;
+  api("gcal_sync").then(r=>{ GSYNC=false;
+    if(r&&r.reconnect){ GCAL.connected=false; if(CUR==="schedule")renderSchedule(); toast("Reconnect Google Calendar to keep syncing"); }
+    else gcalRefresh();
+  }).catch(()=>{ GSYNC=false; });
+}
+function openGcal(){ renderGcalModal(); openModal($("#gcalModal")); }
+function renderGcalModal(){
+  const b=$("#gcalBody");
+  if(GCAL.connected){
+    b.innerHTML=`<p class="gc-status"><span class="gc-dot on"></span> Connected${GCAL.email?` · <b>${esc(GCAL.email)}</b>`:''}</p>
+      <p class="hint">${GCAL.count} class event${GCAL.count===1?'':'s'} in a dedicated <b>Carnelian</b> calendar. Course edits here sync automatically.</p>
+      <div class="gc-btns"><button class="btn" id="gcSync">Sync now</button><button class="btn del" id="gcDisc">Disconnect</button></div>`;
+    $("#gcSync").onclick=async()=>{ const btn=$("#gcSync"); btn.textContent="Syncing…";
+      try{ const r=await api("gcal_sync");
+        if(r&&r.reconnect){ GCAL.connected=false; toast("Reconnect needed"); if(CUR==="schedule")renderSchedule(); closeModal($("#gcalModal")); return; }
+        toast(`Synced · +${r.created||0} ~${r.updated||0} −${r.deleted||0}`); await gcalRefresh(); renderGcalModal();
+      }catch(e){ toast(e.message||"Error"); btn.textContent="Sync now"; } };
+    $("#gcDisc").onclick=()=>armDel($("#gcDisc"),async()=>{ try{ await api("gcal_disconnect"); GCAL={connected:false,email:null,count:0}; toast("Disconnected"); if(CUR==="schedule")renderSchedule(); renderGcalModal(); }catch(e){ toast(e.message||"Error"); } });
+  } else {
+    b.innerHTML=`<p class="hint" style="margin-top:2px">Sync your classes to a dedicated <b>Carnelian</b> calendar in Google Calendar — recurring weekly through each term's end date. Edits here keep it up to date automatically. Nothing sensitive is stored in the browser.</p>
+      <div class="gc-btns"><button class="btn primary" id="gcConn">Connect Google Calendar</button></div>`;
+    $("#gcConn").onclick=gcalConnect;
+  }
+}
+$("#gcalClose").onclick=()=>closeModal($("#gcalModal"));
+$("#gcalModal").addEventListener("click",e=>{ if(e.target===$("#gcalModal")) closeModal($("#gcalModal")); });
+
+/* ============ Save schedule as a PNG image ============ */
+function hex2rgb(h){ h=String(h).replace('#','').trim(); if(h.length===3)h=h.split('').map(c=>c+c).join(''); const n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
+function mixc(a,b,t){ const A=hex2rgb(a),B=hex2rgb(b); return `rgb(${Math.round(A[0]*t+B[0]*(1-t))},${Math.round(A[1]*t+B[1]*(1-t))},${Math.round(A[2]*t+B[2]*(1-t))})`; }
+function roundRectPath(x,X,Y,W,H,R){ R=Math.max(0,Math.min(R,W/2,H/2)); x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
+function schedImageData(termId){
+  const term=termById(termId);
+  const es=DB.enrollments.filter(e=>e.term_id===termId&&displayStatus(e)!=="wishlist");
+  const cidx={}; let ci=0; es.forEach(e=>{ const k=e.code||('#'+e.id); if(cidx[k]==null)cidx[k]=(ci++)%SCHED_COLORS.length; });
+  const events=[];
+  for(const e of es){ const ms=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
+    for(const m of ms) for(const dd of m.days){ if(!SDAYS.includes(dd))continue; events.push({e,ci:cidx[e.code||('#'+e.id)],day:dd,s:hm2min(m.start),en:hm2min(m.end),m}); } }
+  let minS=Infinity,maxE=-Infinity; events.forEach(ev=>{minS=Math.min(minS,ev.s);maxE=Math.max(maxE,ev.en);});
+  if(!isFinite(minS)){minS=8*60;maxE=18*60;}
+  const startH=Math.floor(minS/60),endH=Math.ceil(maxE/60);
+  const byDay={}; SDAYS.forEach(d=>byDay[d]=[]); events.forEach(ev=>byDay[ev.day].push(ev));
+  for(const dd of SDAYS){ const list=byDay[dd].sort((a,b)=>a.s-b.s||a.en-b.en); let i=0;
+    while(i<list.length){ let j=i,ce=list[i].en; const cl=[list[i]]; while(j+1<list.length&&list[j+1].s<ce){j++;cl.push(list[j]);ce=Math.max(ce,list[j].en);}
+      const cc=[]; for(const ev of cl){ let pl=false; for(let c=0;c<cc.length;c++){ if(cc[c]<=ev.s){ ev.col=c; cc[c]=ev.en; pl=true; break; } } if(!pl){ ev.col=cc.length; cc.push(ev.en); } } cl.forEach(ev=>ev.ncols=cc.length); i=j+1; } }
+  const credits=es.reduce((s,e)=>s+num(e.credits),0);
+  return {term,es,events,byDay,startH,endH,credits};
+}
+function scheduleImage(){
+  const cv=buildSchedCanvas(SCHED_TERM);
+  if(!cv){ toast("No class times to show for this term"); return; }
+  const term=termById(SCHED_TERM);
+  cv.toBlob(b=>{ if(!b){ toast("Couldn't render image"); return; } shareOrDownload(b, `carnelian-${(term?term.name:'schedule').replace(/\s+/g,'-').toLowerCase()}.png`); }, 'image/png');
+}
+function buildSchedCanvas(termId){
+  const d=schedImageData(termId);
+  if(!d.events.length){ return null; }
+  const cs=getComputedStyle(document.body), v=n=>(cs.getPropertyValue(n)||'').trim()||'#000000';
+  const surface=v('--surface'), ink=v('--ink'), ink2=v('--ink-2'), ink3=v('--ink-3'), line=v('--line'), surface2=v('--surface-2');
+  const S=2, pad=16, gutter=48, colW=152, headH=64, dayH=30, hourH=54;
+  const rows=d.endH-d.startH, total=rows*60, gStart=d.startH*60, gridH=rows*hourH;
+  const W=gutter+colW*5+pad, H=headH+dayH+gridH+pad;
+  const cv=document.createElement('canvas'); cv.width=W*S; cv.height=H*S;
+  const x=cv.getContext('2d'); x.scale(S,S);
+  x.fillStyle=surface; x.fillRect(0,0,W,H);
+  x.textBaseline='alphabetic'; x.textAlign='left';
+  x.fillStyle=ink; x.font='800 22px -apple-system,BlinkMacSystemFont,system-ui,sans-serif';
+  x.fillText(d.term?d.term.name:'Schedule', pad, 36);
+  x.fillStyle=ink3; x.font='700 12.5px -apple-system,system-ui,sans-serif';
+  x.fillText(`${d.es.length} course${d.es.length===1?'':'s'} · ${nf(d.credits)} credits`, pad, 54);
+  const gx0=gutter, gy0=headH+dayH;
+  x.fillStyle=surface2; x.fillRect(pad,headH,W-pad*2,dayH);
+  x.fillStyle=ink2; x.font='800 12px -apple-system,system-ui,sans-serif'; x.textAlign='center'; x.textBaseline='middle';
+  SDAYS.forEach((dd,i)=>x.fillText(SDAY_LABEL[dd], gx0+colW*i+colW/2, headH+dayH/2));
+  x.strokeStyle=line; x.lineWidth=1; x.textAlign='right'; x.font='700 10px -apple-system,system-ui,sans-serif';
+  for(let hh=d.startH; hh<=d.endH; hh++){ const gy=gy0+((hh*60-gStart)/total)*gridH;
+    x.beginPath(); x.moveTo(gx0,Math.round(gy)+0.5); x.lineTo(W-pad,Math.round(gy)+0.5); x.stroke();
+    if(hh<d.endH){ x.fillStyle=ink3; x.textBaseline='middle'; x.fillText(min2label(hh*60), gx0-6, gy+13); } }
+  for(let i=0;i<=5;i++){ const cxp=gx0+colW*i; x.beginPath(); x.moveTo(Math.round(cxp)+0.5,gy0); x.lineTo(Math.round(cxp)+0.5,gy0+gridH); x.stroke(); }
+  x.textAlign='left';
+  SDAYS.forEach((dd,di)=>{ for(const ev of d.byDay[dd]){
+    const bw=colW/ev.ncols, bx=gx0+colW*di+ev.col*bw+2, by=gy0+((ev.s-gStart)/total)*gridH+1, bh=Math.max(15,((ev.en-ev.s)/total)*gridH-2), W2=bw-4;
+    const hue=SCHED_COLORS[ev.ci];
+    roundRectPath(x,bx,by,W2,bh,6); x.fillStyle=mixc(hue,surface,0.15); x.fill();
+    x.strokeStyle=mixc(hue,surface,0.34); x.lineWidth=1; roundRectPath(x,bx,by,W2,bh,6); x.stroke();
+    roundRectPath(x,bx,by,3,bh,1.5); x.fillStyle=hue; x.fill();
+    x.save(); roundRectPath(x,bx,by,W2,bh,6); x.clip();
+    const tx=bx+8; x.textBaseline='top';
+    x.fillStyle=mixc(hue,ink,0.62); x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(ev.e.code||'—', tx, by+5);
+    if(bh>=30){ x.fillStyle=ink2; x.font='700 10px -apple-system,system-ui,sans-serif'; x.fillText(min2label(ev.s)+' – '+min2label(ev.en), tx, by+21); }
+    if(bh>=46 && ev.m.location){ x.fillStyle=ink3; x.font='600 10px -apple-system,system-ui,sans-serif'; x.fillText(ev.m.location, tx, by+34); }
+    x.restore();
+  }});
+  return cv;
+}
+async function shareOrDownload(blob,name){
+  try{ const file=new File([blob],name,{type:'image/png'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'My schedule'}); return; }
+  }catch(e){ if(e&&e.name==='AbortError') return; }
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); toast("Image saved");
+}
 
 // Register the network-first service worker so future updates always load fresh on reopen.
 if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); }); }
