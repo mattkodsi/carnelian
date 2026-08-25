@@ -203,6 +203,18 @@ async function ensureCalendar(access: string) {
 // ---- event building (recurrence, half-term windows) ----
 const DOW: Record<string, number> = { M: 1, T: 2, W: 3, R: 4, F: 5, S: 6, U: 0 };
 const BYDAY: Record<string, string> = { M: "MO", T: "TU", W: "WE", R: "TH", F: "FR", S: "SA", U: "SU" };
+// App schedule palette → nearest Google Calendar event colorId (by hue) so
+// events are colour-matched to the app's weekly grid.
+const SCHED_COLORS = ["#2F5FA6", "#C0562B", "#1C8074", "#B23A5B", "#3B7D4F", "#6A4A8C", "#2C8FB0", "#C24E7D", "#7D3A52", "#4C5CA8"];
+const GCOLORS: Record<string, string> = { "1": "#a4bdfc", "2": "#7ae7bf", "3": "#dbadff", "4": "#ff887c", "5": "#fbd75b", "6": "#ffb878", "7": "#46d6db", "9": "#5484ed", "10": "#51b749", "11": "#dc2127" };
+function hexRgb(h: string) { h = h.replace("#", ""); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
+function hueOf(hex: string) { const [r, g, b] = hexRgb(hex).map((v) => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (d === 0) return -1; let h; if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; return h < 0 ? h + 360 : h; }
+function colorIdForIndex(i: number) {
+  const H = hueOf(SCHED_COLORS[i % SCHED_COLORS.length]); if (H < 0) return "8";
+  let best = "9", bd = 1e9;
+  for (const id in GCOLORS) { const gh = hueOf(GCOLORS[id]); if (gh < 0) continue; let dd = Math.abs(H - gh); if (dd > 180) dd = 360 - dd; if (dd < bd) { bd = dd; best = id; } }
+  return best;
+}
 const p2 = (n: number) => String(n).padStart(2, "0");
 const hm = (s: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(s || ""); return m ? (+m[1]) * 60 + (+m[2]) : -1; };
 function pdate(s: string | null | undefined) {
@@ -214,7 +226,7 @@ function firstOccur(ws: Date, days: string[]) {
   for (let i = 0; i < 7; i++) { if (wanted.has(d.getDay())) return new Date(d); d.setDate(d.getDate() + 1); }
   return null;
 }
-function buildEvent(e: any, m: any) {
+function buildEvent(e: any, m: any, colorId: string) {
   const days = (m.days || []).filter((d: string) => BYDAY[d]);
   if (!days.length) return null;
   if (hm(m.start) < 0 || hm(m.end) < 0 || hm(m.end) <= hm(m.start)) return null;
@@ -237,30 +249,44 @@ function buildEvent(e: any, m: any) {
   const cs = `${m.component || ""} ${m.section || ""}`.trim(); if (cs) desc.push(cs);
   if (m.instructor) desc.push(m.instructor);
   desc.push("Synced from Carnelian");
+  const summary = e.title ? (e.code ? `${e.title} (${e.code})` : e.title) : (e.code || "Course");
   const body: any = {
-    summary: `${e.code || "Course"}${e.title ? " — " + e.title : ""}`,
+    summary,
     location: m.location || undefined,
     description: desc.join("\n"),
+    colorId,
     start: { dateTime: startDT, timeZone: TZ },
     end: { dateTime: endDT, timeZone: TZ },
     recurrence: [rrule],
   };
-  const sig = JSON.stringify([body.summary, body.location || "", startDT, endDT, rrule]);
+  const sig = JSON.stringify([summary, body.location || "", startDT, endDT, rrule, colorId]);
   return { body, sig };
 }
 
 // Reconcile every non-wishlist enrollment-with-meetings against the calendar,
 // touching only what changed (sig compare) so re-syncs are cheap and idempotent.
 async function syncAll(access: string, calId: string) {
-  const rows = await sql`select e.id, e.code, e.title, e.meetings, t.starts_on::text as starts_on, t.ends_on::text as ends_on
+  // All non-wishlist enrollments, ordered like the app (per term, by id) so the
+  // per-course colour index matches the weekly grid exactly.
+  const rows = await sql`select e.id, e.code, e.title, e.meetings, e.term_id, t.starts_on::text as starts_on, t.ends_on::text as ends_on
     from carnelian.enrollments e left join carnelian.terms t on t.id = e.term_id
-    where jsonb_array_length(coalesce(e.meetings, '[]'::jsonb)) > 0 and coalesce(e.status, '') <> 'wishlist'`;
+    where coalesce(e.status, '') <> 'wishlist'
+      and (t.ends_on is null or t.ends_on >= current_date)
+    order by e.term_id, e.id`;
+  const tcol = new Map<string, { map: Map<string, number>; n: number }>();
+  const colorIndexFor = (e: any) => {
+    const t = e.term_id || "_"; if (!tcol.has(t)) tcol.set(t, { map: new Map(), n: 0 });
+    const g = tcol.get(t)!; const k = e.code || ("#" + e.id);
+    if (!g.map.has(k)) { g.map.set(k, g.n % SCHED_COLORS.length); g.n++; }
+    return g.map.get(k)!;
+  };
   const desired = new Map<string, { enrId: number; mkey: string; body: any; sig: string }>();
   let skipped = 0;
   for (const e of rows as any[]) {
+    const colorId = colorIdForIndex(colorIndexFor(e));
     const meetings = Array.isArray(e.meetings) ? e.meetings : [];
     meetings.forEach((m: any, i: number) => {
-      const built = buildEvent(e, m);
+      const built = buildEvent(e, m, colorId);
       if (!built) { skipped++; return; }
       desired.set(`${e.id}::${i}`, { enrId: e.id, mkey: String(i), body: built.body, sig: built.sig });
     });
@@ -320,7 +346,8 @@ Deno.serve(async (req) => {
       if (cfg.oauth_state_at && Date.now() - new Date(cfg.oauth_state_at).getTime() > 15 * 60000) return connectPage("This link expired — please connect again from the app.", false);
       await exchangeCode(code!);
       const access = await accessToken();
-      await ensureCalendar(access);
+      const calId = await ensureCalendar(access);
+      try { await syncAll(access, calId); } catch { /* first sync best-effort; app retries on return */ }
       return new Response(null, { status: 302, headers: { location: APP_URL + "?gcal=connected" } });
     } catch (e) {
       return connectPage("Couldn't connect: " + String((e as Error)?.message ?? e), false);

@@ -429,9 +429,12 @@
   }
   /* schedule toolbar + google-calendar modal */
   .shtools{display:flex;gap:6px;margin-left:8px}
-  .shbtn{font-size:11.5px;font-weight:700;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);border-radius:99px;padding:5px 11px;white-space:nowrap}
+  .shbtn{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);border-radius:99px;padding:5px 11px 5px 9px;white-space:nowrap;transition:background .12s,color .12s,border-color .12s}
+  .shbtn:active{transform:translateY(.5px)}
+  .shbtn .ico{width:13px;height:13px;flex:0 0 auto;opacity:.85}
   .shbtn:hover{background:var(--surface-2);color:var(--ink)}
   .shbtn.on{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+  .shbtn.on .ico{opacity:1}
   @media (max-width:760px){ .shtools{margin-left:0;flex-basis:100%} }
   .gc-status{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;margin:2px 0 6px}
   .gc-dot{width:9px;height:9px;border-radius:99px;background:var(--ink-3);flex:0 0 auto} .gc-dot.on{background:var(--ok)}
@@ -622,6 +625,11 @@ const $ = (s,r=document)=>r.querySelector(s);
 const num = v => v==null||v===""? 0 : (typeof v==="number"?v:parseFloat(v));
 const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const nf = n => Number.isInteger(n)?n:(Math.round(n*10)/10);
+const ICO={
+  share:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11"/><path d="m8 7.5 4-4 4 4"/><path d="M6 12.5v6a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5v-6"/></svg>',
+  cal:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>',
+  check:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m20 6.5-11 11-5-5"/></svg>'
+};
 
 async function api(action, payload={}){
   const r = await fetch(FN,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,token:TOKEN,...payload})});
@@ -1110,7 +1118,7 @@ function renderSchedule(){
   const body=events.length
     ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}</div>${unschedHtml}</div>`
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
-  const tools=`<div class="shtools"><button id="schedImg" class="shbtn" title="Save this schedule as an image">Image</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" title="Sync to Google Calendar">${GCAL.connected?'Calendar ✓':'＋ Calendar'}</button></div>`;
+  const tools=`<div class="shtools"><button id="schedImg" class="shbtn" title="Share this schedule as an image">${ICO.share} Share</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" title="Sync to Google Calendar">${GCAL.connected?ICO.check+' Calendar':ICO.cal+' Calendar'}</button></div>`;
   $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}${tools}</div>${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;renderSchedule();};
   { const bi=$("#schedImg"); if(bi) bi.onclick=scheduleImage; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
@@ -1654,7 +1662,7 @@ function renderGcalModal(){
   const b=$("#gcalBody");
   if(GCAL.connected){
     b.innerHTML=`<p class="gc-status"><span class="gc-dot on"></span> Connected${GCAL.email?` · <b>${esc(GCAL.email)}</b>`:''}</p>
-      <p class="hint">${GCAL.count} class event${GCAL.count===1?'':'s'} in a dedicated <b>Carnelian</b> calendar. Course edits here sync automatically.</p>
+      <p class="hint">${GCAL.count} class event${GCAL.count===1?'':'s'} in your <b>Carnelian</b> calendar. Edits here sync automatically.</p>
       <div class="gc-btns"><button class="btn" id="gcSync">Sync now</button><button class="btn del" id="gcDisc">Disconnect</button></div>`;
     $("#gcSync").onclick=async()=>{ const btn=$("#gcSync"); btn.textContent="Syncing…";
       try{ const r=await api("gcal_sync");
@@ -1663,7 +1671,7 @@ function renderGcalModal(){
       }catch(e){ toast(e.message||"Error"); btn.textContent="Sync now"; } };
     $("#gcDisc").onclick=()=>armDel($("#gcDisc"),async()=>{ try{ await api("gcal_disconnect"); GCAL={connected:false,email:null,count:0}; toast("Disconnected"); if(CUR==="schedule")renderSchedule(); renderGcalModal(); }catch(e){ toast(e.message||"Error"); } });
   } else {
-    b.innerHTML=`<p class="hint" style="margin-top:2px">Sync your classes to a dedicated <b>Carnelian</b> calendar in Google Calendar — recurring weekly through each term's end date. Edits here keep it up to date automatically. Nothing sensitive is stored in the browser.</p>
+    b.innerHTML=`<p class="hint" style="margin-top:2px">Add your classes to a dedicated <b>Carnelian</b> calendar in Google — recurring weekly through each term's end. Edits here keep it in sync.</p>
       <div class="gc-btns"><button class="btn primary" id="gcConn">Connect Google Calendar</button></div>`;
     $("#gcConn").onclick=gcalConnect;
   }
@@ -1692,11 +1700,32 @@ function schedImageData(termId){
   const credits=es.reduce((s,e)=>s+num(e.credits),0);
   return {term,es,events,byDay,startH,endH,credits};
 }
+// Decode a data: URL to a Blob *synchronously* — keeps us inside the click gesture
+// so iOS lets navigator.share attach the PNG to a text (async toBlob would break it).
+function dataURLtoBlob(durl){
+  const c=durl.indexOf(','), mime=(durl.slice(0,c).match(/:(.*?);/)||[])[1]||'image/png';
+  const bin=atob(durl.slice(c+1)), n=bin.length, u8=new Uint8Array(n);
+  for(let i=0;i<n;i++) u8[i]=bin.charCodeAt(i);
+  return new Blob([u8],{type:mime});
+}
 function scheduleImage(){
   const cv=buildSchedCanvas(SCHED_TERM);
   if(!cv){ toast("No class times to show for this term"); return; }
   const term=termById(SCHED_TERM);
-  cv.toBlob(b=>{ if(!b){ toast("Couldn't render image"); return; } shareOrDownload(b, `carnelian-${(term?term.name:'schedule').replace(/\s+/g,'-').toLowerCase()}.png`); }, 'image/png');
+  const name=`carnelian-${(term?term.name:'schedule').replace(/\s+/g,'-').toLowerCase()}.png`;
+  let blob; try{ blob=dataURLtoBlob(cv.toDataURL('image/png')); }
+  catch(e){ toast("Couldn't render image"); return; }
+  const file=new File([blob],name,{type:'image/png'});
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    // Called synchronously within the gesture; only fall back if the share truly fails.
+    navigator.share({files:[file]}).catch(e=>{ if(!(e&&e.name==='AbortError')) downloadBlob(blob,name); });
+    return;
+  }
+  downloadBlob(blob,name);
+}
+function downloadBlob(blob,name){
+  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); toast("Image saved");
 }
 function buildSchedCanvas(termId){
   const d=schedImageData(termId);
@@ -1738,12 +1767,6 @@ function buildSchedCanvas(termId){
     x.restore();
   }});
   return cv;
-}
-async function shareOrDownload(blob,name){
-  try{ const file=new File([blob],name,{type:'image/png'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){ await navigator.share({files:[file],title:'My schedule'}); return; }
-  }catch(e){ if(e&&e.name==='AbortError') return; }
-  const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); toast("Image saved");
 }
 
 // Register the network-first service worker so future updates always load fresh on reopen.
