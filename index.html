@@ -189,12 +189,11 @@
   .prow .co{font-weight:700;font-size:12.5px;white-space:nowrap;line-height:1.35} .prow .co.nonas{color:var(--accent)}
   .prow .ti{display:flex;flex-direction:column;gap:1px;min-width:0}
   .prow .ti .tn{color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
-  .prow .ti .prof{font-size:10px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .prow .ti .prof{font-size:10px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .prow .ti .prof.likely{font-style:italic}
   .prow .cc{font-weight:700;font-size:12px;color:var(--ink-3);text-align:right;white-space:nowrap;line-height:1.35}
   .prow.flagged{background:color-mix(in srgb,var(--accent) 5%,transparent)}
   .rflag{align-self:center;font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,transparent);border-radius:999px;padding:2px 7px;white-space:nowrap}
-  .wc-prof{font-size:11px;color:var(--ink-3);margin-top:6px}
-  .wc-await{font-size:10.5px;color:var(--ink-3);margin-top:8px;font-style:italic;opacity:.85}
+  .wc-prof{font-size:11px;color:var(--ink-3);margin-top:6px} .wc-prof.likely{font-style:italic}
   .wcard.flagged{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
   .rcheck-btn{font:inherit;font-size:12.5px;font-weight:700;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;box-shadow:var(--shadow)}
   .rcheck-btn:hover{background:var(--surface-2)} .rcheck-btn.busy{opacity:.6;pointer-events:none}
@@ -339,8 +338,9 @@
   .schead .halftog.on{color:var(--accent);opacity:1}
   .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
   .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto}
-  .sched-days .d{padding:9px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2)}
-  .sched-days .d.today{color:var(--accent)}
+  .sched-days .d{padding:8px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2);display:flex;flex-direction:column;gap:1px;line-height:1.2}
+  .sched-days .d .dd{font-size:9.5px;font-weight:700;color:var(--ink-3)}
+  .sched-days .d.today{color:var(--accent)} .sched-days .d.today .dd{color:var(--accent)}
   .sched-body{position:relative;display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);flex:1 1 auto;min-height:0;
     background:repeating-linear-gradient(to bottom,var(--sched-band) 0,var(--sched-band) calc(100%/var(--rows)),transparent calc(100%/var(--rows)),transparent calc(200%/var(--rows)))}
   .sched-gutter{position:relative;height:100%}
@@ -357,9 +357,12 @@
   .ev .m .tm{display:none}
   .ev .loc{font-size:10px;color:var(--ev-ink3);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev.conflict{outline:2px solid var(--accent);outline-offset:-2px}
-  .ev.narrow.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
+  .now-line{position:absolute;left:var(--gutter);right:0;height:0;border-top:2px solid var(--accent);z-index:6;pointer-events:none}
+  .now-line::before{content:"";position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
+  .now-time{position:absolute;left:0;width:calc(var(--gutter) - 5px);text-align:right;transform:translateY(-50%);font-size:9px;font-weight:800;color:#fff;background:var(--accent);border-radius:3px;padding:1px 3px 1px 0;z-index:7;pointer-events:none;line-height:1.15;white-space:nowrap}
+  .ev.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
+  .ev.half .loc{padding-right:16px}
   .ev.dim{opacity:.42;border-left-style:dashed}
-  .ev .m .pl{font-weight:800;color:var(--ev-title)}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
@@ -1023,7 +1026,7 @@ const byCode=(a,b)=>String(codeLabel(a)).localeCompare(String(codeLabel(b)),unde
 // what to show as a course's "code" — Oxford/transferred courses have no Cornell code, so label them "Oxford"
 const codeLabel=e=>{ const c=(e.code||'').trim(); return (c&&c!=='OXON')?c:'Oxford'; };
 const prowHTML=e=>{ const p=profInfo(e); const fl=RCHECK_FLAG.has(String(e.id));
-  const sub=p.name?`<span class="prof">${esc(p.name)}${p.likely?' · likely':''}</span>`:'';
+  const sub=p.name?`<span class="prof${p.likely?' likely':''}">${esc(p.name)}</span>`:'';
   return `<div class="prow${fl?' flagged':''}" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti"><span class="tn">${esc(e.title||'')}</span>${sub}</span>${fl?'<span class="rflag">update</span>':''}<span class="cc num">${nf(num(e.credits))}</span></div>`; };
 const TSTAT={completed:{c:"done",l:"completed"},in_progress:{c:"now",l:"in progress"},planned:{c:"soon",l:"upcoming"}};
 function fmtDiff(d){ if(d.field==="credits") return nf(d.from)+"→"+nf(d.to); return "→ “"+String(d.to).slice(0,44)+"”"; }
@@ -1073,12 +1076,11 @@ function renderPlanner(){
   }
   const wish=DB.enrollments.filter(e=>e.status==="wishlist").sort(byCode);
   const wcards=wish.map(e=>{
-    const meets=meetInfoHTML(meetingsOf(e)); const p=profInfo(e); const aw=awaitingRoster(e);
-    const prof=(p.likely&&p.name)?`<div class="wc-prof">${esc(p.name)} · likely prof</div>`:'';
-    const await_=aw?`<div class="wc-await">${esc(aw)} roster not out yet · code/title/credits only</div>`:'';
+    const meets=meetInfoHTML(meetingsOf(e)); const p=profInfo(e); const showProf=p.name&&!savedInstructor(e);
+    const prof=showProf?`<div class="wc-prof${p.likely?' likely':''}">${esc(p.name)}</div>`:'';
     return `<div class="wcard${RCHECK_FLAG.has(String(e.id))?' flagged':''}" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
     <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div>
-    ${prof}${meets?`<div class="ci-meets wc-meets">${meets}</div>`:''}${await_}</div>`;
+    ${prof}${meets?`<div class="ci-meets wc-meets">${meets}</div>`:''}</div>`;
   }).join("");
   const wishCard=`<div class="pterm aux open"><div class="ph" data-toggle="__wish"><span class="chev">›</span><span class="nm">Wishlist</span><span class="meta acount">${wish.length}</span></div>
     <div class="body">${wcards?`<div class="wgrid">${wcards}</div>`:'<p class="hint" style="padding:0 0 8px">Courses you might take — separate from your plan.</p>'}
@@ -1136,6 +1138,17 @@ function detectPart(sd,ed,t){ const ts=pdate(t&&t.starts_on), te=pdate(t&&t.ends
   return ((ms.getTime()+me.getTime())/2 < (ts.getTime()+te.getTime())/2) ? '1' : '2'; }
 let SCHED_TERM=null;
 let SCHED_FOCUS=localStorage.getItem("carn_schedfocus")==="1";
+// current-time indicator state: {gStart,gEnd,total} in grid minutes while today is shown, else null
+let SCHED_NOW=null, schedNowTimer=null;
+// Position the "now" line + gutter time at the live clock, or hide it when outside the grid's hours.
+function updateNowLine(){
+  const line=$("#schedule .now-line"), lab=$("#schedule .now-time"); if(!line||!lab) return;
+  if(!SCHED_NOW){ line.style.display="none"; lab.style.display="none"; return; }
+  const d=new Date(), nm=d.getHours()*60+d.getMinutes()+d.getSeconds()/60;
+  if(nm<SCHED_NOW.gStart||nm>SCHED_NOW.gEnd){ line.style.display="none"; lab.style.display="none"; return; }
+  const top=((nm-SCHED_NOW.gStart)/SCHED_NOW.total)*100;
+  line.style.display=""; lab.style.display=""; line.style.top=top+"%"; lab.style.top=top+"%"; lab.textContent=min2label(Math.round(nm));
+}
 let GCAL={connected:false,email:null,count:0};   // Google Calendar sync status (from gcal_status)
 // Terms selectable in the Schedule tab: any term with meeting data, PLUS any term that has real
 // courses and whose Cornell roster is now published (so a future term becomes viewable the moment
@@ -1146,6 +1159,18 @@ function schedTermsWithData(){ const ids=new Set(DB.enrollments.filter(e=>meetin
     const ideal=termRoster(t); if(ideal&&AVAIL_ROSTERS.includes(ideal)) ids.add(t.id); } }
   return DB.terms.filter(t=>ids.has(t.id)); }
 function todayDayCode(){ return {1:"M",2:"T",3:"W",4:"R",5:"F"}[new Date().getDay()]||null; }
+// Dates (m/d) for Mon–Fri under the day headers: this week if today falls inside the displayed
+// term, otherwise the term's opening week.
+function schedWeekDates(term){
+  const now=new Date();
+  const s=term&&term.starts_on?pdate(String(term.starts_on).slice(0,10)):null;
+  const e=term&&term.ends_on?pdate(String(term.ends_on).slice(0,10)):null;
+  const anchor=(s&&e&&now>=s&&now<=e)?now:(s||now);
+  const off=anchor.getDay()===0?-6:1-anchor.getDay();
+  const mon=new Date(anchor.getFullYear(),anchor.getMonth(),anchor.getDate()+off);
+  const map={}; SDAYS.forEach((d,i)=>{ const dt=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+i); map[d]=(dt.getMonth()+1)+"/"+dt.getDate(); });
+  return map;
+}
 function renderSchedule(){
   // once the published-roster list loads, re-render so newly-eligible future terms appear
   if(!AVAIL_ROSTERS && !renderSchedule._av){ renderSchedule._av=true; availRosters().then(()=>renderSchedule()); }
@@ -1183,6 +1208,8 @@ function renderSchedule(){
   if(!isFinite(minS)){minS=8*60;maxE=18*60;}
   const startH=Math.floor(minS/60), endH=Math.ceil(maxE/60);
   const gStart=startH*60, gEnd=endH*60, total=gEnd-gStart, rows=endH-startH;
+  // live "now" line: only when today's weekday column is on this grid (current term shown)
+  SCHED_NOW = (showToday && events.length) ? {gStart, gEnd, total} : null;
   const byDay={}; SDAYS.forEach(d=>byDay[d]=[]);
   events.forEach(ev=>byDay[ev.day].push(ev));
   let conflictAny=false;
@@ -1205,7 +1232,8 @@ function renderSchedule(){
       if(x.s<y.en && y.s<x.en && partsOverlap(x.part,y.part)){ x.hard=true; y.hard=true; conflictAny=true; }
     }
   }
-  const dayHead=SDAYS.map(d=>`<div class="d ${d===showToday?'today':''}">${SDAY_LABEL[d]}</div>`).join("");
+  const wk=schedWeekDates(term);
+  const dayHead=SDAYS.map(d=>`<div class="d ${d===showToday?'today':''}"><span class="dn">${SDAY_LABEL[d]}</span><span class="dd">${wk[d]}</span></div>`).join("");
   const gutter=Array.from({length:rows},(_,k)=>{const tm=(startH+k)*60;const top=((tm-gStart)/total)*100;
     return `<div class="hr" style="top:${top}%">${min2label(tm)}</div>`;}).join("");
   const cols=SDAYS.map(d=>{
@@ -1214,14 +1242,12 @@ function renderSchedule(){
       const w=100/ev.ncols, left=ev.col*w, dur=ev.en-ev.s;
       const showLoc=dur>=50 && ev.ncols===1;
       const secLbl=ev.m.section?` · ${esc(ev.m.component||'')} ${esc(ev.m.section)}`.replace(/\s+/g,' ').trimEnd():'';
-      // In focus mode every block is already the current half, so the "1st half ·" prefix is
-      // redundant and only crowds out the time — drop it there, keep it in the combined view.
-      const plabel=focusOn?'':(ev.part==='1'?'1st half':ev.part==='2'?'2nd half':'');
+      // The half (1st/2nd) is shown by the H1/H2 corner badge + left/right placement, so no text label.
       const dim=activeHalf&&(ev.part==='1'||ev.part==='2')&&ev.part!==activeHalf;
       const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half"); if(dim)cls.push("dim");
       return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}" style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
-        <div class="m">${plabel?`<span class="pl">${plabel} · </span>`:''}<span class="tf">${min2label(ev.s).replace(/[ap]m$/,'')} – ${min2label(ev.en).replace(/[ap]m$/,'')}</span><span class="tm">${min2label(ev.s)}</span><span class="sec">${secLbl}</span></div>
+        <div class="m"><span class="tf">${min2label(ev.s).replace(/[ap]m$/,'')} – ${min2label(ev.en).replace(/[ap]m$/,'')}</span><span class="tm">${min2label(ev.s)}</span><span class="sec">${secLbl}</span></div>
         ${showLoc&&ev.m.location?`<div class="loc">${esc(ev.m.location)}</div>`:''}
       </div>`;
     }).join("");
@@ -1236,8 +1262,9 @@ function renderSchedule(){
     ? `<button id="schedFocus" class="halftog${focusOn?' on':''}" role="switch" aria-checked="${focusOn?'true':'false'}" title="Show only the half of the term that's currently in session. Affects the grid only — your course count and credits don't change.">${focusOn?'✓ ':''}Current half</button>`
     : '';
   const summ=`<div class="summ">${scount}${focusToggle}</div>`;
+  const nowEls = SCHED_NOW ? `<div class="now-time" style="display:none"></div><div class="now-line" style="display:none"></div>` : '';
   const body=events.length
-    ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}</div>${unschedHtml}</div>`
+    ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}${nowEls}</div>${unschedHtml}</div>`
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
   const tools=`<div class="shtools"><button id="schedImg" class="shbtn" title="Share this schedule as an image">${ICO.share} Share</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" title="Sync to Google Calendar">${GCAL.connected?ICO.check+' Calendar':ICO.cal+' Calendar'}</button></div>`;
   $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}${tools}</div>${body}`;
@@ -1245,6 +1272,8 @@ function renderSchedule(){
   { const bi=$("#schedImg"); if(bi) bi.onclick=scheduleImage; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
   const fc=$("#schedFocus"); if(fc) fc.onclick=()=>{ SCHED_FOCUS=!SCHED_FOCUS; localStorage.setItem("carn_schedfocus",SCHED_FOCUS?"1":"0"); renderSchedule(); };
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
+  clearInterval(schedNowTimer); schedNowTimer=null;
+  if(SCHED_NOW){ updateNowLine(); schedNowTimer=setInterval(updateNowLine, 20000); }
   requestAnimationFrame(fitSchedule);
 }
 // Size the weekly grid to the remaining viewport so the page itself never scrolls.
@@ -1378,6 +1407,7 @@ function renderMeetRows(){
         <span class="mfw"><label>End</label>${timeField(i,"end",m.end)}</span>
       </div>
       <span class="mfw"><label>Location</label><input type="text" data-mfield="${i}:location" value="${esc(m.location||'')}"></span>
+      <span class="mfw"><label>Instructor</label><input type="text" data-mfield="${i}:instructor" value="${esc(m.instructor||'')}"></span>
       ${sectionField}
       <span class="mfw"><label>Part of term</label><select data-mfield="${i}:part">
         <option value="full" ${(m.part!=='1'&&m.part!=='2')?'selected':''}>Full term</option>
