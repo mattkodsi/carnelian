@@ -325,17 +325,22 @@
   .uchip small{color:var(--ink-3);font-weight:700}
   .sched-empty{padding:40px 22px;text-align:center;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* read-only course info pane */
-  .ci-head{display:flex;align-items:center;gap:10px;margin-bottom:5px}
-  .ci-code{font-weight:800;font-size:16px;color:var(--ink);border-left:4px solid var(--h);padding-left:9px}
+  /* read-only course info pane — compact: code lives in the slim header, no dead space */
+  #infoModal .sheet{max-width:392px}
+  #infoModal .sh{padding:13px 16px;gap:10px}
+  #infoModal .sb{padding:14px 16px 4px;gap:9px}
+  #infoModal .sf{padding:12px 16px 16px;border-top:0}
+  #infoModal .sf .btn{width:100%;justify-content:center;padding:11px 20px}
+  .ci-code{font-weight:800;font-size:16px;color:var(--ink);border-left:4px solid var(--h,var(--accent));padding-left:10px;line-height:1.1}
   .ci-cr{margin-left:auto;font-weight:800;font-size:13px;color:var(--ink-3)}
-  .ci-title{font-size:14.5px;font-weight:700;color:var(--ink);margin-bottom:2px}
-  .ci-term{font-size:12.5px;color:var(--ink-3);font-weight:700;margin-bottom:14px}
-  .ci-meets{display:grid;gap:9px}
-  .ci-meet{border:1px solid var(--line);border-radius:10px;padding:11px 12px;background:var(--surface-2)}
+  .ci-title{font-size:14.5px;font-weight:700;color:var(--ink)}
+  .ci-term{font-size:12.5px;color:var(--ink-3);font-weight:700}
+  .ci-meets{display:grid;gap:8px;margin-top:2px}
+  .ci-meet{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--surface-2)}
   .ci-when{font-weight:800;font-size:13.5px;color:var(--ink)}
-  .ci-sub{font-size:12.5px;color:var(--ink-2);margin-top:3px}
+  .ci-sub{font-size:12.5px;color:var(--ink-2);margin-top:3px;line-height:1.4}
   .ci-none{color:var(--ink-3);font-size:13px}
-  .ci-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+  .ci-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
   /* ---- meeting-times editor (course modal) ---- */
   .meetbox{border:1px solid var(--line);border-radius:11px;padding:10px;background:var(--surface)}
   .meet-empty{margin:2px 2px 10px;color:var(--ink-3);font-size:12.5px}
@@ -483,9 +488,9 @@
 <!-- course info (read-only, opened from the schedule) -->
 <div class="modal" id="infoModal">
   <div class="sheet">
-    <div class="sh"><h3>Course</h3><button class="x" id="infoClose" aria-label="Close">×</button></div>
+    <div class="sh"><span class="ci-code" id="infoCode"></span><span class="ci-cr" id="infoCr"></span><button class="x" id="infoClose" aria-label="Close">×</button></div>
     <div class="sb" id="infoBody"></div>
-    <div class="sf"><div class="sf-main"><button class="btn primary" id="infoEdit" type="button">Edit course</button></div></div>
+    <div class="sf"><button class="btn primary" id="infoEdit" type="button">Edit course</button></div>
   </div>
 </div>
 
@@ -1070,8 +1075,10 @@ function openCourseInfo(id){
     return `<div class="ci-meet"><div class="ci-when">${esc([days,tt].filter(Boolean).join("  "))}${partLbl}</div>${sub.length?`<div class="ci-sub">${sub.join(" · ")}</div>`:""}</div>`;
   }).join("") : `<div class="ci-none">No meeting times set.</div>`;
   const tags=(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("");
+  const ci=SCHED_CIDX[e.code||('#'+e.id)]!=null?SCHED_CIDX[e.code||('#'+e.id)]:courseColorIdx(e.code);
+  const cc=$("#infoCode"); cc.textContent=codeLabel(e); cc.style.setProperty("--h",SCHED_COLORS[ci]);
+  $("#infoCr").textContent=nf(num(e.credits))+" cr";
   $("#infoBody").innerHTML=`
-    <div class="ci-head"><span class="ci-code" style="--h:${SCHED_COLORS[(SCHED_CIDX[e.code||('#'+e.id)]!=null?SCHED_CIDX[e.code||('#'+e.id)]:courseColorIdx(e.code))]}">${esc(codeLabel(e))}</span><span class="ci-cr">${nf(num(e.credits))} cr</span></div>
     ${e.title?`<div class="ci-title">${esc(e.title)}</div>`:""}
     <div class="ci-term">${esc(term?term.name:"No term")}</div>
     <div class="ci-meets">${meetsHtml}</div>
