@@ -166,6 +166,7 @@
   .pterm.now{border-color:var(--accent-line)} .pterm.now>.ph{box-shadow:inset 3px 0 0 var(--accent)}
   .pterm.past>.ph .nm{color:var(--ink-2)} .pterm.past{box-shadow:none;background:var(--surface)}
   .pterm.aux{background:transparent;border-style:dashed;box-shadow:none} .pterm.aux>.ph .nm{color:var(--ink-2)}
+  .pterm.aux .meta.acount{font-size:12px;font-weight:800;color:var(--ink-3);background:var(--surface-2);border-radius:99px;min-width:22px;padding:2px 8px;text-align:center}
   .aux-div{display:flex;align-items:center;gap:11px;margin:22px 3px 11px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3)}
   .aux-div::before,.aux-div::after{content:"";flex:1;height:1px;background:var(--line)}
   .pterm .body{border-top:1px solid var(--line);padding:6px 15px 12px;display:none} .pterm.open .body{display:block}
@@ -213,6 +214,8 @@
   .fld{display:grid;gap:5px} .fld label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
   .fld{min-width:0} .fld input,.fld select{padding:10px 11px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);width:100%;min-width:0;box-sizing:border-box}
   .frow{display:grid;grid-template-columns:1fr 1fr;gap:12px} .frow>.fld{min-width:0}
+  .chkrow{display:flex;align-items:center;gap:11px;padding:11px 12px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);cursor:pointer;font-size:13.5px;font-weight:700;color:var(--ink)}
+  .chkrow input{width:18px;height:18px;flex:0 0 auto;margin:0;accent-color:var(--accent)}
   .lookup{display:flex;gap:8px} .lookup input{flex:1}
   .chkline{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:600}
   .satbox{border:1px solid var(--line);border-radius:9px;max-height:170px;overflow:auto;padding:6px}
@@ -423,7 +426,7 @@
       </div>
       <div class="fld"><label>Distribution</label>
         <select id="mDist">
-          <option value="">＋ add a distribution</option>
+          <option value="" data-prompt="1">＋ add a distribution</option>
           <optgroup label="A&amp;S Distribution">
             <option>ALC-AS</option><option>BIO-AS</option><option>ETM-AS</option><option>GLC-AS</option><option>HST-AS</option>
             <option>PHS-AS</option><option>SCD-AS</option><option>SSC-AS</option><option>SDS-AS</option><option>SMR-AS</option>
@@ -440,10 +443,8 @@
           <div id="mMeetRows"></div>
           <button class="btn ghost-btn" id="mMeetAdd" type="button">＋ Add a meeting manually</button>
         </div></div>
-      <div class="frow">
-        <div class="fld"><label>Equivalent Cornell course</label><input id="mAnalog"></div>
-        <div class="fld"><label>A&amp;S course</label><label class="chkline" style="padding-top:9px"><input type="checkbox" id="mInAs"> yes</label></div>
-      </div>
+      <div class="fld"><label>Equivalent Cornell course</label><input id="mAnalog"></div>
+      <label class="chkrow"><input type="checkbox" id="mInAs"><span>Counts toward A&amp;S credit</span></label>
       <button class="mapbtn" id="mSatToggle" type="button"><span>Map to requirements</span><span class="cnt" id="mSatCount" style="display:none"></span><span class="chev">›</span></button>
       <div id="mSatWrap" style="display:none;margin-top:2px"><div id="mSat"></div></div>
     </div>
@@ -546,7 +547,7 @@ function enhanceDD(sel){ if(!sel||sel._dd) return; const wrap=document.createEle
   syncDD(sel); }
 function syncDD(sel){ const dd=sel&&sel._dd; if(!dd) return; const cur=sel.options[sel.selectedIndex]; const lbl=cur?cur.textContent:'';
   const ph=cur&&cur.value===''; dd.btn.innerHTML=`<span class="dd-lbl${ph?' ph':''}">${esc(lbl)}</span><span class="dd-chev">›</span>`;
-  dd.menu.innerHTML=''; [...sel.children].forEach(node=>{ if(node.tagName==='OPTGROUP'){ const g=document.createElement('div'); g.className='dd-grp'; g.textContent=node.label; dd.menu.appendChild(g); [...node.children].forEach(o=>dd.menu.appendChild(mkDDOpt(sel,o))); } else dd.menu.appendChild(mkDDOpt(sel,node)); }); }
+  dd.menu.innerHTML=''; [...sel.children].forEach(node=>{ if(node.tagName==='OPTGROUP'){ const g=document.createElement('div'); g.className='dd-grp'; g.textContent=node.label; dd.menu.appendChild(g); [...node.children].forEach(o=>dd.menu.appendChild(mkDDOpt(sel,o))); } else if(node.dataset&&node.dataset.prompt){ /* prompt-only option: shown as the button label, not a list row */ } else dd.menu.appendChild(mkDDOpt(sel,node)); }); }
 function mkDDOpt(sel,o){ const b=document.createElement('button'); b.type='button'; b.className='dd-opt'+(o.value===sel.value?' on':''); b.textContent=o.textContent;
   b.onclick=(e)=>{ e.stopPropagation(); sel.value=o.value; sel._dd.wrap.classList.remove('open'); sel.dispatchEvent(new Event('change',{bubbles:true})); syncDD(sel); }; return b; }
 document.addEventListener('click',()=>document.querySelectorAll('.dd.open').forEach(x=>x.classList.remove('open')));
@@ -864,7 +865,8 @@ function renderPlanner(){
     const cr=es.reduce((s,e)=>s+num(e.credits),0);
     const car=term.career||"undergrad"; cum[car]+=cr;
     const timing=termTiming(term); const isNow=timing==="in_progress", past=timing==="completed";
-    const isOpen=EXP.has(term.id)?true:!past;
+    // default: current term + any term that has courses stay open; empty past/future terms collapse
+    const isOpen=EXP.has(term.id)?true:(isNow||(!past&&es.length>0));
     const rows=es.map(prowHTML).join("");
     return `<div class="pterm ${isOpen?'open':''}${isNow?' now':''}${past?' past':''}" data-term="${term.id}">
       <div class="ph" data-toggle="${term.id}"><span class="chev">›</span><span class="nm">${esc(term.name)}</span>${isNow?'<span class="nowtag">now</span>':''}
@@ -876,13 +878,13 @@ function renderPlanner(){
   let unschedCard="";
   if(unsched.length){
     const ur=unsched.map(prowHTML).join("");
-    unschedCard=`<div class="pterm aux open"><div class="ph" data-toggle="__unsched"><span class="chev">›</span><span class="nm">Unscheduled</span><span class="meta">${nf(unsched.reduce((s,e)=>s+num(e.credits),0))}<small> cr</small></span></div>
+    unschedCard=`<div class="pterm aux open"><div class="ph" data-toggle="__unsched"><span class="chev">›</span><span class="nm">Unscheduled</span><span class="meta acount">${unsched.length}</span></div>
       <div class="body"><p class="hint" style="padding:0 0 8px">Saved without a term — open one to give it a term.</p>${ur}</div></div>`;
   }
   const wish=DB.enrollments.filter(e=>e.status==="wishlist").sort(byCode);
   const wcards=wish.map(e=>`<div class="wcard" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
     <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div></div>`).join("");
-  const wishCard=`<div class="pterm aux open"><div class="ph" data-toggle="__wish"><span class="chev">›</span><span class="nm">Wishlist</span><span class="meta">${wish.length?wish.length:'—'}</span></div>
+  const wishCard=`<div class="pterm aux open"><div class="ph" data-toggle="__wish"><span class="chev">›</span><span class="nm">Wishlist</span><span class="meta acount">${wish.length}</span></div>
     <div class="body">${wcards?`<div class="wgrid">${wcards}</div>`:'<p class="hint" style="padding:0 0 8px">Courses you might take — separate from your plan.</p>'}
       <div class="add-in" data-addwish="1">＋ add a wishlist idea</div></div></div>`;
   const auxDiv=(unschedCard||wishCard)?`<div class="aux-div">holding area</div>`:"";
@@ -1262,6 +1264,8 @@ window.openCourse=openCourse;
 $("#gateInput").addEventListener("input",()=>{ if($("#gateForm").dataset.mode==="login" && $("#gateInput").value.length===4) $("#gateForm").requestSubmit(); });
 $("#gateInput2").addEventListener("input",()=>{ if($("#gateInput").value.length===4 && $("#gateInput2").value.length===4) $("#gateForm").requestSubmit(); });
 
+// Register the network-first service worker so future updates always load fresh on reopen.
+if("serviceWorker" in navigator){ window.addEventListener("load",()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); }); }
 boot();
 </script>
 </body>
