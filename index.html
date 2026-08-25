@@ -1065,7 +1065,7 @@ function renderSchedule(){
     unsched.map(e=>`<span class="uchip" data-cid="${e.id}"><span class="dot" style="background:${SCHED_COLORS[cidxOf(e)]}"></span>${esc(codeLabel(e))}<small>${nf(num(e.credits))} cr</small></span>`).join("")
   }</div>`:"";
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
-  const summ=`<div class="summ">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':(events.length?'<small>no conflicts</small>':'')}</div>`;
+  const summ=`<div class="summ">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</div>`;
   const body=events.length
     ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}</div>${unschedHtml}</div>`
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
