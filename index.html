@@ -297,6 +297,13 @@
   .ev .m .tm{display:none}
   .ev .loc{font-size:9.5px;color:var(--ink-3);line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev.conflict{outline:1.5px solid var(--accent);outline-offset:-1.5px}
+  .ev.half{border-left-style:dashed;border-left-width:3px}
+  .ev.narrow.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ink-3);opacity:.85;pointer-events:none}
+  .ev.dim{opacity:.4}
+  .ev .m .pl{font-weight:800;color:color-mix(in srgb,var(--h) 55%,var(--ink))}
+  .sched-legend{padding:9px 15px 0;font-size:10.5px;color:var(--ink-3);display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+  .sched-legend .k{display:inline-flex;align-items:center;gap:5px}
+  .sched-legend .swatch{width:15px;height:12px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,var(--surface));border:1px solid var(--line);border-left:3px dashed var(--ink-3)}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
@@ -316,6 +323,7 @@
   .mfw{display:block;min-width:0}
   .mfw label{display:block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-3);margin-bottom:3px}
   .mfw input{width:100%;min-width:0;padding:9px 10px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink);font-size:13px}
+  .mfw select{width:100%;min-width:0;padding:9px 32px 9px 10px;border:1px solid var(--line-strong);border-radius:8px;background-color:var(--surface);color:var(--ink);font-size:13px}
   .mobar{display:none}
   @media (max-width:760px){
     .app{grid-template-columns:1fr}
@@ -892,6 +900,20 @@ const hm2min=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||""));return m?(+m[
 function min2label(t){let h=Math.floor(t/60),m=t%60;const ap=h>=12?"p":"a";h=h%12||12;return m?`${h}:${String(m).padStart(2,"0")}${ap}`:`${h}${ap}`;}
 function courseColorIdx(code){let h=0;const s=String(code||"");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%SCHED_COLORS.length;}
 const meetingsOf=e=>Array.isArray(e.meetings)?e.meetings:[];
+// part-of-term: a meeting runs the 'full' term, first half ('1'), or second half ('2').
+const partOf=m=>(m&&(m.part==='1'||m.part==='2'))?m.part:'full';
+// two parts share calendar weeks unless one is strictly first-half and the other strictly second-half.
+const partsOverlap=(a,b)=>!((a==='1'&&b==='2')||(a==='2'&&b==='1'));
+function pdate(s){ s=String(s||"").trim(); if(!s) return null;
+  let m=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s); if(m) return new Date(+m[3],+m[1]-1,+m[2]);
+  m=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s); if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  const d=new Date(s); return isNaN(d.getTime())?null:d; }
+function termMid(t){ if(!t) return null; const s=pdate(t.starts_on), e=pdate(t.ends_on); if(!s||!e) return null; return new Date((s.getTime()+e.getTime())/2); }
+// classify a roster meeting's date range against the term: spans most of the term = full,
+// otherwise whichever half the meeting's own midpoint lands in.
+function detectPart(sd,ed,t){ const ts=pdate(t&&t.starts_on), te=pdate(t&&t.ends_on), ms=pdate(sd), me=pdate(ed);
+  if(!ts||!te||!ms||!me) return 'full'; const span=te-ts; if(span<=0||(me-ms)>span*0.7) return 'full';
+  return ((ms.getTime()+me.getTime())/2 < (ts.getTime()+te.getTime())/2) ? '1' : '2'; }
 let SCHED_TERM=null;
 function schedTermsWithData(){ const ids=new Set(DB.enrollments.filter(e=>meetingsOf(e).length&&e.term_id).map(e=>e.term_id));
   return DB.terms.filter(t=>ids.has(t.id)); }
@@ -907,13 +929,14 @@ function renderSchedule(){
   const es=DB.enrollments.filter(e=>e.term_id===SCHED_TERM&&displayStatus(e)!=="wishlist");
   const credits=es.reduce((s,e)=>s+num(e.credits),0);
   const showToday=cur&&term&&cur.id===term.id?todayDayCode():null;
+  const activeHalf=(cur&&term&&cur.id===term.id&&termMid(term))?(new Date()<termMid(term)?'1':'2'):null;
   const events=[], unsched=[];
   for(const e of es){
     const mtgs=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
     if(!mtgs.length){ unsched.push(e); continue; }
     const ci=courseColorIdx(e.code);
     for(const m of mtgs) for(const d of m.days){ if(!SDAYS.includes(d)) continue;
-      events.push({e,ci,day:d,s:hm2min(m.start),en:hm2min(m.end),m}); }
+      events.push({e,ci,day:d,s:hm2min(m.start),en:hm2min(m.end),m,part:partOf(m)}); }
   }
   let minS=Infinity,maxE=-Infinity;
   for(const ev of events){minS=Math.min(minS,ev.s);maxE=Math.max(maxE,ev.en);}
@@ -929,13 +952,17 @@ function renderSchedule(){
     while(i<list.length){
       let j=i, clusterEnd=list[i].en; const cluster=[list[i]];
       while(j+1<list.length && list[j+1].s<clusterEnd){ j++; cluster.push(list[j]); clusterEnd=Math.max(clusterEnd,list[j].en); }
-      const cols=[];
+      const cc=[];
       for(const ev of cluster){ let placed=false;
-        for(let c=0;c<cols.length;c++){ if(cols[c]<=ev.s){ ev.col=c; cols[c]=ev.en; placed=true; break; } }
-        if(!placed){ ev.col=cols.length; cols.push(ev.en); } }
-      cluster.forEach(ev=>ev.ncols=cols.length);
-      if(cols.length>1) conflictAny=true;
+        for(let c=0;c<cc.length;c++){ if(cc[c]<=ev.s){ ev.col=c; cc[c]=ev.en; placed=true; break; } }
+        if(!placed){ ev.col=cc.length; cc.push(ev.en); } }
+      cluster.forEach(ev=>ev.ncols=cc.length);
       i=j+1;
+    }
+    // a real conflict needs overlapping clock time AND overlapping weeks of the term
+    for(let a=0;a<list.length;a++) for(let b=a+1;b<list.length;b++){
+      const x=list[a],y=list[b];
+      if(x.s<y.en && y.s<x.en && partsOverlap(x.part,y.part)){ x.hard=true; y.hard=true; conflictAny=true; }
     }
   }
   const dayHead=SDAYS.map(d=>`<div class="d ${d===showToday?'today':''}">${SDAY_LABEL[d]}</div>`).join("");
@@ -947,9 +974,12 @@ function renderSchedule(){
       const w=100/ev.ncols, left=ev.col*w, dur=ev.en-ev.s;
       const showLoc=dur>=50 && ev.ncols===1;
       const secLbl=ev.m.section?` · ${esc(ev.m.component||'')} ${esc(ev.m.section)}`.replace(/\s+/g,' ').trimEnd():'';
-      return `<div class="ev ${ev.ncols>1?'conflict narrow':''}" data-cid="${ev.e.id}" style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
+      const plabel=ev.part==='1'?'1st half':ev.part==='2'?'2nd half':'';
+      const dim=activeHalf&&(ev.part==='1'||ev.part==='2')&&ev.part!==activeHalf;
+      const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half"); if(dim)cls.push("dim");
+      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}" style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
-        <div class="m"><span class="tf">${min2label(ev.s)}–${min2label(ev.en)}</span><span class="tm">${min2label(ev.s)}</span><span class="sec">${secLbl}</span></div>
+        <div class="m">${plabel?`<span class="pl">${plabel} · </span>`:''}<span class="tf">${min2label(ev.s)}–${min2label(ev.en)}</span><span class="tm">${min2label(ev.s)}</span><span class="sec">${secLbl}</span></div>
         ${showLoc&&ev.m.location?`<div class="loc">${esc(ev.m.location)}</div>`:''}
       </div>`;
     }).join("");
@@ -960,10 +990,12 @@ function renderSchedule(){
   }</div>`:"";
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
   const summ=`<div class="summ">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':(events.length?'<small>no conflicts</small>':'')}</div>`;
+  const anyHalf=events.some(ev=>ev.part!=='full');
+  const legendHtml=anyHalf?`<div class="sched-legend"><span class="k"><span class="swatch"></span>half-semester course</span>${activeHalf?'<span class="k">faded = other half (not now)</span>':''}<span class="k">same time, different halves = no clash</span></div>`:"";
   const body=events.length
     ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}</div>${unschedHtml}</div>`
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
-  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}</div>${body}`;
+  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}</div>${legendHtml}${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;renderSchedule();};
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
 }
@@ -1016,7 +1048,14 @@ function renderMeetRows(){
         <span class="mfw"><label>End</label><input type="time" data-mfield="${i}:end" value="${esc(m.end||'')}"></span>
       </div>
       <span class="mfw"><label>Location</label><input type="text" placeholder="e.g. Statler 165" data-mfield="${i}:location" value="${esc(m.location||'')}"></span>
-      <span class="mfw"><label>Section</label><input type="text" placeholder="e.g. 001" data-mfield="${i}:section" value="${esc(m.section||'')}"></span>
+      <div class="meet-2">
+        <span class="mfw"><label>Section</label><input type="text" placeholder="e.g. 001" data-mfield="${i}:section" value="${esc(m.section||'')}"></span>
+        <span class="mfw"><label>Part of term</label><select data-mfield="${i}:part">
+          <option value="full" ${(m.part!=='1'&&m.part!=='2')?'selected':''}>Full term</option>
+          <option value="1" ${m.part==='1'?'selected':''}>First half</option>
+          <option value="2" ${m.part==='2'?'selected':''}>Second half</option>
+        </select></span>
+      </div>
     </div>`).join("")||'<p class="hint" style="margin:0 0 8px">No meeting times yet. Pick a class from the roster search, or add one by hand.</p>';
   $("#mMeetRows").querySelectorAll("[data-mday]").forEach(b=>b.onclick=()=>{const[i,d]=b.dataset.mday.split(":");const m=MMEET[+i];m.days=m.days||[];const k=m.days.indexOf(d);if(k>=0)m.days.splice(k,1);else m.days.push(d);b.classList.toggle("on");});
   $("#mMeetRows").querySelectorAll("[data-mfield]").forEach(inp=>inp.onchange=()=>{const[i,f]=inp.dataset.mfield.split(":");MMEET[+i][f]=inp.value;});
@@ -1024,7 +1063,7 @@ function renderMeetRows(){
 }
 function showMeetEditor(open){ $("#mMeetWrap").style.display=open?"block":"none"; $("#mMeetToggle").textContent=open?"Hide meeting times":(MMEET.length?`Meeting times (${MMEET.length})`:"＋ Add meeting times"); }
 $("#mMeetToggle").onclick=()=>showMeetEditor($("#mMeetWrap").style.display==="none");
-$("#mMeetAdd").onclick=()=>{ MMEET.push({component:"",section:"",days:[],start:"",end:"",location:""}); renderMeetRows(); showMeetEditor(true); };
+$("#mMeetAdd").onclick=()=>{ MMEET.push({component:"",section:"",days:[],start:"",end:"",location:"",part:"full"}); renderMeetRows(); showMeetEditor(true); };
 // parse Cornell roster meeting patterns/times into our shape
 function parseRosterTime(s){ const m=/^(\d{1,2}):(\d{2})\s*([AP])M?$/i.exec(String(s||"").trim()); if(!m) return "";
   let h=+m[1]%12; if(/p/i.test(m[3])) h+=12; return String(h).padStart(2,"0")+":"+m[2]; }
@@ -1033,7 +1072,7 @@ function parsePattern(p){ const out=[]; let s=String(p||"");
   return out; }
 function meetingsFromClass(cls){ const eg=(cls.enrollGroups||[])[0]||{}; const out=[];
   (eg.classSections||[]).forEach(sec=>{ (sec.meetings||[]).forEach(mt=>{ const days=parsePattern(mt.pattern), start=parseRosterTime(mt.timeStart), end=parseRosterTime(mt.timeEnd);
-    if(days.length&&start&&end) out.push({component:sec.ssrComponent||"",section:sec.section||"",days,start,end,location:(mt.facilityDescr||"").trim()}); }); });
+    if(days.length&&start&&end) out.push({component:sec.ssrComponent||"",section:sec.section||"",days,start,end,location:(mt.facilityDescr||"").trim(),sd:mt.startDt||"",ed:mt.endDt||""}); }); });
   return out; }
 function resetDelBtn(b){ b.dataset.armed=""; b.textContent="Delete"; b.style.background=""; b.style.color=""; }
 function armDel(b,fn){ if(b.dataset.armed!=="1"){ b.dataset.armed="1"; b.textContent="Confirm delete"; b.style.background="var(--accent)"; b.style.color="#fff"; clearTimeout(b._t); b._t=setTimeout(()=>resetDelBtn(b),3000); return; } resetDelBtn(b); fn(); }
@@ -1046,7 +1085,7 @@ function openCourse(id=null, preset={}){
   $("#mStatus").value=e.status||"planned";
   $("#mGrade").innerHTML=`<option value="">—</option>`+["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"].map(g=>`<option>${g}</option>`).join(""); $("#mGrade").value=e.grade||"";
   MTAGS=[...(e.tags||[])]; renderTagChips(); $("#mDist").value="";
-  MMEET=meetingsOf(e).map(m=>({component:m.component||"",section:m.section||"",days:[...(m.days||[])],start:m.start||"",end:m.end||"",location:m.location||""}));
+  MMEET=meetingsOf(e).map(m=>({component:m.component||"",section:m.section||"",days:[...(m.days||[])],start:m.start||"",end:m.end||"",location:m.location||"",part:partOf(m)}));
   $("#mMeetSel").innerHTML=""; renderMeetRows(); showMeetEditor(MMEET.length>0);
   $("#mAnalog").value=e.analog_of||"";
   $("#mInAs").checked = e.in_as===true;
@@ -1101,7 +1140,9 @@ function pickResult(cls,sub){ const eg=(cls.enrollGroups||[])[0]||{};
   $("#mCode").value=sub+" "+cls.catalogNbr; $("#mTitleIn").value=cls.titleLong||""; if(eg.unitsMaximum!=null)$("#mCredits").value=eg.unitsMaximum;
   classTags(cls).forEach(t=>{if(!MTAGS.includes(t))MTAGS.push(t);}); renderTagChips();
   const mtgs=meetingsFromClass(cls); let msg="Filled from roster.";
-  if(mtgs.length){ MMEET=mtgs; renderMeetRows(); showMeetEditor(true); msg="Filled from roster · added "+mtgs.length+" meeting"+(mtgs.length===1?"":"s")+"."; }
+  const term=termById($("#mTerm").value); let halfN=0;
+  mtgs.forEach(m=>{ m.part=detectPart(m.sd,m.ed,term); if(m.part!=='full')halfN++; delete m.sd; delete m.ed; });
+  if(mtgs.length){ MMEET=mtgs; renderMeetRows(); showMeetEditor(true); msg="Filled from roster · added "+mtgs.length+" meeting"+(mtgs.length===1?"":"s")+(halfN?" · detected half-term":"")+"."; }
   $("#mResults").classList.remove("on"); $("#mLookupMsg").textContent=msg; }
 $("#mCode").addEventListener("input",()=>{ const el=$("#mCode"); const p=el.selectionStart; el.value=el.value.toUpperCase(); try{el.setSelectionRange(p,p);}catch(e){} clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,240); });
 $("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.remove("on"),200));
@@ -1124,7 +1165,7 @@ $("#mSave").onclick=async()=>{
   if(SAVING) return; SAVING=true; const btn=$("#mSave"); btn.classList.add("busy");
   const grade=$("#mGrade").value;
   const meetings=MMEET.map(m=>({component:(m.component||"").trim(),section:(m.section||"").trim(),
-      days:SDAYS.filter(d=>(m.days||[]).includes(d)),start:m.start||"",end:m.end||"",location:(m.location||"").trim()}))
+      days:SDAYS.filter(d=>(m.days||[]).includes(d)),start:m.start||"",end:m.end||"",location:(m.location||"").trim(),part:partOf(m)}))
     .filter(m=>m.days.length&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
   const row={ code:$("#mCode").value.trim().toUpperCase(), title:$("#mTitleIn").value.trim(), credits:num($("#mCredits").value),
     term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null, counts_gpa:GRADE_POINTS[grade]!=null,
