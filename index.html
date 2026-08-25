@@ -755,6 +755,30 @@ const childReqIds=id=>DB.requirements.filter(r=>r.parent_id===id).map(r=>r.id);
 function matchedFor(req){ const map=new Map(); for(const rid of [req.id,...childReqIds(req.id)]) for(const e of satisfiers(rid)) map.set(String(e.id),e); for(const e of autoMatch(req)) map.set(String(e.id),e); return [...map.values()]; }
 // a course only counts as "done" toward a requirement when it's actually finished
 const isEarned=e=>{ const ds=displayStatus(e); return ds==="completed"||ds==="transferred"; };
+// Some requirements cap how many credits a repeatable course (e.g. the 0.5-cr weekly
+// seminar, taken every term) may contribute — spec.caps maps course code -> max credits.
+// Credits past the cap "overflow" to the requirement in spec.overflowTo (e.g. Free
+// Electives) so they still show as electives; the degree total still counts each course
+// once (via matchedFor), so nothing is lost or double-counted.
+function cappedCredits(req){
+  const caps=(req.spec&&req.spec.caps)||null;
+  const courses=matchedFor(req);
+  let done=0,planned=0,ovDone=0,ovPlanned=0; const kept=[],overflowed=[]; const r1=n=>Math.round(n*10)/10;
+  if(!caps){ for(const e of courses){ if(isEarned(e)) done+=num(e.credits); else planned+=num(e.credits); } return {done:r1(done),planned:r1(planned),ovDone:0,ovPlanned:0,kept:courses,overflowed}; }
+  const used={};
+  // earned courses fill the cap first, so completed credits are never bumped out by planned ones
+  const ordered=courses.slice().sort((a,b)=>(isEarned(b)?1:0)-(isEarned(a)?1:0));
+  for(const e of ordered){ const c=num(e.credits), cap=caps[e.code];
+    if(cap==null){ if(isEarned(e)) done+=c; else planned+=c; kept.push(e); continue; }
+    const u=used[e.code]||0, take=Math.max(0,Math.min(c,cap-u)), over=c-take; used[e.code]=u+take;
+    if(take>0){ if(isEarned(e)) done+=take; else planned+=take; kept.push(e); } else overflowed.push(e);
+    if(over>0){ if(isEarned(e)) ovDone+=over; else ovPlanned+=over; } }
+  return {done:r1(done),planned:r1(planned),ovDone:r1(ovDone),ovPlanned:r1(ovPlanned),kept,overflowed};
+}
+// Credits pushed out of a capped requirement surface here for the overflow target.
+function overflowInto(reqId){ let done=0,planned=0,courses=[];
+  for(const r of DB.requirements){ if(r.spec&&r.spec.overflowTo===reqId){ const cc=cappedCredits(r); done+=cc.ovDone; planned+=cc.ovPlanned; courses=courses.concat(cc.overflowed); } }
+  return {done:Math.round(done*10)/10,planned:Math.round(planned*10)/10,courses}; }
 function reqProgress(req){
   const need=(req.spec&&req.spec.need)||{type:"courses",n:num(req.count_required||req.credits_required||1)};
   if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,planned:0,need:1,met:done>=1,kind:"flag",courses:[]}; }
@@ -764,7 +788,8 @@ function reqProgress(req){
         const car=(termById(e.term_id)||{}).career||"undergrad";
         if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
         if(isEarned(e)) doneCr+=num(e.credits); else progCr+=num(e.credits); } }
-    else { courses=matchedFor(req); for(const e of courses){ if(isEarned(e)) doneCr+=num(e.credits); else progCr+=num(e.credits); } }
+    else { const cc=cappedCredits(req); doneCr=cc.done; progCr=cc.planned; courses=cc.kept;
+      const ov=overflowInto(req.id); doneCr=Math.round((doneCr+ov.done)*10)/10; progCr=Math.round((progCr+ov.planned)*10)/10; courses=courses.concat(ov.courses); }
     const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     const N=(BAKER_VIEW==="standard"&&req.program_id==="baker-mps"&&req.spec&&req.spec.standard!=null)?req.spec.standard:need.n;
     return {done:Math.round(doneCr*10)/10,planned:Math.round(progCr*10)/10,need:N,met:doneCr>=N,kind:"credits",courses,kids}; }
