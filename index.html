@@ -974,8 +974,9 @@ function reqBlocks(prog){
       const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits${planStr}</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex">${bar2(r.need?Math.min(100,100*r.done/r.need):0,pctPlan(r),r.met)}</span></div>`;
       const note=(BAKER_VIEW==='plan'&&req.spec&&req.spec.note)?`<div class="crow waivernote"><span class="grow">${esc(req.spec.note)}</span></div>`:"";
       let detail=note;
-      if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);return `<div class="crow"><span class="cdot dot ${km?'ok':(kc.length?'warn':'none')}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
-      else if(r.courses&&r.courses.length){ detail=(req.spec&&req.spec.groupByTerm)?coursesByTermHTML(r.courses):r.courses.map(courseRowHTML).join(""); }
+      if(req.spec&&req.spec.groupByTerm && r.courses&&r.courses.length){ detail=coursesByTermHTML(r.courses); }
+      else if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);return `<div class="crow"><span class="cdot dot ${km?'ok':(kc.length?'warn':'none')}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
+      else if(r.courses&&r.courses.length){ detail=r.courses.map(courseRowHTML).join(""); }
       inner=bar+detail;
     } else {
       const list=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="pill ${STATUS_CLASS[displayStatus(e)]}">${STATUS_LABEL[displayStatus(e)]}</span></div>`).join("");
