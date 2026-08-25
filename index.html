@@ -301,12 +301,16 @@
   .schead{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
   .schead h1{font-size:26px;font-weight:800}
   .schead select{appearance:none;-webkit-appearance:none;padding:8px 30px 8px 12px;border:1px solid var(--line-strong);border-radius:9px;background-color:var(--surface);color:var(--ink);font-weight:700;font-size:13px}
-  .schead .summ{margin-left:auto;text-align:right;font-weight:800;font-size:13px}
+  .schead .summ{margin-left:auto;display:flex;align-items:center;gap:14px;font-weight:800;font-size:13px}
+  .schead .summ .scount{text-align:right}
   .schead .summ small{display:block;font-size:11px;color:var(--ink-3);font-weight:700}
   .schead .summ small.cf{color:var(--accent)}
-  .schead .focus-chip{appearance:none;-webkit-appearance:none;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:700;font-size:11.5px;letter-spacing:-.01em;line-height:1;padding:7px 12px;border-radius:999px;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
-  .schead .focus-chip:hover{color:var(--ink);border-color:var(--ink-3)}
-  .schead .focus-chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
+  .schead .halftog{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;gap:7px;border:0;background:none;margin:0;padding:2px;font:inherit;font-size:11.5px;font-weight:700;color:var(--ink-3);cursor:pointer;white-space:nowrap;line-height:1}
+  .schead .halftog .bx{width:15px;height:15px;flex:0 0 auto;border:1.5px solid var(--line-strong);border-radius:4px;position:relative;transition:background .12s,border-color .12s}
+  .schead .halftog:hover{color:var(--ink)}
+  .schead .halftog.on{color:var(--ink)}
+  .schead .halftog.on .bx{background:var(--accent);border-color:var(--accent)}
+  .schead .halftog.on .bx::after{content:"";position:absolute;left:4px;top:1px;width:3.5px;height:7.5px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
   .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
   .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto}
   .sched-days .d{padding:9px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2)}
@@ -401,14 +405,15 @@
     .sheet .frow{grid-template-columns:1fr 1fr;gap:10px}
     :root{--gutter:36px}
     .schead h1{font-size:23px}
-    .schead .summ{margin-left:0;flex-basis:100%;text-align:left}
+    .schead .summ{margin-left:0;flex-basis:100%;justify-content:space-between;gap:10px}
+    .schead .summ .scount{text-align:left}
     .schead .summ small{display:inline;margin-left:6px}
     /* Schedule page locks to the viewport between the fixed top bar (48px) and tab bar
        (62px) — a fixed-height flex column, so the page can never scroll. */
     /* iOS ignores overflow:hidden on the body, so pin it to the viewport too */
     html.schedlock body{position:fixed;inset:0;width:100%;height:100%}
     .main.fit{position:fixed;inset:0;z-index:1;overflow:hidden;display:flex;flex-direction:column;
-      padding:calc(52px + env(safe-area-inset-top)) 15px calc(74px + env(safe-area-inset-bottom))}
+      padding:calc(57px + env(safe-area-inset-top)) 15px calc(69px + env(safe-area-inset-bottom))}
     .main.fit .page.on{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
     .main.fit .schead{flex:0 0 auto;margin-bottom:9px;gap:5px 12px}
     .main.fit .sched{flex:1 1 0;min-height:0}
@@ -1010,20 +1015,20 @@ function renderSchedule(){
   const cidxOf=e=>{ const k=e.code||('#'+e.id); return SCHED_CIDX[k]!=null?SCHED_CIDX[k]:courseColorIdx(e.code); };
   const showToday=cur&&term&&cur.id===term.id?todayDayCode():null;
   const activeHalf=(cur&&term&&cur.id===term.id&&termMid(term))?(new Date()<termMid(term)?'1':'2'):null;
-  // "Focus current half": when the shown term is the live one and holds split-term courses,
-  // an opt-in toggle drops the other half entirely so the current-half course fills its slot.
-  // It flips on its own at the term midpoint because activeHalf recomputes from today's date.
+  // "Current half only": an opt-in view filter that hides the OTHER half of a split term so the
+  // in-session half fills the grid. It touches ONLY what's drawn — course count and credits below
+  // are always the full term. It flips on its own at the midpoint because activeHalf tracks today.
   const hasHalf=es.some(e=>meetingsOf(e).some(m=>partOf(m)!=='full'));
   const focusOn=SCHED_FOCUS && !!activeHalf && hasHalf;
-  const offHalfOnly=e=>{ const ms=meetingsOf(e); return ms.length>0 && ms.every(m=>partOf(m)!=='full'&&partOf(m)!==activeHalf); };
-  const esView=focusOn?es.filter(e=>!offHalfOnly(e)):es;
-  const credits=esView.reduce((s,e)=>s+num(e.credits),0);
+  const credits=es.reduce((s,e)=>s+num(e.credits),0);
   const events=[], unsched=[];
-  for(const e of esView){
-    const mtgs=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start)&&(!focusOn||partOf(m)==='full'||partOf(m)===activeHalf));
+  for(const e of es){
+    const mtgs=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
     if(!mtgs.length){ unsched.push(e); continue; }
+    const vis=focusOn?mtgs.filter(m=>partOf(m)==='full'||partOf(m)===activeHalf):mtgs;
+    if(!vis.length) continue;   // every meeting is the other half — hidden from the grid, still counted above
     const ci=cidxOf(e);
-    for(const m of mtgs) for(const d of m.days){ if(!SDAYS.includes(d)) continue;
+    for(const m of vis) for(const d of m.days){ if(!SDAYS.includes(d)) continue;
       events.push({e,ci,day:d,s:hm2min(m.start),en:hm2min(m.end),m,part:partOf(m)}); }
   }
   let minS=Infinity,maxE=-Infinity;
@@ -1077,15 +1082,15 @@ function renderSchedule(){
     unsched.map(e=>`<span class="uchip" data-cid="${e.id}"><span class="dot" style="background:${SCHED_COLORS[cidxOf(e)]}"></span>${esc(codeLabel(e))}<small>${nf(num(e.credits))} cr</small></span>`).join("")
   }</div>`:"";
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
-  const summ=`<div class="summ">${esView.length} course${esView.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</div>`;
-  const halfName=h=>h==='1'?'1st half':h==='2'?'2nd half':'';
-  const focusChip=(activeHalf&&hasHalf)
-    ? `<button id="schedFocus" class="focus-chip${focusOn?' on':''}" title="${focusOn?'Showing only the current half of the term — tap to show every course':'Hide the other half of the term so the current half fills the grid'}">${focusOn?halfName(activeHalf)+' only':'Focus half'}</button>`
+  const scount=`<span class="scount">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</span>`;
+  const focusToggle=(activeHalf&&hasHalf)
+    ? `<button id="schedFocus" class="halftog${focusOn?' on':''}" role="switch" aria-checked="${focusOn?'true':'false'}" title="Show only the half of the term that's currently in session. Affects the grid only — your course count and credits don't change."><span class="bx"></span>Current half only</button>`
     : '';
+  const summ=`<div class="summ">${scount}${focusToggle}</div>`;
   const body=events.length
     ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}</div>${unschedHtml}</div>`
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
-  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${focusChip}${summ}</div>${body}`;
+  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}</div>${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;renderSchedule();};
   const fc=$("#schedFocus"); if(fc) fc.onclick=()=>{ SCHED_FOCUS=!SCHED_FOCUS; localStorage.setItem("carn_schedfocus",SCHED_FOCUS?"1":"0"); renderSchedule(); };
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
