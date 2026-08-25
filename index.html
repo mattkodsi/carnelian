@@ -380,7 +380,7 @@
   .sched-allday .ad-col.today{background:var(--accent-soft)}
   .sched-allday .ad-col.has-ev{cursor:pointer}
   .sched-allday .ad-col.has-ev:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
-  .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;white-space:normal;overflow-wrap:anywhere;pointer-events:none}
+  .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;pointer-events:none}
   .adchip.noclass{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:800}
   .adchip.more{color:var(--ink-3);background:transparent;border-style:dashed;font-weight:800}
   .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
@@ -1250,8 +1250,43 @@ const ACAL_MONTHS=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","
 function weekLabel(mon){ const fri=new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+4); const a=ACAL_MONTHS[mon.getMonth()]+" "+mon.getDate(); const b=(mon.getMonth()===fri.getMonth()?"":ACAL_MONTHS[fri.getMonth()]+" ")+fri.getDate(); return a+" – "+b; }
 // Cached academic-calendar events (from the deterministic scrape), or null if not loaded yet.
 function academicEvents(){ try{ const raw=localStorage.getItem("carn_acal"); if(raw){ const o=JSON.parse(raw); if(o&&o.v===1&&Array.isArray(o.events)) return o.events; } }catch(e){} return null; }
-// Short chip label: drop the "Fall 2026:" term prefix; for break/holiday rows keep just the name.
-function acalShort(t){ let s=String(t||"").replace(/^(Fall|Spring|Winter|Summer)\s+\d{4}:\s*/i,""); if(/\/\s*(no classes|holiday)/i.test(s)) s=s.split("/")[0].trim(); return s; }
+// Full (detail-sheet) title: strip only the "Fall 2026:" term prefix and the "/No classes" cruft (a badge shows that separately).
+function acalFull(t){ return String(t||"").replace(/^(Fall|Spring|Winter|Summer)\s+\d{4}:\s*/i,"").replace(/\s*\/\s*(holiday\s*\/\s*)?no\s*classes?\s*$/i,"").replace(/\s*\/\s*holiday\s*$/i,"").trim(); }
+// Short 1-line label for overlay chips + share-image band. Deterministic ordered rules over the registrar's fixed phrasings.
+function acalShort(t){
+  let s=String(t||"").replace(/^(Fall|Spring|Winter|Summer)\s+\d{4}:\s*/i,"").trim();
+  if(/\/\s*(no classes|holiday)/i.test(s)){ s=s.split("/")[0].trim(); return /martin luther king/i.test(s)?"MLK Jr. Day":s; }
+  const sess=x=>/7\s*week\s*1/i.test(x)?"7wk1":/7\s*week\s*2/i.test(x)?"7wk2":/winter/i.test(x)?"winter":"";
+  const coh=x=>/grad|professional/i.test(x)?"grad":/senior/i.test(x)?"seniors":"";
+  if(/term begins/i.test(s)) return s.replace(/\s*term begins.*/i,"")+" term begins";
+  if(/^add\/drop begins for/i.test(s)){ const c=coh(s); return "Add/Drop opens"+(c?" · "+c:""); }
+  if(/^enrollment begins for/i.test(s)){ const c=coh(s); return "Enrollment"+(c?" · "+c:""); }
+  if(/^enrollment begins/i.test(s)) return "Enrollment begins";
+  if(/last day of instruction/i.test(s)){ const g=sess(s); return g?("Classes end · "+g):"Last day of classes"; }
+  if(/7\s*week\s*2\s*session\s*instruction begins/i.test(s)) return "7wk2 begins";
+  if(/winter session instruction begins/i.test(s)) return "Winter begins";
+  if(/last day/i.test(s) && /\badd\b/i.test(s) && !/drop|grading/i.test(s)){ const g=sess(s); return "Last day to add"+(g?" · "+g:""); }
+  if(/last day/i.test(s) && /(drop|grading)/i.test(s)){ const g=sess(s); return "Last day to drop"+(g?" · "+g:""); }
+  if(/final exams/i.test(s)){ const g=sess(s); return g?(g+" finals"):"Final exams"; }
+  if(/study days/i.test(s)) return "Study days";
+  if(/commencement/i.test(s)) return "Commencement";
+  if(/recognition ceremony/i.test(s)) return "Recognition ceremony";
+  if(/summer grade deadline/i.test(s)) return "Summer grades due";
+  if(/fall grade deadline/i.test(s)) return "Fall grades due";
+  if(/winter grade deadline/i.test(s)) return "Winter grades due";
+  if(/spring grade deadline/i.test(s)) return "Spring grades due";
+  if(/grade processing/i.test(s)) return "Summer grades done";
+  if(/degree date/i.test(s)) return "Degree date";
+  if(/last day of term/i.test(s)) return "Term ends";
+  if(/internal transfer/i.test(s)) return "Transfer deadline";
+  if(/degree certifications/i.test(s)) return "Degree certs ready";
+  if(/enrollment certifications/i.test(s)) return "Enroll. certs ready";
+  if(/all term grades available/i.test(s)) return "Grades posted";
+  if(/diploma updates/i.test(s)) return "Diploma deadline";
+  if(/degree posting/i.test(s)) return "Degree posting";
+  if(/winter (term|session) start/i.test(s)) return "Winter session";
+  return s;
+}
 // Relevance filter for the schedule overlay: hide enrollment/add-drop notices aimed at cohorts that
 // aren't the user (he's Baker = Graduate/Professional, plus senior-year). Everything universal (breaks,
 // finals, deadlines, term bounds…) still shows. The "for " guard avoids catching "First-year writing seminar".
@@ -1287,7 +1322,7 @@ function openAcadDay(day){
   const t=$("#acDayTitle"); if(t) t.textContent=day.label;
   const b=$("#acDayBody"); if(!b) return;
   b.innerHTML=day.events.map(o=>{ const tm=acalTime(o.time);
-    return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalShort(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
+    return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalFull(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
   }).join("");
   openModal($("#acDayModal"));
 }
