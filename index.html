@@ -303,6 +303,9 @@
   .schead .summ{margin-left:auto;text-align:right;font-weight:800;font-size:13px}
   .schead .summ small{display:block;font-size:11px;color:var(--ink-3);font-weight:700}
   .schead .summ small.cf{color:var(--accent)}
+  .schead .focus-chip{appearance:none;-webkit-appearance:none;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:700;font-size:11.5px;letter-spacing:-.01em;line-height:1;padding:7px 12px;border-radius:999px;cursor:pointer;transition:color .12s,border-color .12s,background .12s}
+  .schead .focus-chip:hover{color:var(--ink);border-color:var(--ink-3)}
+  .schead .focus-chip.on{background:var(--accent-soft);border-color:var(--accent-line);color:var(--accent)}
   .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
   .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto}
   .sched-days .d{padding:9px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2)}
@@ -988,6 +991,7 @@ function detectPart(sd,ed,t){ const ts=pdate(t&&t.starts_on), te=pdate(t&&t.ends
   if(!ts||!te||!ms||!me) return 'full'; const span=te-ts; if(span<=0||(me-ms)>span*0.7) return 'full';
   return ((ms.getTime()+me.getTime())/2 < (ts.getTime()+te.getTime())/2) ? '1' : '2'; }
 let SCHED_TERM=null;
+let SCHED_FOCUS=localStorage.getItem("carn_schedfocus")==="1";
 function schedTermsWithData(){ const ids=new Set(DB.enrollments.filter(e=>meetingsOf(e).length&&e.term_id).map(e=>e.term_id));
   return DB.terms.filter(t=>ids.has(t.id)); }
 function todayDayCode(){ return {1:"M",2:"T",3:"W",4:"R",5:"F"}[new Date().getDay()]||null; }
@@ -1003,12 +1007,19 @@ function renderSchedule(){
   // assign a distinct palette color to each course in this term (no repeats until >10 courses)
   SCHED_CIDX={}; let _ci=0; es.forEach(e=>{ const k=e.code||('#'+e.id); if(SCHED_CIDX[k]==null){ SCHED_CIDX[k]=_ci%SCHED_COLORS.length; _ci++; } });
   const cidxOf=e=>{ const k=e.code||('#'+e.id); return SCHED_CIDX[k]!=null?SCHED_CIDX[k]:courseColorIdx(e.code); };
-  const credits=es.reduce((s,e)=>s+num(e.credits),0);
   const showToday=cur&&term&&cur.id===term.id?todayDayCode():null;
   const activeHalf=(cur&&term&&cur.id===term.id&&termMid(term))?(new Date()<termMid(term)?'1':'2'):null;
+  // "Focus current half": when the shown term is the live one and holds split-term courses,
+  // an opt-in toggle drops the other half entirely so the current-half course fills its slot.
+  // It flips on its own at the term midpoint because activeHalf recomputes from today's date.
+  const hasHalf=es.some(e=>meetingsOf(e).some(m=>partOf(m)!=='full'));
+  const focusOn=SCHED_FOCUS && !!activeHalf && hasHalf;
+  const offHalfOnly=e=>{ const ms=meetingsOf(e); return ms.length>0 && ms.every(m=>partOf(m)!=='full'&&partOf(m)!==activeHalf); };
+  const esView=focusOn?es.filter(e=>!offHalfOnly(e)):es;
+  const credits=esView.reduce((s,e)=>s+num(e.credits),0);
   const events=[], unsched=[];
-  for(const e of es){
-    const mtgs=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
+  for(const e of esView){
+    const mtgs=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start)&&(!focusOn||partOf(m)==='full'||partOf(m)===activeHalf));
     if(!mtgs.length){ unsched.push(e); continue; }
     const ci=cidxOf(e);
     for(const m of mtgs) for(const d of m.days){ if(!SDAYS.includes(d)) continue;
@@ -1065,12 +1076,17 @@ function renderSchedule(){
     unsched.map(e=>`<span class="uchip" data-cid="${e.id}"><span class="dot" style="background:${SCHED_COLORS[cidxOf(e)]}"></span>${esc(codeLabel(e))}<small>${nf(num(e.credits))} cr</small></span>`).join("")
   }</div>`:"";
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
-  const summ=`<div class="summ">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</div>`;
+  const summ=`<div class="summ">${esView.length} course${esView.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</div>`;
+  const halfName=h=>h==='1'?'1st half':h==='2'?'2nd half':'';
+  const focusChip=(activeHalf&&hasHalf)
+    ? `<button id="schedFocus" class="focus-chip${focusOn?' on':''}" title="${focusOn?'Showing only the current half of the term — tap to show every course':'Hide the other half of the term so the current half fills the grid'}">${focusOn?halfName(activeHalf)+' only':'Focus half'}</button>`
+    : '';
   const body=events.length
     ? `<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div><div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}</div>${unschedHtml}</div>`
     : `<div class="sched"><div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>${unschedHtml}</div>`;
-  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}</div>${body}`;
+  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${focusChip}${summ}</div>${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;renderSchedule();};
+  const fc=$("#schedFocus"); if(fc) fc.onclick=()=>{ SCHED_FOCUS=!SCHED_FOCUS; localStorage.setItem("carn_schedfocus",SCHED_FOCUS?"1":"0"); renderSchedule(); };
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
   requestAnimationFrame(fitSchedule);
 }
