@@ -1680,8 +1680,6 @@ $("#gcalClose").onclick=()=>closeModal($("#gcalModal"));
 $("#gcalModal").addEventListener("click",e=>{ if(e.target===$("#gcalModal")) closeModal($("#gcalModal")); });
 
 /* ============ Save schedule as a PNG image ============ */
-function hex2rgb(h){ h=String(h).replace('#','').trim(); if(h.length===3)h=h.split('').map(c=>c+c).join(''); const n=parseInt(h,16); return [(n>>16)&255,(n>>8)&255,n&255]; }
-function mixc(a,b,t){ const A=hex2rgb(a),B=hex2rgb(b); return `rgb(${Math.round(A[0]*t+B[0]*(1-t))},${Math.round(A[1]*t+B[1]*(1-t))},${Math.round(A[2]*t+B[2]*(1-t))})`; }
 function roundRectPath(x,X,Y,W,H,R){ R=Math.max(0,Math.min(R,W/2,H/2)); x.beginPath(); x.moveTo(X+R,Y); x.arcTo(X+W,Y,X+W,Y+H,R); x.arcTo(X+W,Y+H,X,Y+H,R); x.arcTo(X,Y+H,X,Y,R); x.arcTo(X,Y,X+W,Y,R); x.closePath(); }
 function schedImageData(termId){
   const term=termById(termId);
@@ -1727,6 +1725,22 @@ function downloadBlob(blob,name){
   const url=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=name;
   document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); toast("Image saved");
 }
+// Resolve the exact themed colours the CSS paints for a block of a given hue by
+// probing a real .ev element — so the exported PNG matches the on-screen grid in
+// whatever theme is active (solid in light, tinted in dark) instead of a fixed look.
+function evColors(hue){
+  const probe=document.createElement('div'); probe.className='ev';
+  probe.style.cssText='position:absolute;left:-9999px;top:-9999px;width:60px;height:60px;--h:'+hue;
+  const c=document.createElement('div'); c.className='c'; probe.appendChild(c);
+  const m=document.createElement('div'); m.className='m'; probe.appendChild(m);
+  const lc=document.createElement('div'); lc.className='loc'; probe.appendChild(lc);
+  document.body.appendChild(probe);
+  const ps=getComputedStyle(probe);
+  const out={ bg:ps.backgroundColor, border:ps.borderTopColor, bar:ps.borderLeftColor,
+              title:getComputedStyle(c).color, meta:getComputedStyle(m).color, loc:getComputedStyle(lc).color };
+  document.body.removeChild(probe);
+  return out;
+}
 function buildSchedCanvas(termId){
   const d=schedImageData(termId);
   if(!d.events.length){ return null; }
@@ -1753,17 +1767,18 @@ function buildSchedCanvas(termId){
     if(hh<d.endH){ x.fillStyle=ink3; x.textBaseline='middle'; x.fillText(min2label(hh*60), gx0-6, gy+13); } }
   for(let i=0;i<=5;i++){ const cxp=gx0+colW*i; x.beginPath(); x.moveTo(Math.round(cxp)+0.5,gy0); x.lineTo(Math.round(cxp)+0.5,gy0+gridH); x.stroke(); }
   x.textAlign='left';
+  const ecCache={}, EC=h=>ecCache[h]||(ecCache[h]=evColors(h));
   SDAYS.forEach((dd,di)=>{ for(const ev of d.byDay[dd]){
     const bw=colW/ev.ncols, bx=gx0+colW*di+ev.col*bw+2, by=gy0+((ev.s-gStart)/total)*gridH+1, bh=Math.max(15,((ev.en-ev.s)/total)*gridH-2), W2=bw-4;
-    const hue=SCHED_COLORS[ev.ci];
-    roundRectPath(x,bx,by,W2,bh,6); x.fillStyle=mixc(hue,surface,0.15); x.fill();
-    x.strokeStyle=mixc(hue,surface,0.34); x.lineWidth=1; roundRectPath(x,bx,by,W2,bh,6); x.stroke();
-    roundRectPath(x,bx,by,3,bh,1.5); x.fillStyle=hue; x.fill();
+    const ec=EC(SCHED_COLORS[ev.ci]);
+    roundRectPath(x,bx,by,W2,bh,6); x.fillStyle=ec.bg; x.fill();
+    x.strokeStyle=ec.border; x.lineWidth=1; roundRectPath(x,bx+0.5,by+0.5,W2-1,bh-1,6); x.stroke();
+    roundRectPath(x,bx,by,4,bh,2); x.fillStyle=ec.bar; x.fill();
     x.save(); roundRectPath(x,bx,by,W2,bh,6); x.clip();
-    const tx=bx+8; x.textBaseline='top';
-    x.fillStyle=mixc(hue,ink,0.62); x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(ev.e.code||'—', tx, by+5);
-    if(bh>=30){ x.fillStyle=ink2; x.font='700 10px -apple-system,system-ui,sans-serif'; x.fillText(min2label(ev.s)+' – '+min2label(ev.en), tx, by+21); }
-    if(bh>=46 && ev.m.location){ x.fillStyle=ink3; x.font='600 10px -apple-system,system-ui,sans-serif'; x.fillText(ev.m.location, tx, by+34); }
+    const tx=bx+9; x.textBaseline='top';
+    x.fillStyle=ec.title; x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(ev.e.code||'—', tx, by+5);
+    if(bh>=30){ x.fillStyle=ec.meta; x.font='700 10px -apple-system,system-ui,sans-serif'; x.fillText(min2label(ev.s)+' – '+min2label(ev.en), tx, by+21); }
+    if(bh>=46 && ev.m.location){ x.fillStyle=ec.loc; x.font='600 10px -apple-system,system-ui,sans-serif'; x.fillText(ev.m.location, tx, by+34); }
     x.restore();
   }});
   return cv;
