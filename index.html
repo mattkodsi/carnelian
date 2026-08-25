@@ -348,18 +348,18 @@
   .sched-col{position:relative;height:100%;border-left:1px solid var(--sched-line)}
   .sched-col:first-of-type{border-left:0}
   .sched-col.today{background-color:var(--accent-soft)}
-  .ev{position:absolute;border-radius:8px;padding:5px 7px;overflow:hidden;cursor:pointer;
+  .ev{position:absolute;border-radius:8px;padding:6px 7px;overflow:hidden;cursor:pointer;text-align:center;
     background:color-mix(in srgb,var(--h) var(--ev-strength),var(--ev-mixc));
     border:1px solid var(--ev-bd);border-left:4px solid var(--ev-bl);box-shadow:var(--ev-shadow);color:var(--ev-ink)}
   .ev:hover{filter:brightness(1.05)}
-  .ev .c{font-weight:800;font-size:11.5px;line-height:1.15;color:var(--ev-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ev .m{font-size:10px;font-weight:700;color:var(--ev-ink2);line-height:1.25;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .ev .m .tm{display:none}
-  .ev .loc{font-size:10px;color:var(--ev-ink3);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev .c{font-weight:800;font-size:11.5px;line-height:1.25;color:var(--ev-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev .et{font-size:10px;font-weight:700;color:var(--ev-ink2);line-height:1.3;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev .es{font-size:10px;font-weight:600;color:var(--ev-ink3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev .loc{font-size:10px;color:var(--ev-ink3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev.conflict{outline:2px solid var(--accent);outline-offset:-2px}
-  .now-line{position:absolute;left:var(--gutter);right:0;height:0;border-top:2px solid var(--accent);z-index:6;pointer-events:none}
-  .now-line::before{content:"";position:absolute;left:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px var(--surface)}
-  .now-time{position:absolute;left:0;width:calc(var(--gutter) - 5px);text-align:right;transform:translateY(-50%);font-size:9px;font-weight:800;color:#fff;background:var(--accent);border-radius:3px;padding:1px 3px 1px 0;z-index:7;pointer-events:none;line-height:1.15;white-space:nowrap}
+  .now-line{position:absolute;height:0;border-top:1.5px solid var(--accent);z-index:6;pointer-events:none}
+  .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .now-time{position:absolute;left:0;width:calc(var(--gutter) - 5px);text-align:right;transform:translateY(-50%);font-size:9px;font-weight:700;color:var(--accent);z-index:7;pointer-events:none;line-height:1.15;white-space:nowrap}
   .ev.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
   .ev.half .loc{padding-right:16px}
   .ev.dim{opacity:.42;border-left-style:dashed}
@@ -453,7 +453,7 @@
     .ev .m .tm,.ev .m .sec{display:none} .ev .m .tf{display:inline}
     .ev .loc{display:block;font-size:8px;letter-spacing:-.01em}
     .ev.narrow .c{white-space:normal;line-height:1.05;font-size:9px}
-    .ev.narrow .m,.ev.narrow .loc{display:none}
+    .ev.narrow .et,.ev.narrow .es,.ev.narrow .loc{display:none}
     .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
   /* schedule toolbar + google-calendar modal */
@@ -1146,8 +1146,12 @@ function updateNowLine(){
   if(!SCHED_NOW){ line.style.display="none"; lab.style.display="none"; return; }
   const d=new Date(), nm=d.getHours()*60+d.getMinutes()+d.getSeconds()/60;
   if(nm<SCHED_NOW.gStart||nm>SCHED_NOW.gEnd){ line.style.display="none"; lab.style.display="none"; return; }
-  const top=((nm-SCHED_NOW.gStart)/SCHED_NOW.total)*100;
-  line.style.display=""; lab.style.display=""; line.style.top=top+"%"; lab.style.top=top+"%"; lab.textContent=min2label(Math.round(nm));
+  const top=((nm-SCHED_NOW.gStart)/SCHED_NOW.total)*100, c=SCHED_NOW.col;
+  // confine the line to today's column only
+  line.style.left=`calc(var(--gutter) + (100% - var(--gutter)) * ${c} / 5)`;
+  line.style.width=`calc((100% - var(--gutter)) / 5)`;
+  line.style.display=""; lab.style.display=""; line.style.top=top+"%"; lab.style.top=top+"%";
+  lab.textContent=min2label(Math.floor(nm));   // floor to match the wall clock (no rounding up)
 }
 let GCAL={connected:false,email:null,count:0};   // Google Calendar sync status (from gcal_status)
 // Terms selectable in the Schedule tab: any term with meeting data, PLUS any term that has real
@@ -1209,7 +1213,7 @@ function renderSchedule(){
   const startH=Math.floor(minS/60), endH=Math.ceil(maxE/60);
   const gStart=startH*60, gEnd=endH*60, total=gEnd-gStart, rows=endH-startH;
   // live "now" line: only when today's weekday column is on this grid (current term shown)
-  SCHED_NOW = (showToday && events.length) ? {gStart, gEnd, total} : null;
+  SCHED_NOW = (showToday && events.length) ? {gStart, gEnd, total, col: SDAYS.indexOf(showToday)} : null;
   const byDay={}; SDAYS.forEach(d=>byDay[d]=[]);
   events.forEach(ev=>byDay[ev.day].push(ev));
   let conflictAny=false;
@@ -1241,13 +1245,15 @@ function renderSchedule(){
       const top=((ev.s-gStart)/total)*100, h=((ev.en-ev.s)/total)*100;
       const w=100/ev.ncols, left=ev.col*w, dur=ev.en-ev.s;
       const showLoc=dur>=50 && ev.ncols===1;
-      const secLbl=ev.m.section?` · ${esc(ev.m.component||'')} ${esc(ev.m.section)}`.replace(/\s+/g,' ').trimEnd():'';
+      const timeLbl=`${min2label(ev.s).replace(/[ap]m$/,'')} – ${min2label(ev.en).replace(/[ap]m$/,'')}`;
+      const secLbl=[ev.m.component,ev.m.section].map(s=>(s||'').trim()).filter(Boolean).join(' ');
       // The half (1st/2nd) is shown by the H1/H2 corner badge + left/right placement, so no text label.
       const dim=activeHalf&&(ev.part==='1'||ev.part==='2')&&ev.part!==activeHalf;
       const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half"); if(dim)cls.push("dim");
       return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}" style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
-        <div class="m"><span class="tf">${min2label(ev.s).replace(/[ap]m$/,'')} – ${min2label(ev.en).replace(/[ap]m$/,'')}</span><span class="tm">${min2label(ev.s)}</span><span class="sec">${secLbl}</span></div>
+        <div class="et">${esc(timeLbl)}</div>
+        ${secLbl?`<div class="es">${esc(secLbl)}</div>`:''}
         ${showLoc&&ev.m.location?`<div class="loc">${esc(ev.m.location)}</div>`:''}
       </div>`;
     }).join("");

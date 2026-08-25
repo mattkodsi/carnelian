@@ -7,7 +7,18 @@
 // in the browser.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 
-const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, ssl: "require" });
+// Connection hygiene: this is a single-user app, so keep the per-isolate pool tiny and let idle
+// connections close quickly. Without idle_timeout, postgres.js holds up to `max` (default 10)
+// connections open indefinitely per warm isolate — a burst of requests then piles up idle
+// connections and can exhaust the DB's non-superuser slots ("remaining connection slots are
+// reserved for roles with the SUPERUSER attribute"). max + idle_timeout make bursts drain.
+const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, {
+  prepare: false,
+  ssl: "require",
+  max: 4,               // cap connections per isolate
+  idle_timeout: 20,     // close a connection 20s after it goes idle
+  connect_timeout: 15,  // fail fast instead of hanging if the pool is momentarily saturated
+});
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
