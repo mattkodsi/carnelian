@@ -922,7 +922,7 @@ function renderPlanner(){
 /* ---- schedule (weekly grid) ---- */
 const SDAYS=["M","T","W","R","F"];
 const SDAY_LABEL={M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri"};
-const SCHED_COLORS=["#2F6FE0","#0E9C8A","#7A54D6","#C8467F","#C67A12","#3E9E4F","#2C93A8","#4A73A8","#8A6E2E","#9A5CC6"];
+const SCHED_COLORS=["#2F5FA6","#1C8074","#A23B41","#6A4A8C","#3B7D4F","#B0572E","#3D6A8E","#9C3F76","#4C5CA8","#7D3A52"];
 const hm2min=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||""));return m?(+m[1])*60+(+m[2]):null;};
 function min2label(t){let h=Math.floor(t/60),m=t%60;const ap=h>=12?"pm":"am";h=h%12||12;return m?`${h}:${String(m).padStart(2,"0")}${ap}`:`${h}${ap}`;}
 function courseColorIdx(code){let h=0;const s=String(code||"");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%SCHED_COLORS.length;}
