@@ -95,6 +95,14 @@
   .ph-note{font-size:11.5px;color:var(--ink-3);font-weight:600;width:100%;margin-top:-8px}
   .pback{display:inline-flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:var(--ink-3);padding:2px 2px 2px 0;margin-bottom:12px;background:none;border:none}
   .pback:hover{color:var(--ink)} .pback:active{opacity:.6}
+  /* iOS-style edge-swipe back: while dragging, the transcript and dashboard become stacked
+     fixed layers so the transcript can slide off to the right and reveal the dashboard. */
+  @media (max-width:760px){
+    .main.swiping>#transcript,.main.swiping>#dashboard{position:fixed;inset:0;margin:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+      padding:calc(60px + env(safe-area-inset-top)) 15px calc(108px + env(safe-area-inset-bottom));background:var(--bg)}
+    .main.swiping>#transcript{z-index:20;will-change:transform;box-shadow:-10px 0 26px rgba(0,0,0,.16)}
+    .main.swiping>#dashboard{z-index:10}
+  }
   .fab{position:fixed;right:20px;bottom:24px;width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:28px;font-weight:400;display:none;align-items:center;justify-content:center;box-shadow:0 8px 22px -6px rgba(120,20,20,.5);z-index:55;border:0;line-height:1}
   .fab:active{transform:scale(.94)}
   .btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;border-radius:9px;padding:9px 14px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
@@ -333,13 +341,14 @@
 
   /* ---- schedule (weekly grid) ---- */
   :root{--gutter:46px}
-  .schead{display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .schead{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
+  .sh-top{display:flex;align-items:center;gap:12px}
   .schead h1{font-size:26px;font-weight:800}
-  .schead select{appearance:none;-webkit-appearance:none;padding:8px 30px 8px 12px;border:1px solid var(--line-strong);border-radius:9px;background-color:var(--surface);color:var(--ink);font-weight:700;font-size:13px}
-  .schead .summ{margin-left:auto;display:flex;align-items:center;gap:14px;font-weight:800;font-size:13px}
-  .schead .summ .scount{text-align:right}
-  .schead .summ small{display:block;font-size:11px;color:var(--ink-3);font-weight:700}
-  .schead .summ small.cf{color:var(--accent)}
+  .sh-sub{display:flex;align-items:center;gap:12px}
+  .schead select{appearance:none;-webkit-appearance:none;padding:9px 32px 9px 13px;border:1px solid var(--line-strong);border-radius:10px;background-color:var(--surface);color:var(--ink);font-weight:700;font-size:13.5px;max-width:100%;text-overflow:ellipsis}
+  .schead .summ{margin-left:auto;display:flex;align-items:center;gap:10px;min-width:0}
+  .schead .summ .scount{font-size:12.5px;font-weight:700;color:var(--ink-3);white-space:nowrap}
+  .schead .summ small.cf{margin-left:7px;font-size:11px;color:var(--accent);font-weight:800;white-space:nowrap}
   .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
   .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto}
   .sched-days .d{padding:8px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2);display:flex;flex-direction:column;gap:1px;line-height:1.2}
@@ -524,15 +533,12 @@
     .sheet .frow{grid-template-columns:1fr 1fr;gap:10px}
     :root{--gutter:36px}
     .schead h1{font-size:23px}
-    .schead .summ{margin-left:0;flex-basis:100%;justify-content:space-between;gap:10px}
-    .schead .summ .scount{text-align:left}
-    .schead .summ small{display:inline;margin-left:6px}
     /* Schedule page locks to the viewport between the fixed top bar (48px) and tab bar
        (62px) — a fixed-height flex column, so the page can never scroll. */
     /* iOS ignores overflow:hidden on the body, so pin it to the viewport too */
     html.schedlock body{position:fixed;inset:0;width:100%;height:100%}
     .main.fit{position:fixed;inset:0;z-index:1;overflow:hidden;display:flex;flex-direction:column;
-      padding:calc(57px + env(safe-area-inset-top)) 15px calc(69px + env(safe-area-inset-bottom))}
+      padding:calc(57px + env(safe-area-inset-top)) 15px calc(76px + env(safe-area-inset-bottom))}
     .main.fit .page.on{flex:1 1 0;min-height:0;display:flex;flex-direction:column}
     .main.fit .schead{flex:0 0 auto;margin-bottom:9px;gap:5px 12px}
     .main.fit .sched{flex:1 1 0;min-height:0}
@@ -547,14 +553,13 @@
     .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
   /* schedule toolbar + google-calendar modal */
-  .shtools{display:flex;gap:6px;margin-left:8px}
-  .shbtn{display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);border-radius:99px;padding:5px 11px 5px 9px;white-space:nowrap;transition:background .12s,color .12s,border-color .12s}
+  .shtools{display:flex;gap:8px;margin-left:auto;flex:0 0 auto}
+  .shbtn{display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;padding:0;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);border-radius:11px;transition:background .12s,color .12s,border-color .12s}
   .shbtn:active{transform:translateY(.5px)}
-  .shbtn .ico{width:13px;height:13px;flex:0 0 auto;opacity:.85}
+  .shbtn .ico{width:17px;height:17px;flex:0 0 auto;opacity:.9}
   .shbtn:hover{background:var(--surface-2);color:var(--ink)}
   .shbtn.on{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
   .shbtn.on .ico{opacity:1}
-  @media (max-width:760px){ .shtools{margin-left:0;flex-basis:100%} }
   .gc-status{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;margin:2px 0 6px}
   .gc-dot{width:9px;height:9px;border-radius:99px;background:var(--ink-3);flex:0 0 auto} .gc-dot.on{background:var(--ok)}
   .gc-btns{display:flex;gap:9px;margin-top:16px} .gc-btns .btn{flex:1;justify-content:center}
@@ -1699,8 +1704,8 @@ function renderSchedule(){
     bodyInner=`<div class="sched-noweek">${esc(note)}</div>`;
   }
   const body=`<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div>${alldayHtml}${bodyInner}${unschedHtml}</div>`;
-  const tools=`<div class="shtools"><button id="schedImg" class="shbtn" title="Share this schedule as an image">${ICO.share} Share</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" title="Sync to Google Calendar">${GCAL.connected?ICO.check+' Calendar':ICO.cal+' Calendar'}</button></div>`;
-  $("#schedule").innerHTML=`<div class="schead"><h1>Schedule</h1><select id="schedTerm">${termOpts}</select>${summ}${tools}</div>${wkbar}${body}`;
+  const tools=`<div class="shtools"><button id="schedImg" class="shbtn" aria-label="Share as image" title="Share this schedule as an image">${ICO.share}</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" aria-label="Sync to Google Calendar" title="Sync to Google Calendar">${GCAL.connected?ICO.check:ICO.cal}</button></div>`;
+  $("#schedule").innerHTML=`<div class="schead"><div class="sh-top"><h1>Schedule</h1>${tools}</div><div class="sh-sub"><select id="schedTerm">${termOpts}</select>${summ}</div></div>${wkbar}${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;SCHED_WEEK=null;renderSchedule();};
   { const bi=$("#schedImg"); if(bi) bi.onclick=openShareChooser; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
   const wp=$("#wkPrev"); if(wp) wp.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()-7); renderSchedule(); };
@@ -2476,6 +2481,37 @@ const FAB_ACT={ planner:()=>openCourse(), requirements:()=>openReq() };
 function updateFab(){ const f=$("#fab"); if(!f) return; const act=FAB_ACT[CUR];
   if(act){ f.style.display="flex"; f.onclick=act; } else f.style.display="none"; }
 document.querySelectorAll("[data-nav]").forEach(n=>n.addEventListener("click",()=>showPage(n.dataset.nav)));
+// iOS-style edge-swipe back on the transcript (a dashboard sub-page): drag from the left
+// edge and the page slides off to the right, revealing the dashboard, then navigates back.
+// No opacity fade — the sheet just translates. Only engages on phones, only on the transcript.
+(function(){
+  const EDGE=28, FRAC=0.32, VEL=0.5;   // start zone px, distance trigger (frac of width), velocity trigger px/ms
+  let armed=false, active=false, sx=0, sy=0, t0=0, savedScroll=0, W=0, tEl=null, dEl=null, main=null;
+  const isPhone=()=>matchMedia("(max-width:760px)").matches;
+  function begin(){ active=true; main=document.querySelector(".main"); tEl=$("#transcript"); dEl=$("#dashboard");
+    savedScroll=window.scrollY||0; W=window.innerWidth;
+    dEl.classList.add("on"); main.classList.add("swiping");
+    tEl.scrollTop=savedScroll;              // keep the same visual position once it becomes fixed
+    tEl.style.transition="none"; tEl.style.transform="translateX(0px)"; }
+  function finish(go){ let ended=false;
+    const done=()=>{ if(ended) return; ended=true; clearTimeout(tm); tEl.removeEventListener("transitionend",done);
+      if(go) showPage("dashboard");
+      main.classList.remove("swiping"); tEl.style.transform=""; tEl.style.transition=""; tEl.scrollTop=0;
+      if(!go){ dEl.classList.remove("on"); window.scrollTo(0,savedScroll); }
+      armed=active=false; };
+    tEl.addEventListener("transitionend",done);
+    tEl.style.transition="transform .28s cubic-bezier(.33,.0,.2,1)";
+    requestAnimationFrame(()=>{ tEl.style.transform = go ? "translateX("+W+"px)" : "translateX(0px)"; });
+    const tm=setTimeout(done,360); }
+  document.addEventListener("touchstart",e=>{ if(CUR!=="transcript"||!isPhone()||e.touches.length!==1) return;
+    const t=e.touches[0]; if(t.clientX<=EDGE){ armed=true; active=false; sx=t.clientX; sy=t.clientY; t0=Date.now(); } },{passive:true});
+  document.addEventListener("touchmove",e=>{ if(!armed) return; const t=e.touches[0], dx=t.clientX-sx, dy=t.clientY-sy;
+    if(!active){ if(dx>8 && dx>Math.abs(dy)) begin(); else if(Math.abs(dy)>10){ armed=false; return; } else return; }
+    if(active){ e.preventDefault(); tEl.style.transform="translateX("+Math.max(0,dx)+"px)"; } },{passive:false});
+  document.addEventListener("touchend",e=>{ if(!armed) return; if(!active){ armed=false; return; }
+    const t=e.changedTouches[0], dx=Math.max(0,t.clientX-sx), dt=Math.max(1,Date.now()-t0), vel=dx/dt;
+    finish(dx > W*FRAC || vel > VEL); },{passive:true});
+})();
 const root=document.documentElement, mq=matchMedia("(prefers-color-scheme: dark)");
 { const savedTheme=localStorage.getItem("carn_theme"); if(savedTheme) root.setAttribute("data-theme",savedTheme); }
 document.querySelectorAll(".js-theme").forEach(b=>b.addEventListener("click",()=>{const c=root.getAttribute("data-theme")||(mq.matches?"dark":"light");const nt=c==="dark"?"light":"dark";root.setAttribute("data-theme",nt);localStorage.setItem("carn_theme",nt);}));
