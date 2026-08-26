@@ -191,6 +191,7 @@
   .prow .ti .tn{color:var(--ink-2);font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.35}
   .prow .ti .prof{font-size:10px;color:var(--ink-3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .prow .ti .prof.likely{font-style:italic}
   .prow .cc{font-weight:700;font-size:12px;color:var(--ink-3);text-align:right;white-space:nowrap;line-height:1.35}
+  .prow .prow-right{display:flex;align-items:center;gap:9px;align-self:center}
   .prow.flagged{background:color-mix(in srgb,var(--accent) 5%,transparent)}
   .rflag{align-self:center;font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,transparent);border-radius:999px;padding:2px 7px;white-space:nowrap}
   .wc-prof{font-size:11px;color:var(--ink-3);margin-top:6px} .wc-prof.likely{font-style:italic}
@@ -401,20 +402,21 @@
   .acd-t{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
   .acd-no{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle}
   .acd-meta{font-size:12px;font-weight:600;color:var(--ink-3);margin-top:4px}
-  /* assignments: planner entry button */
-  .prow-asg{display:inline-flex;align-items:center;gap:3px;position:relative;padding:3px;margin:0 2px 0 4px;border-radius:7px;color:var(--ink-3);background:transparent;border:none;flex:0 0 auto}
-  .prow-asg svg{width:16px;height:16px}
-  .prow-asg:hover{background:var(--surface-2);color:var(--ink)}
-  .prow-asg .asg-n{font-size:10px;font-weight:800;color:var(--ink-3)}
-  .prow-asg .asg-badge{font-size:9.5px;font-weight:800;line-height:1;color:#fff;background:var(--accent);border-radius:9px;padding:2px 5px}
-  .prow-asg.has-pending{color:var(--accent)}
-  /* assignments: list modal */
+  /* assignments: course sheet (tap a saved course) */
   #asgListBody{display:flex;flex-direction:column;gap:8px}
+  .asg-course{display:flex;align-items:flex-start;gap:12px;padding:0 2px 10px;border-bottom:1px solid var(--line);margin-bottom:2px}
+  .asg-course-main{flex:1 1 auto;min-width:0}
+  .asg-course-t{font-size:13.5px;font-weight:600;color:var(--ink-2);line-height:1.35}
+  .asg-course-p{font-size:11.5px;color:var(--ink-3);margin-top:2px}
+  .asg-editcourse{flex:0 0 auto;font-size:11.5px;font-weight:700;color:var(--ink-3);background:transparent;border:none;padding:2px 0;text-decoration:underline;text-underline-offset:2px}
+  .asg-editcourse:hover{color:var(--accent)}
   .asg-sec{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin:2px 0 6px}
   .asg-review{border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
   .asg-active{display:flex;flex-direction:column;gap:7px}
   .asg-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
-  .asg-row.pending{background:var(--surface);border-color:var(--accent-line)}
+  .asg-row.pending{background:var(--surface);border-color:var(--accent-line);flex-direction:column;align-items:stretch;gap:9px}
+  .asg-acts{display:flex;gap:7px;justify-content:flex-end}
+  .asg-acts .asg-mini{flex:0 0 auto}
   .asg-row.done{opacity:.55}
   .asg-row.done .asg-t{text-decoration:line-through}
   .asg-main{flex:1 1 auto;min-width:0}
@@ -434,6 +436,10 @@
   .asg-f>span{font-size:11.5px;font-weight:800;color:var(--ink-2)}
   .asg-f>span small{font-weight:600;color:var(--ink-3)}
   .asg-f input,.asg-f select{font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);width:100%}
+  /* iOS Safari renders date/time inputs as native centered controls; normalize them to match the rest */
+  .asg-f input[type="date"],.asg-f input[type="time"]{-webkit-appearance:none;appearance:none;min-height:40px;text-align:left}
+  .asg-f input[type="date"]::-webkit-date-and-time-value,.asg-f input[type="time"]::-webkit-date-and-time-value{text-align:left;margin:0}
+  .asg-f input[type="date"]::-webkit-calendar-picker-indicator,.asg-f input[type="time"]::-webkit-calendar-picker-indicator{margin-left:auto;opacity:.55}
   .asg-f2{display:flex;gap:10px}
   .asg-f2 .asg-f{flex:1 1 auto}
   .asg-f2 .af-num{flex:0 0 78px}
@@ -1173,9 +1179,7 @@ const byCode=(a,b)=>String(codeLabel(a)).localeCompare(String(codeLabel(b)),unde
 const codeLabel=e=>{ const c=(e.code||'').trim(); return (c&&c!=='OXON')?c:'Oxford'; };
 const prowHTML=e=>{ const p=profInfo(e); const fl=RCHECK_FLAG.has(String(e.id));
   const sub=p.name?`<span class="prof${p.likely?' likely':''}">${esc(p.name)}</span>`:'';
-  const pend=pendingCount(e.id), nact=asgFor(e.id).filter(a=>a.status!=='pending').length;
-  const asgBtn=`<button class="prow-asg${pend?' has-pending':''}" data-asg="${e.id}" aria-label="Assignments" title="Assignments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6l1 1 2-2.5M4.5 12l1 1 2-2.5M4.5 18l1 1 2-2.5"/></svg>${pend?`<span class="asg-badge">${pend}</span>`:(nact?`<span class="asg-n">${nact}</span>`:'')}</button>`;
-  return `<div class="prow${fl?' flagged':''}" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti"><span class="tn">${esc(e.title||'')}</span>${sub}</span>${fl?'<span class="rflag">update</span>':''}${asgBtn}<span class="cc num">${nf(num(e.credits))}</span></div>`; };
+  return `<div class="prow${fl?' flagged':''}" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti"><span class="tn">${esc(e.title||'')}</span>${sub}</span><span class="prow-right">${fl?'<span class="rflag">update</span>':''}<span class="cc num">${nf(num(e.credits))}</span></span></div>`; };
 const TSTAT={completed:{c:"done",l:"completed"},in_progress:{c:"now",l:"in progress"},planned:{c:"soon",l:"upcoming"}};
 function fmtDiff(d){ if(d.field==="credits") return nf(d.from)+"→"+nf(d.to); return "→ “"+String(d.to).slice(0,44)+"”"; }
 // The "Roster check" results panel shown atop the planner after a check finds something actionable.
@@ -1237,8 +1241,9 @@ function renderPlanner(){
   const head=`<div class="phead"><h1>Planner</h1><div class="actions"><button id="rosterCheckBtn" class="rcheck-btn" type="button">↻ Check rosters</button></div></div>`;
   $("#planner").innerHTML=`${head}${rcheckPanelHTML()}${cards}${auxDiv}${unschedCard}${wishCard}`;
   $("#planner").querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;const c=b.closest(".pterm");c.classList.toggle("open");if(c.classList.contains("open"))EXP.add(id);else EXP.delete(id);});
-  $("#planner").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
-  $("#planner").querySelectorAll("[data-asg]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); openCourseAssignments(b.dataset.asg); });
+  // A saved course opens its assignments sheet (with a quiet Edit-course button); wishlist ideas open the edit modal.
+  $("#planner").querySelectorAll(".prow[data-cid]").forEach(b=>b.onclick=()=>openCourseAssignments(b.dataset.cid));
+  $("#planner").querySelectorAll(".wcard[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
   $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:statusForTerm(b.dataset.add)}));
   $("#planner").querySelectorAll("[data-addwish]").forEach(b=>b.onclick=()=>openCourse(null,{status:"wishlist"}));
   const rcb=$("#rosterCheckBtn"); if(rcb) rcb.onclick=runRosterCheck;
@@ -1469,15 +1474,17 @@ function renderAsgList(eid){ const body=$("#asgListBody"); if(!body) return;
   const all=asgFor(eid); const pending=all.filter(a=>a.status==='pending');
   const active=all.filter(a=>a.status!=='pending').sort((x,y)=> (x.done?1:0)-(y.done?1:0) || (asgDate(x)||"~").localeCompare(asgDate(y)||"~"));
   const prow=a=>`<div class="asg-row pending"><div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${a.source==='canvas'?' · Canvas':''}</div></div>
-    <button class="asg-mini" data-edit="${a.id}">Edit</button><button class="asg-mini ok" data-approve="${a.id}">Approve</button><button class="asg-mini no" data-reject="${a.id}">Reject</button></div>`;
+    <div class="asg-acts"><button class="asg-mini" data-edit="${a.id}">Edit</button><button class="asg-mini ok" data-approve="${a.id}">Approve</button><button class="asg-mini no" data-reject="${a.id}">Reject</button></div></div>`;
   const arow=a=>`<div class="asg-row${a.done?' done':''}"><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Toggle done">${a.done?ICO.check:''}</button>
     <div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}</div></div>
     <button class="asg-edit" data-edit="${a.id}">Edit</button></div>`;
-  let html="";
+  const en=(DB.enrollments||[]).find(x=>String(x.id)===String(eid)); const pi=en?profInfo(en):null;
+  let html=`<div class="asg-course"><div class="asg-course-main"><div class="asg-course-t">${esc((en&&en.title)||'')}</div>${pi&&pi.name?`<div class="asg-course-p">${esc(pi.name)}</div>`:''}</div><button class="asg-editcourse" id="asgEditCourse" type="button">Edit course</button></div>`;
   if(pending.length) html+=`<div class="asg-review"><div class="asg-sec">${pending.length} to review</div>${pending.map(prow).join("")}</div>`;
   html+=`<div class="asg-active">${active.length?active.map(arow).join(""):'<p class="asg-empty">No assignments yet.</p>'}</div>`;
   html+=`<button class="btn asg-add" id="asgAddBtn" type="button">＋ Add assignment</button>`;
   body.innerHTML=html;
+  $("#asgEditCourse").onclick=()=>{ closeModal($("#asgListModal")); openCourse(eid); };
   body.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.done); if(a) toggleAsgDone(a); });
   body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.edit); if(a) openAsgEditor(eid,a); });
   body.querySelectorAll("[data-approve]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.approve); if(a) approveAsg(a); });
