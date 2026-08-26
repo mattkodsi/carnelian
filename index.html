@@ -18,7 +18,7 @@
     --ok:#2E8B57; --ok-bg:#E4F1E9; --ok-line:#BFE0CC; --warn:#B9770F; --warn-bg:#F8EDD6; --warn-line:#EAD3A0;
     --plan:#39699F; --plan-bg:#E7EEF6; --plan-line:#C7D8EA;
     --ev-strength:91%; --ev-mixc:#000000; --ev-ink:#fff; --ev-ink2:rgba(255,255,255,.93); --ev-ink3:rgba(255,255,255,.85); --ev-title:#fff;
-    --ev-bd:color-mix(in srgb, var(--h), #000 12%); --ev-bl:color-mix(in srgb, var(--h), #000 30%); --ev-shadow:0 1px 3px rgba(30,20,12,.18);
+    --ev-bd-mix:#000 12%; --ev-bl-mix:#000 30%; --ev-shadow:0 1px 3px rgba(30,20,12,.18);
     --sched-band:color-mix(in srgb, var(--ink) 3.5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 7%, transparent);
     --shadow:0 1px 2px rgba(60,40,30,.04), 0 12px 30px -18px rgba(80,40,30,.28);
     --font-sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif;
@@ -32,7 +32,7 @@
     --ok:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
     --plan:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
     --ev-strength:26%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 74%, var(--ink));
-    --ev-bd:color-mix(in srgb, var(--h) 34%, var(--surface)); --ev-bl:var(--h); --ev-shadow:none;
+    --ev-bd-mix:var(--surface) 66%; --ev-bl-mix:#000 0%; --ev-shadow:none;
     --sched-band:color-mix(in srgb, var(--ink) 5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 11%, transparent);
     --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72); color-scheme:dark;
   }}
@@ -43,7 +43,7 @@
     --ok:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
     --plan:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
     --ev-strength:26%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 74%, var(--ink));
-    --ev-bd:color-mix(in srgb, var(--h) 34%, var(--surface)); --ev-bl:var(--h); --ev-shadow:none;
+    --ev-bd-mix:var(--surface) 66%; --ev-bl-mix:#000 0%; --ev-shadow:none;
     --sched-band:color-mix(in srgb, var(--ink) 5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 11%, transparent);
     --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72); color-scheme:dark;
   }
@@ -364,7 +364,7 @@
   .sched-col.today{background-color:var(--accent-soft)}
   .ev{position:absolute;border-radius:8px;padding:6px 7px;overflow:hidden;cursor:pointer;text-align:center;
     background:color-mix(in srgb,var(--h) var(--ev-strength),var(--ev-mixc));
-    border:1px solid var(--ev-bd);border-left:4px solid var(--ev-bl);box-shadow:var(--ev-shadow);color:var(--ev-ink)}
+    border:1px solid color-mix(in srgb,var(--h),var(--ev-bd-mix));border-left:4px solid color-mix(in srgb,var(--h),var(--ev-bl-mix));box-shadow:var(--ev-shadow);color:var(--ev-ink)}
   .ev:hover{filter:brightness(1.05)}
   .ev .c{font-weight:800;font-size:11.5px;line-height:1.25;color:var(--ev-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev .et{font-size:10px;font-weight:700;color:var(--ev-ink2);line-height:1.3;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -381,12 +381,16 @@
   .now-line{position:absolute;height:0;border-top:1.5px solid var(--accent);z-index:6;pointer-events:none}
   .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
   .now-time{position:absolute;transform:translate(-100%,-50%);margin-left:-3px;font-size:9px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:1px 4px;z-index:7;pointer-events:none;line-height:1.2;white-space:nowrap}
-  .ev.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
-  /* TA / audit blocks: a small tag in the bottom-right corner, in the course colour — same spot and
-     treatment as the H1/H2 half badge (the two never co-occur), with the location padded to match */
-  .ev[data-role]::before{content:attr(data-role);position:absolute;bottom:2px;right:3px;z-index:2;font-size:7.5px;font-weight:800;letter-spacing:.03em;line-height:1;padding:1.5px 3px;border-radius:4px;color:var(--ev-title);background:color-mix(in srgb,var(--h) 32%,var(--surface));pointer-events:none}
-  .ev[data-role] .loc{padding-right:24px}
-  .ev.half .loc{padding-right:16px}
+  .ev.half::after{content:attr(data-half);position:absolute;bottom:1px;right:4px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
+  /* TA / audit flag: plain bold text in the bottom-right corner (no chip), in the block's title colour.
+     When the course is also half-term, renderSchedule folds the H1/H2 into it ("TA · H1") and the plain
+     half badge is suppressed, so the two never stack. The location keeps symmetric padding so it stays
+     centred (never skewed) while leaving room for the tag. */
+  .ev[data-role]::before{content:attr(data-role);position:absolute;bottom:1px;right:4px;z-index:2;font-size:8px;font-weight:800;letter-spacing:.03em;line-height:1;color:var(--ev-title);pointer-events:none}
+  .ev.half[data-role]::after{content:none}
+  .ev.half:not([data-role]) .loc{padding:0 15px}
+  .ev[data-role]:not(.half) .loc{padding:0 26px}
+  .ev.half[data-role] .loc{padding:0 40px}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
@@ -1672,8 +1676,11 @@ function renderSchedule(){
       // The half (1st/2nd) is shown by the H1/H2 corner badge; with the week-by-week view the other
       // half simply doesn't appear in the weeks it isn't in session.
       const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half");
-      const _r=roleOf(ev.e), roleTag=_r==='audit'?'AUDIT':(_r==='ta_paid'||_r==='ta_credit')?'TA':'';
-      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}"${roleTag?` data-role="${roleTag}"`:''} style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
+      const _r=roleOf(ev.e), roleWord=_r==='audit'?'AUDIT':(_r==='ta_paid'||_r==='ta_credit')?'TA':'';
+      const _half=ev.part==='1'?'H1':ev.part==='2'?'H2':'';
+      // role + half share the bottom-right corner: when both apply, fold them into one pill ("TA · H1")
+      const cornerTag=roleWord?[roleWord,_half].filter(Boolean).join(' · '):'';
+      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${_half}"${cornerTag?` data-role="${cornerTag}"`:''} style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
         <div class="et">${esc(timeLbl)}</div>
         ${secLbl?`<div class="es">${esc(secLbl)}</div>`:''}
@@ -2811,7 +2818,7 @@ function buildSchedCanvas(termId, weekMon){
     x.strokeStyle=ec.border; x.lineWidth=1; roundRectPath(x,bx+0.5,by+0.5,W2-1,bh-1,6); x.stroke();
     roundRectPath(x,bx,by,4,bh,2); x.fillStyle=ec.bar; x.fill();
     x.save(); roundRectPath(x,bx,by,W2,bh,6); x.clip();
-    const tx=bx+9; x.textBaseline='top';
+    x.textAlign='center'; const tx=bx+2+W2/2; x.textBaseline='top';   // centred to match the on-screen block (+2 offsets the 4px accent bar)
     x.fillStyle=ec.title; x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(ev.e.code||'—', tx, by+5);
     if(bh>=30){ x.fillStyle=ec.meta; x.font='700 10px -apple-system,system-ui,sans-serif'; x.fillText(min2label(ev.s)+' – '+min2label(ev.en), tx, by+21); }
     if(bh>=46 && ev.m.location){ x.fillStyle=ec.loc; x.font='600 10px -apple-system,system-ui,sans-serif'; x.fillText(ev.m.location, tx, by+34); }
@@ -2825,7 +2832,7 @@ function buildSchedCanvas(termId, weekMon){
     x.globalAlpha=a.done?0.10:0.16; x.fillStyle=b.color; roundRectPath(x,bx,by,W2,bh,6); x.fill(); x.globalAlpha=1;
     x.strokeStyle=b.color; x.lineWidth=1.4; x.setLineDash([4,3]); roundRectPath(x,bx+0.7,by+0.7,W2-1.4,bh-1.4,6); x.stroke(); x.setLineDash([]);
     roundRectPath(x,bx,by,W2,bh,6); x.clip();
-    const tx=bx+8; x.textBaseline='top';
+    x.textAlign='center'; const tx=bx+W2/2; x.textBaseline='top';   // centred to match the on-screen assessment block
     x.fillStyle=b.color; x.font='800 9px -apple-system,system-ui,sans-serif'; x.fillText(((_ASG_K[a.kind]||{}).label||'').toUpperCase(), tx, by+5);
     if(bh>=26){ x.fillStyle=a.done?ink3:ink; x.font='800 11px -apple-system,system-ui,sans-serif'; x.fillText(asgTitle(a), tx, by+16); }
     x.restore();
