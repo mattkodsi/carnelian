@@ -354,6 +354,13 @@
   .ev .es{font-size:10px;font-weight:600;color:var(--ev-ink3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev .loc{font-size:10px;color:var(--ev-ink3);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev.conflict{outline:2px solid var(--accent);outline-offset:-2px}
+  /* assignment timed block (exam/quiz): distinct dashed "assessment" treatment over the class slot */
+  .sched-asg{position:absolute;left:1px;width:calc(100% - 2px);border-radius:8px;padding:5px 7px;overflow:hidden;cursor:pointer;text-align:center;z-index:5;
+    background:color-mix(in srgb,var(--h) 15%,var(--surface));border:1.5px dashed var(--h);box-shadow:var(--ev-shadow)}
+  .sched-asg:hover{filter:brightness(1.04)}
+  .sched-asg .ac{font-weight:800;font-size:9px;letter-spacing:.06em;color:var(--h);line-height:1.2;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sched-asg .at{font-weight:800;font-size:11px;line-height:1.2;color:var(--ink);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sched-asg.done{opacity:.5} .sched-asg.done .at{text-decoration:line-through}
   .now-line{position:absolute;height:0;border-top:1.5px solid var(--accent);z-index:6;pointer-events:none}
   .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
   .now-time{position:absolute;transform:translate(-100%,-50%);margin-left:-3px;font-size:9px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:1px 4px;z-index:7;pointer-events:none;line-height:1.2;white-space:nowrap}
@@ -383,6 +390,9 @@
   .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;pointer-events:none}
   .adchip.noclass{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:800}
   .adchip.more{color:var(--ink-3);background:transparent;border-style:dashed;font-weight:800}
+  .adchip.asg{color:var(--ink);background:var(--surface);border-color:var(--line-strong);display:flex;align-items:center;gap:4px}
+  .adchip.asg .asg-dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+  .adchip.asg.done{opacity:.5;text-decoration:line-through}
   .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* academic-calendar day detail sheet */
   #acDayBody{display:flex;flex-direction:column;gap:8px}
@@ -1423,12 +1433,16 @@ function meetingActiveOn(part,D,ac){ if(ac.ts&&D<ac.ts) return false; if(ac.clas
 // Detail sheet for a day's academic-calendar events — full titles + dates + times, so the overlay
 // chips can stay compact without losing anything.
 function openAcadDay(day){
-  if(!day||!day.events||!day.events.length) return;
+  const asgs=(day&&day.asgs)||[];
+  if(!day||((!day.events||!day.events.length)&&!asgs.length)) return;
   const t=$("#acDayTitle"); if(t) t.textContent=day.label;
   const b=$("#acDayBody"); if(!b) return;
-  b.innerHTML=day.events.map(o=>{ const tm=acalTime(o.time);
+  let html=(day.events||[]).map(o=>{ const tm=acalTime(o.time);
     return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalFull(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
   }).join("");
+  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${a.done?' done':''}" data-asgcourse="${a.enrollment_id}"><div class="acd-t"><span class="asg-dot" style="background:${r.color}"></span>${esc(r.code)} · ${esc(asgTitle(a))}${a.done?' <span class="acd-no">done</span>':''}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div>`; }).join("");
+  b.innerHTML=html;
+  b.querySelectorAll("[data-asgcourse]").forEach(el=>el.onclick=()=>{ closeModal($("#acDayModal")); openCourseAssignments(el.dataset.asgcourse); });
   openModal($("#acDayModal"));
 }
 // ============ assignments UI (Planner course list + editor + review queue) ============
@@ -1559,9 +1573,19 @@ function renderSchedule(){
         if(isNoClassDay(D,ac)||!meetingActiveOn(part,D,ac)) continue;   // break day, or the meeting's half isn't in session this week
         events.push({e,ci,day:d,s:hm2min(m.start),en:hm2min(m.end),m,part}); } }
   }
+  // assignments/deadlines for this week: timed (exam/quiz) → grid blocks, else → all-day chips
+  const isoOf=D=>`${D.getFullYear()}-${String(D.getMonth()+1).padStart(2,"0")}-${String(D.getDate()).padStart(2,"0")}`;
+  const asgWk=(typeof asgWeek==='function')?asgWeek(weekMon):{chips:[],blocks:[]};
+  const asgBlocksByDay={}, asgChipsByDay={}; SDAYS.forEach(d=>{asgBlocksByDay[d]=[];asgChipsByDay[d]=[];});
+  for(const r of asgWk.blocks){ const iso=asgDate(r.a); const di=SDAYS.findIndex(d=>isoOf(dateOf(d))===iso); if(di<0) continue;
+    const s=hm2min(String(r.a.due_time).slice(0,5)); if(s==null) continue; const en=s+Math.max(num(r.a.duration_min)||30,20);
+    asgBlocksByDay[SDAYS[di]].push({...r,s,en}); }
+  for(const r of asgWk.chips){ const iso=asgDate(r.a); const di=SDAYS.findIndex(d=>isoOf(dateOf(d))===iso); if(di>=0) asgChipsByDay[SDAYS[di]].push(r); }
   let minS=Infinity,maxE=-Infinity;
   for(const ev of events){minS=Math.min(minS,ev.s);maxE=Math.max(maxE,ev.en);}
+  for(const d of SDAYS) for(const b of asgBlocksByDay[d]){minS=Math.min(minS,b.s);maxE=Math.max(maxE,b.en);}
   if(!isFinite(minS)){minS=8*60;maxE=18*60;}
+  const anyAsgBlock=SDAYS.some(d=>asgBlocksByDay[d].length);
   const startH=Math.floor(minS/60), endH=Math.ceil(maxE/60);
   const gStart=startH*60, gEnd=endH*60, total=gEnd-gStart, rows=endH-startH;
   // live "now" line: only when today's weekday column is on this grid (current term shown)
@@ -1609,7 +1633,13 @@ function renderSchedule(){
         ${showLoc&&ev.m.location?`<div class="loc">${esc(ev.m.location)}</div>`:''}
       </div>`;
     }).join("");
-    return `<div class="sched-col ${d===showToday?'today':''}">${blocks}</div>`;
+    const ablocks=(asgBlocksByDay[d]||[]).map(b=>{ const a=b.a;
+      const top=((b.s-gStart)/total)*100, h=((b.en-b.s)/total)*100;
+      const kindLbl=((_ASG_K[a.kind]||{}).label||'').toUpperCase();
+      return `<div class="sched-asg${a.done?' done':''}" data-asgid="${a.id}" style="--h:${b.color};top:${top}%;height:${h}%">
+        <div class="ac">${esc(kindLbl)}</div><div class="at">${esc(asgTitle(a))}</div></div>`;
+    }).join("");
+    return `<div class="sched-col ${d===showToday?'today':''}">${blocks}${ablocks}</div>`;
   }).join("");
   const unschedHtml=unsched.length?`<div class="sched-unsched"><div class="h">No set meeting time</div>${
     unsched.map(e=>`<span class="uchip" data-cid="${e.id}"><span class="dot" style="background:${SCHED_COLORS[cidxOf(e)]}"></span>${esc(codeLabel(e))}<small>${nf(num(e.credits))} cr</small></span>`).join("")
@@ -1623,18 +1653,22 @@ function renderSchedule(){
   const adDays=[];
   const adcols=SDAYS.map((d,di)=>{ const D=dateOf(d);
     const evs=ac.overlay.filter(o=>D>=o.s&&D<=o.e);
-    adDays.push({label:`${SDAY_LABEL[d]}, ${ACAL_MONTHS[D.getMonth()]} ${D.getDate()}`, events:evs});
-    let chips=evs.slice(0,2).map(o=>`<div class="adchip${o.noclass?' noclass':''}">${esc(acalShort(o.title))}</div>`).join("");
-    if(evs.length>2) chips+=`<div class="adchip more">+${evs.length-2} more</div>`;
-    return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}${evs.length?' has-ev':''}" data-adcol="${di}">${chips}</div>`; }).join("");
-  const hasAd=adDays.some(x=>x.events.length);
+    const asgs=asgChipsByDay[d]||[];
+    adDays.push({label:`${SDAY_LABEL[d]}, ${ACAL_MONTHS[D.getMonth()]} ${D.getDate()}`, events:evs, asgs});
+    const items=[...evs.map(o=>({ac:true,o})), ...asgs.map(r=>({ac:false,r}))];
+    let chips=items.slice(0,2).map(it=> it.ac
+      ? `<div class="adchip${it.o.noclass?' noclass':''}">${esc(acalShort(it.o.title))}</div>`
+      : `<div class="adchip asg${it.r.a.done?' done':''}"><span class="asg-dot" style="background:${it.r.color}"></span>${esc(asgTitle(it.r.a))}</div>`).join("");
+    if(items.length>2) chips+=`<div class="adchip more">+${items.length-2} more</div>`;
+    return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}${items.length?' has-ev':''}" data-adcol="${di}">${chips}</div>`; }).join("");
+  const hasAd=adDays.some(x=>x.events.length||x.asgs.length);
   const alldayHtml=hasAd?`<div class="sched-allday"><div class="ad-gut"></div>${adcols}</div>`:"";
   // week navigator (bounded to the term); "Today" resets to the current/opening week
   const wkbar=(term&&(termHasTimed||ac.has))
     ? `<div class="schedweek"><button class="wknav" id="wkPrev" aria-label="Previous week"${weekMon<=firstMon?' disabled':''}>‹</button><span class="wklbl">${esc(weekLabel(weekMon))}</span><button class="wknav" id="wkNext" aria-label="Next week"${weekMon>=lastMon?' disabled':''}>›</button>${!sameDay(weekMon,defaultWeekMon(term))?`<button class="wknow" id="wkNow">Today</button>`:''}</div>`
     : '';
   let bodyInner;
-  if(events.length){ bodyInner=`<div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}${nowEls}</div>`; }
+  if(events.length||anyAsgBlock){ bodyInner=`<div class="sched-body"><div class="sched-gutter">${gutter}</div>${cols}${nowEls}</div>`; }
   else if(!termHasTimed){ bodyInner=`<div class="sched-empty">No meeting times set for ${esc(term?term.name:'this term')} yet.<br>Open a course and use <b>Search roster</b> or add times by hand.</div>`; }
   else { // the term has classes, just not this week — say why (break / after last day of instruction)
     const wkNo=[...new Set(ac.overlay.filter(o=>o.noclass&&SDAYS.some(d=>{const D=dateOf(d);return D>=o.s&&D<=o.e;})).map(o=>acalShort(o.title)))];
@@ -1651,7 +1685,8 @@ function renderSchedule(){
   const wnx=$("#wkNext"); if(wnx) wnx.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+7); renderSchedule(); };
   const wnw=$("#wkNow"); if(wnw) wnw.onclick=()=>{ SCHED_WEEK=defaultWeekMon(term); renderSchedule(); };
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
-  $("#schedule").querySelectorAll("[data-adcol]").forEach(c=>{ const day=adDays[+c.dataset.adcol]; if(day&&day.events.length) c.onclick=()=>openAcadDay(day); });
+  $("#schedule").querySelectorAll("[data-adcol]").forEach(c=>{ const day=adDays[+c.dataset.adcol]; if(day&&(day.events.length||(day.asgs&&day.asgs.length))) c.onclick=()=>openAcadDay(day); });
+  $("#schedule").querySelectorAll("[data-asgid]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); const a=asgById(b.dataset.asgid); if(a) openCourseAssignments(a.enrollment_id); });
   clearInterval(schedNowTimer); schedNowTimer=null;
   if(SCHED_NOW){ updateNowLine(); schedNowTimer=setInterval(updateNowLine, 20000); }
   requestAnimationFrame(fitSchedule);
@@ -2519,7 +2554,15 @@ function schedImageData(termId, weekMon){
       for(const dd of m.days){ if(!SDAYS.includes(dd))continue;
         if(weekMon){ const D=dateOf(dd); if(isNoClassDay(D,ac)||!meetingActiveOn(part,D,ac)) continue; }
         events.push({e,ci:cidx[e.code||('#'+e.id)],day:dd,s:hm2min(m.start),en:hm2min(m.end),m}); } } }
+  // assignments for the snapshot week (only meaningful when weekMon is set → real dates)
+  const isoOf=D=>`${D.getFullYear()}-${String(D.getMonth()+1).padStart(2,"0")}-${String(D.getDate()).padStart(2,"0")}`;
+  const asgWk=(weekMon&&typeof asgWeek==='function')?asgWeek(weekMon):{chips:[],blocks:[]};
+  const asgBlocksByDay={}, asgChipsByDay={}; SDAYS.forEach(d=>{asgBlocksByDay[d]=[];asgChipsByDay[d]=[];});
+  if(weekMon){ for(const r of asgWk.blocks){ const iso=asgDate(r.a); const di=SDAYS.findIndex(d=>isoOf(dateOf(d))===iso); if(di<0)continue;
+      const s=hm2min(String(r.a.due_time).slice(0,5)); if(s==null)continue; const en=s+Math.max(num(r.a.duration_min)||30,20); asgBlocksByDay[SDAYS[di]].push({...r,s,en}); }
+    for(const r of asgWk.chips){ const iso=asgDate(r.a); const di=SDAYS.findIndex(d=>isoOf(dateOf(d))===iso); if(di>=0) asgChipsByDay[SDAYS[di]].push(r); } }
   let minS=Infinity,maxE=-Infinity; events.forEach(ev=>{minS=Math.min(minS,ev.s);maxE=Math.max(maxE,ev.en);});
+  for(const d of SDAYS) for(const b of asgBlocksByDay[d]){minS=Math.min(minS,b.s);maxE=Math.max(maxE,b.en);}
   if(!isFinite(minS)){minS=8*60;maxE=18*60;}
   const startH=Math.floor(minS/60),endH=Math.ceil(maxE/60);
   const byDay={}; SDAYS.forEach(d=>byDay[d]=[]); events.forEach(ev=>byDay[ev.day].push(ev));
@@ -2529,7 +2572,7 @@ function schedImageData(termId, weekMon){
   const credits=es.reduce((s,e)=>s+num(e.credits),0);
   const wk=weekMon?(()=>{const o={};SDAYS.forEach(d=>{const D=dateOf(d);o[d]=(D.getMonth()+1)+"/"+D.getDate();});return o;})():null;
   const adByDay=weekMon?(()=>{const o={};SDAYS.forEach(d=>{const D=dateOf(d);o[d]=ac.overlay.filter(x=>D>=x.s&&D<=x.e);});return o;})():null;
-  return {term,es,events,byDay,startH,endH,credits,wk,adByDay,titleSub:weekMon?weekLabel(weekMon):null};
+  return {term,es,events,byDay,startH,endH,credits,wk,adByDay,asgChipsByDay,asgBlocksByDay,titleSub:weekMon?weekLabel(weekMon):null};
 }
 // Decode a data: URL to a Blob *synchronously* — keeps us inside the click gesture
 // so iOS lets navigator.share attach the PNG to a text (async toBlob would break it).
@@ -2581,7 +2624,8 @@ function evColors(hue){
 }
 function buildSchedCanvas(termId, weekMon){
   const d=schedImageData(termId, weekMon);
-  if(!d.events.length){ return null; }
+  const anyAsg=SDAYS.some(dd=>((d.asgBlocksByDay&&d.asgBlocksByDay[dd])||[]).length||((d.asgChipsByDay&&d.asgChipsByDay[dd])||[]).length);
+  if(!d.events.length && !anyAsg){ return null; }
   const cs=getComputedStyle(document.body), v=n=>(cs.getPropertyValue(n)||'').trim()||'#000000';
   const surface=v('--surface'), ink=v('--ink'), ink2=v('--ink-2'), ink3=v('--ink-3'), line=v('--line'), surface2=v('--surface-2');
   const accent=v('--accent'), accentSoft=v('--accent-soft'), accentLine=v('--accent-line');
@@ -2589,15 +2633,17 @@ function buildSchedCanvas(termId, weekMon){
   const rows=d.endH-d.startH, total=rows*60, gStart=d.startH*60, gridH=rows*hourH;
   const W=gutter+colW*5+pad;
   // academic-dates band (week mode only): full, wrapped, never truncated — grows the image as needed
-  const adBy=d.adByDay||{}; const bandFont=10, bandLH=13, boxPadX=6, boxPadY=4, boxGap=5, bandPad=7;
+  const adBy=d.adByDay||{}, asgBy=d.asgChipsByDay||{}; const bandFont=10, bandLH=13, boxPadX=6, boxPadY=4, boxGap=5, bandPad=7;
   const bandLines={}; let bandH=0;
-  if(d.wk && SDAYS.some(dd=>(adBy[dd]||[]).length)){
+  if(d.wk && SDAYS.some(dd=>(adBy[dd]||[]).length||(asgBy[dd]||[]).length)){
     const mc=document.createElement('canvas').getContext('2d');
     mc.font=`700 ${bandFont}px -apple-system,system-ui,sans-serif`;
     let maxH=0;
-    SDAYS.forEach(dd=>{ const evs=adBy[dd]||[]; let h=0; bandLines[dd]=[];
-      for(const o of evs){ const lines=wrapLines(mc, acalShort(o.title), colW-8-boxPadX*2);
-        bandLines[dd].push({o,lines}); h += lines.length*bandLH + boxPadY*2 + boxGap; }
+    SDAYS.forEach(dd=>{ let h=0; bandLines[dd]=[];
+      for(const o of (adBy[dd]||[])){ const lines=wrapLines(mc, acalShort(o.title), colW-8-boxPadX*2);
+        bandLines[dd].push({kind:'ac',o,lines}); h += lines.length*bandLH + boxPadY*2 + boxGap; }
+      for(const r of (asgBy[dd]||[])){ const lines=wrapLines(mc, asgTitle(r.a), colW-8-boxPadX*2-10);
+        bandLines[dd].push({kind:'asg',r,lines}); h += lines.length*bandLH + boxPadY*2 + boxGap; }
       maxH=Math.max(maxH,h); });
     if(maxH>0) bandH=maxH - boxGap + bandPad*2;
   }
@@ -2623,6 +2669,14 @@ function buildSchedCanvas(termId, weekMon){
     x.textAlign='left'; x.textBaseline='top';
     SDAYS.forEach((dd,i)=>{ let yy=bandY+bandPad; const bx=gx0+colW*i+4, bw=colW-8;
       for(const it of (bandLines[dd]||[])){ const boxH=it.lines.length*bandLH+boxPadY*2;
+        if(it.kind==='asg'){ const a=it.r.a;
+          roundRectPath(x,bx,yy,bw,boxH,5); x.fillStyle=surface; x.fill();
+          x.strokeStyle=line; x.lineWidth=1; roundRectPath(x,bx+0.5,yy+0.5,bw-1,boxH-1,5); x.stroke();
+          x.fillStyle=it.r.color; x.beginPath(); x.arc(bx+boxPadX+3, yy+boxPadY+bandFont/2, 3, 0, Math.PI*2); x.fill();
+          x.fillStyle=a.done?ink3:ink2; x.font=`700 ${bandFont}px -apple-system,system-ui,sans-serif`;
+          it.lines.forEach((ln,li)=>x.fillText(ln, bx+boxPadX+10, yy+boxPadY+li*bandLH));
+          if(a.done){ x.strokeStyle=ink3; x.lineWidth=1; const sy=yy+boxPadY+bandFont/2; x.beginPath(); x.moveTo(bx+boxPadX+10,sy); x.lineTo(bx+boxPadX+10+Math.min(x.measureText(it.lines[0]||'').width,bw-boxPadX*2-10),sy); x.stroke(); }
+          yy+=boxH+boxGap; continue; }
         roundRectPath(x,bx,yy,bw,boxH,5); x.fillStyle=it.o.noclass?accentSoft:surface; x.fill();
         x.strokeStyle=it.o.noclass?accentLine:line; x.lineWidth=1; roundRectPath(x,bx+0.5,yy+0.5,bw-1,boxH-1,5); x.stroke();
         x.fillStyle=it.o.noclass?accent:ink2; x.font=`${it.o.noclass?'800':'700'} ${bandFont}px -apple-system,system-ui,sans-serif`;
@@ -2646,6 +2700,19 @@ function buildSchedCanvas(termId, weekMon){
     x.fillStyle=ec.title; x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(ev.e.code||'—', tx, by+5);
     if(bh>=30){ x.fillStyle=ec.meta; x.font='700 10px -apple-system,system-ui,sans-serif'; x.fillText(min2label(ev.s)+' – '+min2label(ev.en), tx, by+21); }
     if(bh>=46 && ev.m.location){ x.fillStyle=ec.loc; x.font='600 10px -apple-system,system-ui,sans-serif'; x.fillText(ev.m.location, tx, by+34); }
+    x.restore();
+  }});
+  // timed assignment blocks (exam/quiz): dashed "assessment" boxes over the class grid
+  SDAYS.forEach((dd,di)=>{ for(const b of ((d.asgBlocksByDay&&d.asgBlocksByDay[dd])||[])){ const a=b.a;
+    const bx=gx0+colW*di+2, by=gy0+((b.s-gStart)/total)*gridH+1, bh=Math.max(15,((b.en-b.s)/total)*gridH-2), W2=colW-4;
+    x.save();
+    roundRectPath(x,bx,by,W2,bh,6); x.fillStyle=surface; x.fill();
+    x.globalAlpha=a.done?0.10:0.16; x.fillStyle=b.color; roundRectPath(x,bx,by,W2,bh,6); x.fill(); x.globalAlpha=1;
+    x.strokeStyle=b.color; x.lineWidth=1.4; x.setLineDash([4,3]); roundRectPath(x,bx+0.7,by+0.7,W2-1.4,bh-1.4,6); x.stroke(); x.setLineDash([]);
+    roundRectPath(x,bx,by,W2,bh,6); x.clip();
+    const tx=bx+8; x.textBaseline='top';
+    x.fillStyle=b.color; x.font='800 9px -apple-system,system-ui,sans-serif'; x.fillText(((_ASG_K[a.kind]||{}).label||'').toUpperCase(), tx, by+5);
+    if(bh>=26){ x.fillStyle=a.done?ink3:ink; x.font='800 11px -apple-system,system-ui,sans-serif'; x.fillText(asgTitle(a), tx, by+16); }
     x.restore();
   }});
   return cv;
