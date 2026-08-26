@@ -1287,6 +1287,31 @@ function acalShort(t){
   if(/winter (term|session) start/i.test(s)) return "Winter session";
   return s;
 }
+// ---- assignment/deadline naming ----------------------------------------------------------------
+// Titles are composed from structured fields (never free-typed) so they stay standardized. Kind
+// drives both the label lead word and whether the item renders as a timed block (exam/quiz) or an
+// all-day chip. See docs/superpowers/specs/2026-08-25-assignments-feature-design.md.
+const ASG_KINDS=[
+  {v:'exam',label:'Exam',timed:true},{v:'quiz',label:'Quiz',timed:true},
+  {v:'homework',label:'Homework',timed:false},{v:'assignment',label:'Assignment',timed:false},
+  {v:'problem_set',label:'Problem Set',timed:false},{v:'paper',label:'Paper',timed:false},
+  {v:'presentation',label:'Presentation',timed:false},{v:'project',label:'Project',timed:false},
+  {v:'reading',label:'Reading',timed:false},{v:'draft',label:'Draft',timed:false},
+  {v:'survey',label:'Survey',timed:false},{v:'other',label:'Other',timed:false},
+];
+const _ASG_K=Object.fromEntries(ASG_KINDS.map(k=>[k.v,k]));
+const KIND_LABEL=k=>(_ASG_K[k]||_ASG_K.other).label;
+const KIND_TIMED=k=>!!(_ASG_K[k]||{}).timed;
+const _ASG_SMALL=new Set(['a','an','the','and','or','for','to','of','in','on','at','vs','via']);
+function asgTitleCase(s){ s=String(s||"").trim().replace(/\s+/g," "); if(!s) return "";
+  return s.split(" ").map((w,i)=>{ if(/[A-Z].*[A-Z]/.test(w)||/\d/.test(w)) return w; const lw=w.toLowerCase();
+    if(i>0 && _ASG_SMALL.has(lw)) return lw; return lw.charAt(0).toUpperCase()+lw.slice(1); }).join(" "); }
+// Compose the canonical label: override wins; else "<Series|Kind> <Number>: <Descriptor>".
+function composeAssignment(a){ a=a||{}; const ov=(a.override_title||"").trim(); if(ov) return ov;
+  const lead=(a.series&&String(a.series).trim())? String(a.series).trim() : KIND_LABEL(a.kind);
+  const num=(a.number!=null && a.number!=="")? " "+a.number : "";
+  const desc=(a.descriptor&&String(a.descriptor).trim())? ": "+asgTitleCase(a.descriptor) : "";
+  return lead+num+desc; }
 // Relevance filter for the schedule overlay: hide enrollment/add-drop notices aimed at cohorts that
 // aren't the user (he's Baker = Graduate/Professional, plus senior-year). Everything universal (breaks,
 // finals, deadlines, term bounds…) still shows. The "for " guard avoids catching "First-year writing seminar".
