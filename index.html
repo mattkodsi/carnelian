@@ -93,6 +93,8 @@
   .phead h1{font-size:26px;font-weight:800}
   .phead .actions{margin-left:auto;display:flex;gap:9px}
   .ph-note{font-size:11.5px;color:var(--ink-3);font-weight:600;width:100%;margin-top:-8px}
+  .pback{display:inline-flex;align-items:center;gap:3px;font-size:13px;font-weight:700;color:var(--ink-3);padding:2px 2px 2px 0;margin-bottom:12px;background:none;border:none}
+  .pback:hover{color:var(--ink)} .pback:active{opacity:.6}
   .fab{position:fixed;right:20px;bottom:24px;width:54px;height:54px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-size:28px;font-weight:400;display:none;align-items:center;justify-content:center;box-shadow:0 8px 22px -6px rgba(120,20,20,.5);z-index:55;border:0;line-height:1}
   .fab:active{transform:scale(.94)}
   .btn{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:700;border-radius:9px;padding:9px 14px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
@@ -108,6 +110,9 @@
   .stat .v small{font-size:12px;color:var(--ink-3);font-weight:700}
   .stat .sub{font-size:11.5px;color:var(--ink-2);margin-top:3px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .stat .sub.warnsub{color:var(--accent)}
+  .stat.tap{position:relative;cursor:pointer;transition:transform .08s ease,border-color .12s ease}
+  .stat.tap:hover{border-color:var(--line-strong)} .stat.tap:active{transform:scale(.985)}
+  .stat.tap .tap-c{position:absolute;top:11px;right:13px;font-size:17px;font-weight:700;line-height:1;color:var(--ink-3);opacity:.6}
 
   /* ---- degree card ---- */
   .degree{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden}
@@ -231,6 +236,7 @@
   .tsum .box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 13px;box-shadow:var(--shadow);min-width:92px}
   .tsum .box .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:var(--ink-3)}
   .tsum .box .v{font-size:17px;font-weight:800;letter-spacing:-.02em;margin-top:1px}
+  .tsum .box .v small{font-size:11px;color:var(--ink-3);font-weight:700}
   .tsum .box.na .v{color:var(--accent)}
   .tterm{border:1px solid var(--line);border-radius:var(--r);margin-bottom:9px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
   .tterm .th{display:flex;align-items:center;gap:10px;padding:10px 15px;background:var(--surface-2)}
@@ -616,10 +622,9 @@
     <nav class="nav">
       <button class="navitem on" data-nav="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
       <button class="navitem" data-nav="requirements"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Requirements</button>
-      <button class="navitem" data-nav="planner"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Planner</button>
-      <button class="navitem" data-nav="transcript"><svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>Transcript</button>
-      <button class="navitem" data-nav="academic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8.5 15.5l2 2 4-4.5"/></svg>Academic</button>
-      <button class="navitem" data-nav="schedule"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="M8 13h2M14 13h2M8 17h2"/></svg>Schedule</button>
+      <button class="navitem" data-nav="planner"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C9.8 5.2 6.9 4.8 4 5.2v13c2.9-.4 5.8 0 8 1.3 2.2-1.3 5.1-1.7 8-1.3v-13c-2.9-.4-5.8 0-8 1.3z"/><path d="M12 6.5v13"/></svg>Planner</button>
+      <button class="navitem" data-nav="academic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Academic</button>
+      <button class="navitem" data-nav="schedule"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Schedule</button>
     </nav>
     <div class="rail-foot">
       <button class="tbtn js-theme"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>Theme</button>
@@ -921,6 +926,18 @@ function creditsScope(scope){ let c=0; for(const e of DB.enrollments){ const ds=
   const t=termById(e.term_id), car=t?t.career:"undergrad";
   if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
   c+=num(e.credits);} return Math.round(c*10)/10; }
+// Baker credits toward the 62-credit MPS, computed once so the dashboard card and the
+// transcript summary can never disagree. Counts every distinct course mapped to any Baker
+// requirement (incl. 6000-level courses cross-applied from undergrad terms), split by whether
+// it's actually earned yet. In-progress courses are "planned", not earned — so an in-progress
+// semester never inflates the earned total.
+function bakerCredits(){ const r1=n=>Math.round(n*10)/10;
+  const m=new Map(); for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r)) m.set(String(e.id),e);
+  const vals=[...m.values()];
+  const earned=r1(vals.filter(isEarned).reduce((s,e)=>s+num(e.credits),0));
+  const planned=r1(vals.filter(e=>!isEarned(e)).reduce((s,e)=>s+num(e.credits),0));
+  const need=DB.requirements.filter(r=>r.program_id==="baker-mps"&&!r.parent_id&&r.spec&&r.spec.need&&r.spec.need.type==="credits").reduce((s,r)=>s+r.spec.need.n,0);
+  return { earned, planned, need, remaining:Math.max(0,r1(need-earned-planned)) }; }
 
 /* ---- engine ---- */
 function satisfiers(reqId){ const ids=new Set((DB.satisfactions||[]).filter(s=>s.requirement_id===reqId).map(s=>String(s.enrollment_id)));
@@ -1046,19 +1063,13 @@ function renderDashboard(){
   const asReq=DB.requirements.find(r=>r.id==="as-ascred"); const asNeed=asReq?asReq.spec.need.n:100;
   const ugTotReq=DB.requirements.find(r=>r.id==="as-total"); const ugNeed=ugTotReq?ugTotReq.spec.need.n:120;
   // Baker: sum the program's credit buckets for the target, and the distinct courses mapped to any Baker bucket for progress
-  const bakerTop=DB.requirements.filter(r=>r.program_id==="baker-mps"&&!r.parent_id&&r.spec&&r.spec.need&&r.spec.need.type==="credits");
-  const bakerNeed=bakerTop.reduce((s,r)=>s+r.spec.need.n,0);
-  const bMap=new Map(); for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r)) bMap.set(String(e.id),e);
-  const bVals=[...bMap.values()];
-  const bakerEarned=Math.round(bVals.filter(isEarned).reduce((s,e)=>s+num(e.credits),0)*10)/10;
-  const bakerPlan=Math.round(bVals.filter(e=>!isEarned(e)).reduce((s,e)=>s+num(e.credits),0)*10)/10;
-  const bakerFind=Math.max(0,Math.round((bakerNeed-bakerEarned-bakerPlan)*10)/10);
+  const bc=bakerCredits(), bakerNeed=bc.need, bakerEarned=bc.earned, bakerPlan=bc.planned, bakerFind=bc.remaining;
   const asShort=asC<asNeed;
   const gradTerms=DB.terms.filter(t=>t.career==="grad").sort((a,b)=>a.sort-b.sort); const firstGrad=gradTerms[0];
   const bakerNote=gr.gpa?nf(gr.credits)+" graded credits":(firstGrad?(termTiming(firstGrad)==="planned"?"Starts "+esc(firstGrad.name.replace(/ · Baker$/,"")):"In progress"):"Not started");
   const stat=`<div class="statgrid">
-    <div class="stat"><div class="k">Undergrad GPA</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div><div class="sub">Arts &amp; Sciences · BA</div></div>
-    <div class="stat"><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"}</div><div class="sub">${esc(bakerNote)}</div></div>
+    <div class="stat tap" data-tc-open="undergrad" role="button" tabindex="0"><span class="tap-c" aria-hidden="true">›</span><div class="k">Undergrad GPA</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div><div class="sub">Arts &amp; Sciences · BA</div></div>
+    <div class="stat tap" data-tc-open="grad" role="button" tabindex="0"><span class="tap-c" aria-hidden="true">›</span><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"}</div><div class="sub">${esc(bakerNote)}</div></div>
     <div class="stat"><div class="k">Undergrad Credits</div><div class="v">${nf(allC)}<small> / ${nf(ugNeed)}</small></div><div class="sub ${asShort?'warnsub':''}">${nf(asC)} / ${nf(asNeed)} in A&amp;S${asShort?'':' ✓'}</div></div>
     <div class="stat"><div class="k">Baker Credits</div><div class="v">${nf(bakerEarned)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerEarned>=bakerNeed?'All requirements earned ✓':`${nf(bakerPlan)} planned · ${nf(bakerFind)} remaining`}</div></div>
   </div>`;
@@ -1089,6 +1100,9 @@ function renderDashboard(){
     <div class="sect-h">What's left</div>${left}`;
   $("#dashboard").querySelectorAll("[data-goto]").forEach(b=>b.onclick=()=>goToReqs(b.dataset.goto));
   $("#dashboard").querySelectorAll(".drow[data-goto]").forEach(b=>b.onclick=()=>goToReqs(b.dataset.goto));
+  // The GPA cards open the transcript (now folded in) on the matching career tab.
+  $("#dashboard").querySelectorAll("[data-tc-open]").forEach(b=>{ const go=()=>{ TCAREER=b.dataset.tcOpen; localStorage.setItem("carn_tcareer",TCAREER); renderTranscript(); showPage("transcript"); };
+    b.onclick=go; b.onkeydown=e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); go(); } }; });
 }
 function leftLabel(pp){ if(pp.met) return "complete"; const n=pp.rows.filter(r=>!r.met).length; return n+" item"+(n===1?"":"s")+" left"; }
 function reqLeft(r){ if(r.met) return "complete"; const plan=r.planned||0;
@@ -1766,11 +1780,12 @@ function renderTranscript(){
       <div class="box na"><div class="k">Non-A&amp;S</div><div class="v">${nf(nonAs)}</div></div>
       <div class="box"><div class="k">Total</div><div class="v">${nf(allC)}</div></div></div>`;
   } else {
-    const gc=creditsScope("grad");
+    const bc=bakerCredits();
     summary=`<div class="tsum">
       <div class="box"><div class="k">Baker GPA</div><div class="v">${g.gpa?g.gpa.toFixed(3):'—'}</div></div>
-      <div class="box"><div class="k">Baker credits</div><div class="v">${nf(gc)}</div></div>
-      <div class="box"><div class="k">of 62</div><div class="v">${nf(62-gc)} left</div></div></div>`;
+      <div class="box"><div class="k">Earned</div><div class="v">${nf(bc.earned)}<small> / ${nf(bc.need)}</small></div></div>
+      <div class="box"><div class="k">Planned</div><div class="v">${nf(bc.planned)}</div></div>
+      <div class="box"><div class="k">Remaining</div><div class="v">${nf(bc.remaining)}</div></div></div>`;
   }
   // The Baker transcript also surfaces courses cross-applied from undergrad terms (e.g. 6000-level
   // courses taken early that count toward Baker) so they appear in the record, not just the GPA.
@@ -1790,7 +1805,8 @@ function renderTranscript(){
     body+=`<div class="tterm"><div class="th"><span class="nm">${esc(t.name)}${cross?' <span class="xapp">counts toward Baker</span>':''}</span><span class="meta">${nf(cr)} cr${tg!=null?' · '+tg.toFixed(2):''}</span></div>`+
       es.map(e=>{const p=GRADE_POINTS[e.grade];const dist=(e.tags||[])[0]||'';return `<div class="trow"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti">${esc(e.title||'')}</span><span class="ds">${esc(dist)}</span><span class="cc num">${nf(num(e.credits))}</span><span class="gr ${p!=null?'a':'s'}">${esc(e.grade||(displayStatus(e)==='in_progress'?'···':'—'))}</span></div>`;}).join("")+`</div>`;
   }
-  $("#transcript").innerHTML=`<div class="phead"><h1>Transcript</h1><div class="ph-note">Read-only record · edit courses in the Planner</div></div>${seg}${legend}${summary}${body||'<p class="muted">No courses in this career yet.</p>'}`;
+  $("#transcript").innerHTML=`<button class="pback" id="tBack" type="button">‹ Overview</button><div class="phead"><h1>Transcript</h1><div class="ph-note">Read-only record · edit courses in the Planner</div></div>${seg}${legend}${summary}${body||'<p class="muted">No courses in this career yet.</p>'}`;
+  const tb=$("#tBack"); if(tb) tb.onclick=()=>showPage("dashboard");
   $("#transcript").querySelectorAll("[data-tc]").forEach(b=>b.onclick=()=>{TCAREER=b.dataset.tc;localStorage.setItem("carn_tcareer",TCAREER);renderTranscript();});
 }
 function termGpa(es){ let q=0,c=0; for(const e of es){ const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue; q+=p*num(e.credits); c+=num(e.credits);} return c?q/c:null; }
@@ -2434,7 +2450,9 @@ $("#rDelete").onclick=()=>{ if(R_EDIT==null) return;
     try{ await api("delete",{table:"requirements",id:R_EDIT}); DB.requirements=DB.requirements.filter(x=>x.id!==R_EDIT); closeModal($("#rmodal")); renderAll(); toast("Deleted"); }catch(err){ toast(err.message||"Error"); } }); };
 
 /* ---- nav / theme / zoom ---- */
-function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id)); document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===id));
+function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll(".page").forEach(p=>p.classList.toggle("on",p.id===id));
+  // Transcript is folded into the dashboard, so it keeps the Dashboard tab lit (and tapping it returns here).
+  const navId=id==="transcript"?"dashboard":id; document.querySelectorAll(".navitem").forEach(n=>n.classList.toggle("on",n.dataset.nav===navId));
   const main=document.querySelector(".main"); if(main) main.classList.toggle("fit", id==="schedule");
   // Hard-lock the document from scrolling on the schedule page: the page is a fixed
   // overlay, but the body behind it is min-height:100vh (taller than iOS's visible
