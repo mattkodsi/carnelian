@@ -1208,7 +1208,7 @@ function rcheckPanelHTML(){
     const term=termById(e.term_id), tn=term?term.name:"";
     let note="", act="";
     if(st.state==="available"){
-      note=st.single?"roster now live — meeting times available":"roster now live — pick your section";
+      note=st.single?"roster now live — meeting times available":"roster now live — sections available";
       if(st.diffs&&st.diffs.length) note+=" · "+st.diffs.map(d=>d.field+" "+fmtDiff(d)).join(", ");
       act=st.single?`<button class="rc-act" data-rc-update="${e.id}">Update</button>`:`<button class="rc-act" data-rc-pick="${e.id}">Pick sections</button>`;
     } else if(st.state==="notoffered"){
@@ -2252,7 +2252,7 @@ function renderMeetSel(){
   box.innerHTML=`<div class="secpick">`+MSEC_GROUPS.map(g=>{
     const multi=g.sections.length>1;
     const opts=g.sections.map((s,i)=>`<option value="${i}" ${i===MSEC_PICK[g.comp]?'selected':''}>${esc(secOptLabel(s))}</option>`).join("");
-    return `<span class="mfw"><label>${esc(g.name)}${multi?` · pick yours (${g.sections.length})`:''}</label><select data-seccomp="${esc(g.comp)}">${opts}</select></span>`;
+    return `<span class="mfw"><label>${esc(g.name)}${multi?` (${g.sections.length})`:''}</label><select data-seccomp="${esc(g.comp)}">${opts}</select></span>`;
   }).join("")+`</div>`;
   box.querySelectorAll("[data-seccomp]").forEach(sel=>sel.onchange=()=>{ MSEC_PICK[sel.dataset.seccomp]=+sel.value; applySections(); });
 }
