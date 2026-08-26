@@ -1312,6 +1312,26 @@ function composeAssignment(a){ a=a||{}; const ov=(a.override_title||"").trim(); 
   const num=(a.number!=null && a.number!=="")? " "+a.number : "";
   const desc=(a.descriptor&&String(a.descriptor).trim())? ": "+asgTitleCase(a.descriptor) : "";
   return lead+num+desc; }
+// ---- assignment data helpers ----
+// Palette color for a course: prefer the schedule's per-term index (set in renderSchedule), else a stable hash.
+function courseColor(en){ if(!en) return SCHED_COLORS[0]; const k=en.code||('#'+en.id);
+  const i=(typeof SCHED_CIDX!=='undefined'&&SCHED_CIDX&&SCHED_CIDX[k]!=null)?SCHED_CIDX[k]:courseColorIdx(en.code); return SCHED_COLORS[i]; }
+// due_on comes back from Postgres as an ISO timestamp; slice to the plain YYYY-MM-DD (no TZ shift).
+function asgDate(a){ return String(a&&a.due_on||"").slice(0,10); }
+function asgTitle(a){ return (a&&a.name)? a.name : composeAssignment(a||{}); }
+function asgFor(eid){ return (DB.assignments||[]).filter(a=>String(a.enrollment_id)===String(eid))
+  .sort((x,y)=> (asgDate(x)||"~").localeCompare(asgDate(y)||"~") || String(x.due_time||"~").localeCompare(String(y.due_time||"~"))); }
+// Active+done assignments whose due date falls in the Mon–Fri week; timed kinds with a time → blocks, else chips.
+function asgWeek(mon){ const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const start=new Date(mon), end=new Date(mon); end.setDate(end.getDate()+4);
+  const s=iso(start), e=iso(end);
+  const byId=Object.fromEntries((DB.enrollments||[]).map(en=>[String(en.id),en]));
+  const chips=[], blocks=[];
+  for(const a of (DB.assignments||[])){ if(a.status==='pending') continue; const d=asgDate(a); if(!d||d<s||d>e) continue;
+    const en=byId[String(a.enrollment_id)]; if(!en) continue;
+    const row={a, eid:a.enrollment_id, code:en.code, en, color:courseColor(en)};
+    if(KIND_TIMED(a.kind) && a.due_time) blocks.push(row); else chips.push(row); }
+  return {chips, blocks}; }
 // Relevance filter for the schedule overlay: hide enrollment/add-drop notices aimed at cohorts that
 // aren't the user (he's Baker = Graduate/Professional, plus senior-year). Everything universal (breaks,
 // finals, deadlines, term bounds…) still shows. The "for " guard avoids catching "First-year writing seminar".
