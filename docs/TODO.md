@@ -2,6 +2,23 @@
 
 Non-urgent follow-ups, newest first.
 
+## Assignments: richer deadline timing + schedule visualization
+
+**Status:** open · planned next
+
+Rework assignment deadline timing so a due moment can be expressed as more than a
+single time. The user's example: a memo due by 8am the day of a Management
+Communication class, but they want to *set* it as due midnight the night before,
+since they'll never work on it that morning. So the "due" concept needs options —
+sketch: **all-day · specific time · time window (start–end) · during class · a plain
+deadline**. Decide how a single-moment deadline renders on the weekly Schedule grid
+(a line? a small marker at the time? a top-strip chip already exists for all-day).
+
+Hard constraint from the user: **do NOT complicate the app** — avoid rebuilding
+Google Calendar. Keep the model as small as it can be while covering these cases.
+Design this (brainstorm) before building. Touches the assignment editor + `asgWeek`
+/ schedule rendering in `index.html`.
+
 ## Course editor: link discussion/lab sections to their parent lecture
 
 **Status:** open · low priority (rare; does not affect single-section grad courses)

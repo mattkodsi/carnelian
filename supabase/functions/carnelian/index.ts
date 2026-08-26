@@ -95,7 +95,7 @@ async function authed(token: string | undefined) {
 
 // ---------- generic upsert/delete for allow-listed tables ----------
 const COLS: Record<string, string[]> = {
-  enrollments: ["code", "title", "credits", "term_id", "status", "grade", "gpa_points", "counts_gpa", "pinned_requirement_id", "tags", "offered_terms", "notes", "analog_of", "in_as", "meetings"],
+  enrollments: ["code", "title", "credits", "term_id", "status", "grade", "gpa_points", "counts_gpa", "pinned_requirement_id", "tags", "offered_terms", "notes", "analog_of", "in_as", "meetings", "role"],
   terms: ["id", "name", "career", "kind", "starts_on", "ends_on", "sort"],
   adjustments: ["program_id", "type", "from_requirement_id", "to_requirement_id", "satisfies_requirement_id", "credits", "trigger_course", "note"],
   assignments: ["enrollment_id", "name", "kind", "series", "number", "descriptor", "override_title", "due_on", "due_time", "duration_min", "status", "source", "done", "weight", "score", "sort"],

@@ -207,6 +207,7 @@
   .prow .prow-right{display:flex;align-items:center;gap:9px;align-self:center}
   .prow.flagged{background:color-mix(in srgb,var(--accent) 5%,transparent)}
   .rflag{align-self:center;font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--accent);background:color-mix(in srgb,var(--accent) 13%,transparent);border-radius:999px;padding:2px 7px;white-space:nowrap}
+  .prow-role{align-self:center;font-size:9.5px;font-weight:800;letter-spacing:.03em;text-transform:uppercase;color:var(--ink-3);background:var(--surface-3);border-radius:999px;padding:2px 7px;white-space:nowrap}
   .wc-prof{font-size:11px;color:var(--ink-3);margin-top:6px} .wc-prof.likely{font-style:italic}
   .wcard.flagged{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
   .rcheck-btn{font:inherit;font-size:12.5px;font-weight:700;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:999px;padding:7px 13px;cursor:pointer;box-shadow:var(--shadow)}
@@ -381,6 +382,10 @@
   .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
   .now-time{position:absolute;transform:translate(-100%,-50%);margin-left:-3px;font-size:9px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:1px 4px;z-index:7;pointer-events:none;line-height:1.2;white-space:nowrap}
   .ev.half::after{content:attr(data-half);position:absolute;bottom:1px;right:3px;font-size:8px;font-weight:800;letter-spacing:.02em;color:var(--ev-ink3);opacity:.9;pointer-events:none}
+  /* TA / audit blocks: a small tag in the bottom-right corner, in the course colour — same spot and
+     treatment as the H1/H2 half badge (the two never co-occur), with the location padded to match */
+  .ev[data-role]::before{content:attr(data-role);position:absolute;bottom:2px;right:3px;z-index:2;font-size:7.5px;font-weight:800;letter-spacing:.03em;line-height:1;padding:1.5px 3px;border-radius:4px;color:var(--ev-title);background:color-mix(in srgb,var(--h) 32%,var(--surface));pointer-events:none}
+  .ev[data-role] .loc{padding-right:24px}
   .ev.half .loc{padding-right:16px}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
@@ -659,13 +664,19 @@
       <div class="fld searchfld"><label>Title</label><input id="mTitleIn" autocomplete="off">
         <div class="results" id="mTitleResults"></div>
         <div class="hint" id="mTitleMsg"></div></div>
-      <div class="fld"><label>Credits</label><input id="mCredits" type="number" step="0.5" inputmode="decimal"></div>
+      <div class="fld"><label>Type</label><select id="mRole">
+        <option value="course">Course</option>
+        <option value="ta_paid">TA — paid</option>
+        <option value="ta_credit">TA — credit</option>
+        <option value="audit">Audit</option></select>
+        <div class="hint" id="mRoleHint" style="display:none"></div></div>
+      <div class="fld" id="mCreditsFld"><label>Credits</label><input id="mCredits" type="number" step="0.5" min="0" inputmode="decimal"></div>
       <div class="frow">
         <div class="fld"><label>Status</label><select id="mStatus">
           <option value="wishlist">Wishlist</option><option value="planned">Planned</option>
           <option value="in_progress">In progress</option><option value="completed">Completed</option>
           <option value="transferred">Transferred</option></select></div>
-        <div class="fld"><label>Grade</label><select id="mGrade"></select></div>
+        <div class="fld" id="mGradeFld"><label>Grade</label><select id="mGrade"></select></div>
       </div>
       <div class="fld"><label>Distribution</label>
         <select id="mDist">
@@ -881,7 +892,7 @@ $("#gateForm").addEventListener("submit", async e=>{
   }catch(err){ msg.textContent=err.status===401?"Wrong PIN.":(err.message||"Error"); msg.classList.add("err"); }
 });
 function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="grid"; if(innerWidth<=760)$(".mobar").style.display="flex";
-  ["mTerm","mStatus","mGrade","mDist","rProg","rParent","rKind","rMatchType","rScope"].forEach(id=>enhanceDD(document.getElementById(id)));
+  ["mTerm","mStatus","mGrade","mDist","mRole","rProg","rParent","rKind","rMatchType","rScope"].forEach(id=>enhanceDD(document.getElementById(id)));
   renderAll(); gcalRefresh(); handleGcalReturn(); }
 $("#logoutBtn").addEventListener("click",()=>{ localStorage.removeItem("carn_token"); location.reload(); });
 
@@ -899,6 +910,10 @@ function displayStatus(e){
 }
 const STATUS_CLASS={completed:"ok",in_progress:"warn",planned:"plan",transferred:"t",wishlist:"none"};
 const STATUS_LABEL={completed:"done",in_progress:"in progress",planned:"planned",transferred:"transferred",wishlist:"idea"};
+// A course's role: plain coursework (default), a paid TA post (no credit/GPA/transcript), a
+// for-credit teaching-experience course, or an audit (transcript grade V, no credit/GPA). Only
+// plain courses fulfill degree requirements; paid TA work is excluded from every academic total.
+const roleOf=e=>e.role||"course";
 // timing of a whole term, derived from the calendar (past / current / upcoming)
 function termTiming(term){ const t=today(); if(!term) return "planned";
   if(term.ends_on&&term.ends_on<t) return "completed";
@@ -921,6 +936,7 @@ function bakerAppliedIds(){ const s=new Set();
 function gpa(career){ let q=0,c=0;
   const bset = career==="grad" ? bakerAppliedIds() : null;
   for(const e of DB.enrollments){ const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue;
+    if(roleOf(e)==="ta_paid"||roleOf(e)==="audit") continue;   // never affect GPA
     const car=(termById(e.term_id)||{}).career||"undergrad";
     // grad GPA = grad-career courses PLUS any graded course applied to Baker (e.g. 6000-level taken as undergrad).
     // undergrad GPA = undergrad-career courses (the cross-applied ones stay here too — "Both").
@@ -928,6 +944,7 @@ function gpa(career){ let q=0,c=0;
     if(!inCareer) continue; q+=p*num(e.credits); c+=num(e.credits); }
   return c?{gpa:q/c,credits:c}:{gpa:null,credits:0}; }
 function creditsScope(scope){ let c=0; for(const e of DB.enrollments){ const ds=displayStatus(e); if(!["completed","in_progress","transferred"].includes(ds)) continue;
+  if(roleOf(e)==="ta_paid") continue;   // paid TA work isn't academic credit (audit is already 0 cr)
   const t=termById(e.term_id), car=t?t.career:"undergrad";
   if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
   c+=num(e.credits);} return Math.round(c*10)/10; }
@@ -946,9 +963,9 @@ function bakerCredits(){ const r1=n=>Math.round(n*10)/10;
 
 /* ---- engine ---- */
 function satisfiers(reqId){ const ids=new Set((DB.satisfactions||[]).filter(s=>s.requirement_id===reqId).map(s=>String(s.enrollment_id)));
-  return DB.enrollments.filter(e=>ids.has(String(e.id))&&displayStatus(e)!=="wishlist"); }
+  return DB.enrollments.filter(e=>ids.has(String(e.id))&&displayStatus(e)!=="wishlist"&&roleOf(e)==="course"); }
 function autoMatch(req){ const spec=req.spec||{}, m=spec.match||{}; if(m.manual||m.scope||m.pool) return [];
-  return DB.enrollments.filter(e=>{ if(displayStatus(e)==="wishlist") return false;
+  return DB.enrollments.filter(e=>{ if(displayStatus(e)==="wishlist") return false; if(roleOf(e)!=="course") return false;
     if(m.attribute) return (e.tags||[]).includes(m.attribute);
     if(m.subject){ if(subjectOf(e)!==m.subject) return false; const l=levelOf(e);
       if(m.levelMin&&l<m.levelMin) return false; if(m.levelMax&&l>m.levelMax) return false;
@@ -1196,9 +1213,11 @@ function reqBlocks(prog){
 const byCode=(a,b)=>String(codeLabel(a)).localeCompare(String(codeLabel(b)),undefined,{numeric:true});
 // what to show as a course's "code" — Oxford/transferred courses have no Cornell code, so label them "Oxford"
 const codeLabel=e=>{ const c=(e.code||'').trim(); return (c&&c!=='OXON')?c:'Oxford'; };
-const prowHTML=e=>{ const p=profInfo(e); const fl=RCHECK_FLAG.has(String(e.id));
+const prowHTML=e=>{ const p=profInfo(e); const fl=RCHECK_FLAG.has(String(e.id)); const r=roleOf(e);
   const sub=p.name?`<span class="prof${p.likely?' likely':''}">${esc(p.name)}</span>`:'';
-  return `<div class="prow${fl?' flagged':''}" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti"><span class="tn">${esc(e.title||'')}</span>${sub}</span><span class="prow-right">${fl?'<span class="rflag">update</span>':''}<span class="cc num">${nf(num(e.credits))}</span></span></div>`; };
+  const rt=r==='audit'?'Audit':(r==='ta_paid'||r==='ta_credit')?'TA':'';   // 0-credit roles show a tag instead of "0"
+  const showCr=!(r==='ta_paid'||r==='audit');
+  return `<div class="prow${fl?' flagged':''}" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti"><span class="tn">${esc(e.title||'')}</span>${sub}</span><span class="prow-right">${rt?`<span class="prow-role">${rt}</span>`:''}${fl?'<span class="rflag">update</span>':''}${showCr?`<span class="cc num">${nf(num(e.credits))}</span>`:''}</span></div>`; };
 const TSTAT={completed:{c:"done",l:"completed"},in_progress:{c:"now",l:"in progress"},planned:{c:"soon",l:"upcoming"}};
 function fmtDiff(d){ if(d.field==="credits") return nf(d.from)+"→"+nf(d.to); return "→ “"+String(d.to).slice(0,44)+"”"; }
 // The "Roster check" results panel shown atop the planner after a check finds something actionable.
@@ -1653,7 +1672,8 @@ function renderSchedule(){
       // The half (1st/2nd) is shown by the H1/H2 corner badge; with the week-by-week view the other
       // half simply doesn't appear in the weeks it isn't in session.
       const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(ev.part!=='full')cls.push("half");
-      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}" style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
+      const _r=roleOf(ev.e), roleTag=_r==='audit'?'AUDIT':(_r==='ta_paid'||_r==='ta_credit')?'TA':'';
+      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}" data-half="${ev.part==='1'?'H1':ev.part==='2'?'H2':''}"${roleTag?` data-role="${roleTag}"`:''} style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
         <div class="et">${esc(timeLbl)}</div>
         ${secLbl?`<div class="es">${esc(secLbl)}</div>`:''}
@@ -1802,13 +1822,14 @@ function renderTranscript(){
     if(TCAREER==="undergrad"){ if(t.career!=="undergrad") continue; es=DB.enrollments.filter(e=>e.term_id===t.id); }
     else if(t.career==="grad"){ es=DB.enrollments.filter(e=>e.term_id===t.id); }
     else { es=DB.enrollments.filter(e=>e.term_id===t.id && applied.has(String(e.id))); cross=true; }
+    es=es.filter(e=>roleOf(e)!=="ta_paid");   // paid TA work never appears on the transcript
     if(es.length) groups.push({t,es,cross});
   }
   let body="";
   for(const {t,es,cross} of groups){
     const tg=termGpa(es), cr=es.reduce((s,e)=>s+num(e.credits),0);
     body+=`<div class="tterm"><div class="th"><span class="nm">${esc(t.name)}${cross?' <span class="xapp">counts toward Baker</span>':''}</span><span class="meta">${nf(cr)} cr${tg!=null?' · '+tg.toFixed(2):''}</span></div>`+
-      es.map(e=>{const p=GRADE_POINTS[e.grade];const dist=(e.tags||[])[0]||'';return `<div class="trow"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti">${esc(e.title||'')}</span><span class="ds">${esc(dist)}</span><span class="cc num">${nf(num(e.credits))}</span><span class="gr ${p!=null?'a':'s'}">${esc(e.grade||(displayStatus(e)==='in_progress'?'···':'—'))}</span></div>`;}).join("")+`</div>`;
+      es.map(e=>{const p=GRADE_POINTS[e.grade];const dist=(e.tags||[])[0]||'';const ti=(e.title||'')+(roleOf(e)==='ta_credit'?' (Teaching Experience)':'');return `<div class="trow"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti">${esc(ti)}</span><span class="ds">${esc(dist)}</span><span class="cc num">${nf(num(e.credits))}</span><span class="gr ${p!=null?'a':'s'}">${esc(e.grade||(displayStatus(e)==='in_progress'?'···':'—'))}</span></div>`;}).join("")+`</div>`;
   }
   $("#transcript").innerHTML=`<button class="pback" id="tBack" type="button">‹ Overview</button><div class="phead"><h1>Transcript</h1><div class="ph-note">Read-only record · edit courses in the Planner</div></div>${seg}${legend}${summary}${body||'<p class="muted">No courses in this career yet.</p>'}`;
   const tb=$("#tBack"); if(tb) tb.onclick=()=>showPage("dashboard");
@@ -1963,6 +1984,23 @@ function fmtRosterWhen(mt){ const days=parsePattern(mt.pattern).map(d=>(SDAY_LAB
   const tt=(s&&e&&hm2min(s)!=null&&hm2min(e)!=null)?(min2label(hm2min(s))+"–"+min2label(hm2min(e))):""; return [days,tt].filter(Boolean).join(" "); }
 function resetDelBtn(b){ b.dataset.armed=""; b.textContent="Delete"; b.style.background=""; b.style.color=""; }
 function armDel(b,fn){ if(b.dataset.armed!=="1"){ b.dataset.armed="1"; b.textContent="Confirm delete"; b.style.background="var(--accent)"; b.style.color="#fff"; clearTimeout(b._t); b._t=setTimeout(()=>resetDelBtn(b),3000); return; } resetDelBtn(b); fn(); }
+// Course-type (role) editor plumbing: the Type selector adapts the Credits/Grade fields so the
+// editor only grows when a course is a TA post or an audit, and a short note states the effect.
+const ROLE_HINT={ ta_paid:"Not on transcript · no credit or GPA", ta_credit:"Transcript: “Teaching Experience”", audit:"Transcript grade V · no credit or GPA" };
+const GRADE_BASE=["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"];
+const gradeOptionsFor=role=>role==="audit"?["V",...GRADE_BASE]:GRADE_BASE;
+function renderGradeSelect(role,current){
+  const opts=gradeOptionsFor(role);
+  const cur=(current&&opts.includes(current))?current:(role==="audit"?"V":"");
+  $("#mGrade").innerHTML=`<option value="">—</option>`+opts.map(g=>`<option>${g}</option>`).join("");
+  $("#mGrade").value=cur; return cur;
+}
+function applyRoleUI(role){
+  const paid=role==="ta_paid", noCredits=paid||role==="audit";
+  $("#mCreditsFld").style.display=noCredits?"none":"";
+  $("#mGradeFld").style.display=paid?"none":"";
+  const h=$("#mRoleHint"); h.textContent=ROLE_HINT[role]||""; h.style.display=ROLE_HINT[role]?"block":"none";
+}
 function openCourse(id=null, preset={}){
   EDIT_ID=id; const e=id!=null?DB.enrollments.find(x=>String(x.id)===String(id)):preset;
   $("#mTitle").textContent=id!=null?"Edit course":"Add course";
@@ -1970,7 +2008,7 @@ function openCourse(id=null, preset={}){
   $("#mCode").value=e.code||""; $("#mTitleIn").value=e.title||""; $("#mCredits").value=e.credits!=null?num(e.credits):"";
   $("#mTerm").innerHTML=`<option value="">— none —</option>`+DB.terms.map(t=>`<option value="${t.id}">${esc(t.name)}</option>`).join(""); $("#mTerm").value=e.term_id||"";
   $("#mStatus").value=e.status||"planned";
-  $("#mGrade").innerHTML=`<option value="">—</option>`+["A+","A","A-","B+","B","B-","C+","C","C-","D+","D","D-","F","S","SX","SU"].map(g=>`<option>${g}</option>`).join(""); $("#mGrade").value=e.grade||"";
+  const role0=roleOf(e); $("#mRole").value=role0; renderGradeSelect(role0,e.grade); applyRoleUI(role0);
   MTAGS=[...(e.tags||[])]; renderTagChips(); $("#mDist").value="";
   MMEET=meetingsOf(e).map(m=>({component:m.component||"",section:m.section||"",days:[...(m.days||[])],start:m.start||"",end:m.end||"",location:m.location||"",instructor:m.instructor||"",part:partOf(m)}));
   MSEC_CLS=null; MSEC_SUB=""; MSEC_EG=null; MSEC_GROUPS=[]; MSEC_PICK={};
@@ -1978,7 +2016,7 @@ function openCourse(id=null, preset={}){
   loadSectionsForCourse(e);   // async: surfaces the component pickers for roster courses
   $("#mAnalog").value=e.analog_of||"";
   $("#mInAs").checked = e.in_as===true;
-  ["mTerm","mStatus","mGrade","mDist"].forEach(x=>syncDD($("#"+x)));
+  ["mTerm","mStatus","mGrade","mDist","mRole"].forEach(x=>syncDD($("#"+x)));
   SAT_CUR=new Set((DB.satisfactions||[]).filter(s=>String(s.enrollment_id)===String(id)).map(s=>s.requirement_id));
   renderSatBox();
   const n=$("#mSat").querySelectorAll("input:checked").length;
@@ -1991,12 +2029,13 @@ function openCourse(id=null, preset={}){
 let SAT_CUR=new Set();
 // The course being edited, as a match-testable object built from the live form fields.
 function formCourse(){ return { id:EDIT_ID, code:($("#mCode").value||"").trim().toUpperCase(),
-  analog_of:($("#mAnalog").value||"").trim()||null, tags:MTAGS, status:$("#mStatus").value }; }
+  analog_of:($("#mAnalog").value||"").trim()||null, tags:MTAGS, status:$("#mStatus").value, role:($("#mRole").value||"course") }; }
 // Does this course auto-count toward req r (by code / subject / attribute)? Mirrors autoMatch's
 // per-course test so the map box can show auto-matches without a saved satisfaction.
 function courseAutoMatchesReq(c, req){ const spec=req.spec||{}, m=spec.match||{};
   if(m.manual||m.scope||m.pool) return false;
   if(c.status==="wishlist") return false;
+  if(c.role && c.role!=="course") return false;   // TA/audit courses don't fulfill requirements
   if(m.attribute) return (c.tags||[]).includes(m.attribute);
   if(m.subject){ if(subjectOf(c)!==m.subject) return false; const l=levelOf(c);
     if(m.levelMin&&l<m.levelMin) return false; if(m.levelMax&&l>m.levelMax) return false;
@@ -2285,6 +2324,11 @@ $("#mTerm").addEventListener("change",()=>{ if($("#mCode").value.trim().length>=
 // both shift which requirements count automatically, so refresh the map box.
 $("#mStatus").addEventListener("change",renderSatBox);
 $("#mAnalog").addEventListener("input",renderSatBox);
+// Changing Type re-shapes the editor: adapt Credits/Grade, refresh the grade options (audit gets V),
+// and re-render the requirement map (TA/audit courses match nothing).
+$("#mRole").addEventListener("change",()=>{ const r=$("#mRole").value||"course"; applyRoleUI(r); renderGradeSelect(r,$("#mGrade").value); syncDD($("#mGrade")); renderSatBox(); });
+// Credits can never go negative — clamp typing and the stepper.
+$("#mCredits").addEventListener("input",()=>{ const v=parseFloat($("#mCredits").value); if(v<0) $("#mCredits").value=0; });
 
 /* ---- search the WHOLE roster by course name (Title box) ----
    The Cornell API requires a subject per query, so a name search needs an index of
@@ -2365,13 +2409,19 @@ async function rosterLookup(code, idealRoster){
 let SAVING=false;
 $("#mSave").onclick=async()=>{
   if(SAVING) return; SAVING=true; const btn=$("#mSave"); btn.classList.add("busy");
-  const grade=$("#mGrade").value;
+  const roleVal=$("#mRole").value||"course";
+  const grade=roleVal==="ta_paid"?"":$("#mGrade").value;
+  // paid TA & audit carry no credit; nothing may go negative
+  let credits=Math.max(0,num($("#mCredits").value)||0);
+  if(roleVal==="ta_paid"||roleVal==="audit") credits=0;
+  // audit & paid TA never touch GPA; otherwise a letter grade counts
+  const counts_gpa=(roleVal==="ta_paid"||roleVal==="audit")?false:(GRADE_POINTS[grade]!=null);
   const meetings=MMEET.map(m=>({component:(m.component||"").trim(),section:(m.section||"").trim(),
       days:SDAYS.filter(d=>(m.days||[]).includes(d)),start:m.start||"",end:m.end||"",location:(m.location||"").trim(),instructor:(m.instructor||"").trim(),part:partOf(m)}))
     .filter(m=>m.days.length&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
-  const row={ code:$("#mCode").value.trim().toUpperCase(), title:$("#mTitleIn").value.trim(), credits:num($("#mCredits").value),
-    term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null, counts_gpa:GRADE_POINTS[grade]!=null,
-    tags:MTAGS.slice(), analog_of:$("#mAnalog").value.trim()||null, in_as:$("#mInAs").checked, meetings };
+  const row={ code:$("#mCode").value.trim().toUpperCase(), title:$("#mTitleIn").value.trim(), credits,
+    term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null, counts_gpa,
+    tags:MTAGS.slice(), analog_of:$("#mAnalog").value.trim()||null, in_as:$("#mInAs").checked, meetings, role:roleVal==="course"?null:roleVal };
   if(EDIT_ID!=null) row.id=EDIT_ID;
   // Only save explicit ticks; auto-matched reqs count on their own, so writing them would be
   // redundant. Subtracting them also cleans up any stale explicit pins now covered automatically.
