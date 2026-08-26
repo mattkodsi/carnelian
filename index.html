@@ -809,7 +809,7 @@
 const FN = "https://uhwdnmbxiopfysodydty.supabase.co/functions/v1/carnelian";
 const GRADE_POINTS = {"A+":4.3,"A":4.0,"A-":3.7,"B+":3.3,"B":3.0,"B-":2.7,"C+":2.3,"C":2.0,"C-":1.7,"D+":1.3,"D":1.0,"D-":0.7,"F":0.0};
 let TOKEN = localStorage.getItem("carn_token") || "";
-let DB = {}, CUR = "dashboard", TCAREER = localStorage.getItem("carn_tcareer") || "undergrad", BAKER_VIEW = "plan";
+let DB = {}, CUR = "schedule", TCAREER = localStorage.getItem("carn_tcareer") || "undergrad", BAKER_VIEW = "plan";
 const EXP = new Set();            // expanded planner terms (in-memory; resets on app reload)
 const REXP = new Set();           // expanded requirement rows (in-memory; all closed on app reload, kept across tab switches)
 const $ = (s,r=document)=>r.querySelector(s);
