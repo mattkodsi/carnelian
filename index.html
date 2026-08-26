@@ -2192,10 +2192,11 @@ const secOptLabel=s=>{ const mt=(s.s.meetings||[])[0]; const when=mt?fmtRosterWh
 // Group a class's sections by component (LEC/DIS/LAB…) and default-pick one of each.
 function buildSectionGroups(cls){
   MSEC_CLS=cls; MSEC_EG=(cls.enrollGroups||[])[0]||{};
-  const cr=(MSEC_EG.unitsMaximum!=null?MSEC_EG.unitsMaximum:MSEC_EG.unitsMinimum);
+  // Cornell splits parallel offerings (e.g. LEC 001 vs LEC 002) into SEPARATE enrollGroups,
+  // so gather sections across ALL of them — not just the first — before grouping by component.
   const by={};
-  (MSEC_EG.classSections||[]).forEach(s=>{ const comp=s.ssrComponent||"LEC";
-    (by[comp]=by[comp]||[]).push({section:s.section||"",topic:s.topicDescription||"",credits:cr,comp,s}); });
+  sectionsOf(cls).forEach(sec=>{ const comp=sec.component||"LEC";
+    (by[comp]=by[comp]||[]).push({section:sec.section||"",topic:sec.topic||"",credits:sec.credits,comp,s:sec.s}); });
   MSEC_GROUPS=Object.keys(by).sort((a,b)=>{const ia=COMP_ORDER.indexOf(a),ib=COMP_ORDER.indexOf(b);return (ia<0?99:ia)-(ib<0?99:ib);})
     .map(comp=>({comp,name:compName(comp),sections:by[comp]}));
   MSEC_PICK={};
@@ -2228,7 +2229,7 @@ function applySections(){
   const cls=MSEC_CLS; if(!cls) return;
   const g0=MSEC_GROUPS[0], primary=g0&&g0.sections[MSEC_PICK[g0.comp]];
   $("#mTitleIn").value=(primary&&primary.topic)||cls.titleLong||"";
-  const cr=(MSEC_EG.unitsMaximum!=null?MSEC_EG.unitsMaximum:MSEC_EG.unitsMinimum); if(cr!=null)$("#mCredits").value=cr;
+  const cr = primary&&primary.credits!=null ? primary.credits : (MSEC_EG.unitsMaximum!=null?MSEC_EG.unitsMaximum:MSEC_EG.unitsMinimum); if(cr!=null)$("#mCredits").value=cr;
   const term=termById($("#mTerm").value);
   const prevLoc={}; MMEET.forEach(m=>{ if(m.location) prevLoc[m.component||""]=m.location; });  // keep typed rooms
   let halfN=0; const out=[];
