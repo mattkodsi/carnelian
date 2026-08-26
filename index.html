@@ -1897,8 +1897,10 @@ let EDIT_ID=null, MTAGS=[], MMEET=[];
 // roster sections for the course being edited, grouped by component (LEC/DIS/LAB…)
 // so a lecture+discussion course lets you pick one section per component.
 let MSEC_CLS=null, MSEC_SUB="", MSEC_EG=null, MSEC_GROUPS=[], MSEC_PICK={};
-const COMP_NAME={LEC:"Lecture",DIS:"Discussion",LAB:"Lab",SEM:"Seminar",RSC:"Research",IND:"Independent study",STU:"Studio",FLD:"Field work",PRJ:"Project",TUT:"Tutorial",PRS:"Practicum",CLN:"Clinical",LAG:"Language"};
-const COMP_ORDER=["LEC","SEM","STU","LAB","DIS","RSC","IND","TUT","FLD","PRJ","PRS","CLN","LAG"];
+// Every ssrComponent code Cornell publishes in the roster (verified against the full FA26 term).
+// Unknown codes still fall through to the raw code below, so a section is never dropped.
+const COMP_NAME={LEC:"Lecture",DIS:"Discussion",LAB:"Lab",SEM:"Seminar",RSC:"Research",IND:"Independent study",STU:"Studio",DES:"Design studio",FLD:"Field work",INT:"Internship",PRJ:"Project",TUT:"Tutorial",PRA:"Practicum",PRS:"Practicum",CLN:"Clinical",LAG:"Language"};
+const COMP_ORDER=["LEC","SEM","STU","DES","LAB","DIS","RSC","IND","TUT","FLD","INT","PRJ","PRA","PRS","CLN","LAG"];
 const compName=c=>COMP_NAME[c]||(c||"Meeting");
 const splitList=v=>v.split(",").map(s=>s.trim()).filter(Boolean);
 function renderTagChips(){
