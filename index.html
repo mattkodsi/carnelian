@@ -1374,7 +1374,8 @@ const KIND_LABEL=k=>(_ASG_K[k]||_ASG_K.other).label;
 const KIND_TIMED=k=>!!(_ASG_K[k]||{}).timed;
 const _ASG_SMALL=new Set(['a','an','the','and','or','for','to','of','in','on','at','vs','via']);
 function asgTitleCase(s){ s=String(s||"").trim().replace(/\s+/g," "); if(!s) return "";
-  return s.split(" ").map((w,i)=>{ if(/[A-Z].*[A-Z]/.test(w)||/\d/.test(w)) return w; const lw=w.toLowerCase();
+  return s.split(" ").map((w,i)=>{ if(w.length===1) return w.toUpperCase();  // single-letter labels (Slide A, Part B)
+    if(/[A-Z].*[A-Z]/.test(w)||/\d/.test(w)) return w; const lw=w.toLowerCase();
     if(i>0 && _ASG_SMALL.has(lw)) return lw; return lw.charAt(0).toUpperCase()+lw.slice(1); }).join(" "); }
 // Compose the canonical label: override wins; else "<Series|Kind> <Number>: <Descriptor>".
 function composeAssignment(a){ a=a||{}; const ov=(a.override_title||"").trim(); if(ov) return ov;
