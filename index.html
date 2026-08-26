@@ -391,6 +391,49 @@
   .acd-t{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
   .acd-no{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle}
   .acd-meta{font-size:12px;font-weight:600;color:var(--ink-3);margin-top:4px}
+  /* assignments: planner entry button */
+  .prow-asg{display:inline-flex;align-items:center;gap:3px;position:relative;padding:3px;margin:0 2px 0 4px;border-radius:7px;color:var(--ink-3);background:transparent;border:none;flex:0 0 auto}
+  .prow-asg svg{width:16px;height:16px}
+  .prow-asg:hover{background:var(--surface-2);color:var(--ink)}
+  .prow-asg .asg-n{font-size:10px;font-weight:800;color:var(--ink-3)}
+  .prow-asg .asg-badge{font-size:9.5px;font-weight:800;line-height:1;color:#fff;background:var(--accent);border-radius:9px;padding:2px 5px}
+  .prow-asg.has-pending{color:var(--accent)}
+  /* assignments: list modal */
+  #asgListBody{display:flex;flex-direction:column;gap:8px}
+  .asg-sec{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin:2px 0 6px}
+  .asg-review{border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
+  .asg-active{display:flex;flex-direction:column;gap:7px}
+  .asg-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+  .asg-row.pending{background:var(--surface);border-color:var(--accent-line)}
+  .asg-row.done{opacity:.55}
+  .asg-row.done .asg-t{text-decoration:line-through}
+  .asg-main{flex:1 1 auto;min-width:0}
+  .asg-t{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.35;overflow-wrap:anywhere}
+  .asg-meta{font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:2px}
+  .asg-check{flex:0 0 auto;width:22px;height:22px;border-radius:7px;border:1.6px solid var(--line-strong);background:var(--surface);color:var(--accent);display:grid;place-items:center;padding:0}
+  .asg-check svg{width:14px;height:14px}
+  .asg-check.on{background:var(--accent-soft);border-color:var(--accent)}
+  .asg-edit,.asg-mini{flex:0 0 auto;font-size:11.5px;font-weight:800;border-radius:8px;padding:5px 9px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2)}
+  .asg-mini.ok{color:#fff;background:var(--accent);border-color:var(--accent)}
+  .asg-mini.no{color:var(--ink-3)}
+  .asg-empty{font-size:13px;color:var(--ink-3);padding:8px 2px}
+  .asg-add{width:100%;justify-content:center;margin-top:2px}
+  /* assignments: editor form */
+  .asg-form{display:flex;flex-direction:column;gap:11px}
+  .asg-f{display:flex;flex-direction:column;gap:5px}
+  .asg-f>span{font-size:11.5px;font-weight:800;color:var(--ink-2)}
+  .asg-f>span small{font-weight:600;color:var(--ink-3)}
+  .asg-f input,.asg-f select{font:inherit;font-size:14px;padding:9px 11px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);color:var(--ink);width:100%}
+  .asg-f2{display:flex;gap:10px}
+  .asg-f2 .asg-f{flex:1 1 auto}
+  .asg-f2 .af-num{flex:0 0 78px}
+  .asg-preview{font-size:12.5px;font-weight:600;color:var(--ink-3);padding:8px 11px;background:var(--surface-2);border-radius:9px}
+  .asg-preview b{color:var(--ink);font-weight:800}
+  .asg-toggle{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+  .asg-form .hide{display:none}
+  .asg-actions{display:flex;gap:9px;align-items:center;margin-top:4px}
+  .asg-actions .btn{flex:1 1 auto;justify-content:center}
+  .asg-del{font-size:12px;font-weight:800;color:var(--accent);background:transparent;border:none;padding:8px;margin-right:auto}
   /* share-schedule chooser */
   .sharepick{display:block;width:100%;text-align:left;padding:14px 16px;border:1px solid var(--line-strong);border-radius:12px;background:var(--surface);margin-bottom:9px;font-size:14.5px;font-weight:800;color:var(--ink)}
   .sharepick:hover{background:var(--surface-2);border-color:var(--accent-line)}
@@ -710,6 +753,20 @@
   <div class="sheet" style="max-width:400px">
     <div class="sh"><h3 id="acDayTitle">Academic dates</h3><button class="x" id="acDayClose" aria-label="Close">×</button></div>
     <div class="sb" id="acDayBody"></div>
+  </div>
+</div>
+<!-- assignments: per-course list + review -->
+<div class="modal" id="asgListModal">
+  <div class="sheet" style="max-width:440px">
+    <div class="sh"><h3 id="asgListTitle">Assignments</h3><button class="x" id="asgListClose" aria-label="Close">×</button></div>
+    <div class="sb" id="asgListBody"></div>
+  </div>
+</div>
+<!-- assignments: add/edit editor -->
+<div class="modal" id="asgEditModal">
+  <div class="sheet" style="max-width:400px">
+    <div class="sh"><h3 id="asgEditTitle">Add assignment</h3><button class="x" id="asgEditClose" aria-label="Close">×</button></div>
+    <div class="sb" id="asgEditBody"></div>
   </div>
 </div>
 <!-- Google Calendar modal -->
@@ -1106,7 +1163,9 @@ const byCode=(a,b)=>String(codeLabel(a)).localeCompare(String(codeLabel(b)),unde
 const codeLabel=e=>{ const c=(e.code||'').trim(); return (c&&c!=='OXON')?c:'Oxford'; };
 const prowHTML=e=>{ const p=profInfo(e); const fl=RCHECK_FLAG.has(String(e.id));
   const sub=p.name?`<span class="prof${p.likely?' likely':''}">${esc(p.name)}</span>`:'';
-  return `<div class="prow${fl?' flagged':''}" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti"><span class="tn">${esc(e.title||'')}</span>${sub}</span>${fl?'<span class="rflag">update</span>':''}<span class="cc num">${nf(num(e.credits))}</span></div>`; };
+  const pend=pendingCount(e.id), nact=asgFor(e.id).filter(a=>a.status!=='pending').length;
+  const asgBtn=`<button class="prow-asg${pend?' has-pending':''}" data-asg="${e.id}" aria-label="Assignments" title="Assignments"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6l1 1 2-2.5M4.5 12l1 1 2-2.5M4.5 18l1 1 2-2.5"/></svg>${pend?`<span class="asg-badge">${pend}</span>`:(nact?`<span class="asg-n">${nact}</span>`:'')}</button>`;
+  return `<div class="prow${fl?' flagged':''}" data-cid="${e.id}"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti"><span class="tn">${esc(e.title||'')}</span>${sub}</span>${fl?'<span class="rflag">update</span>':''}${asgBtn}<span class="cc num">${nf(num(e.credits))}</span></div>`; };
 const TSTAT={completed:{c:"done",l:"completed"},in_progress:{c:"now",l:"in progress"},planned:{c:"soon",l:"upcoming"}};
 function fmtDiff(d){ if(d.field==="credits") return nf(d.from)+"→"+nf(d.to); return "→ “"+String(d.to).slice(0,44)+"”"; }
 // The "Roster check" results panel shown atop the planner after a check finds something actionable.
@@ -1169,6 +1228,7 @@ function renderPlanner(){
   $("#planner").innerHTML=`${head}${rcheckPanelHTML()}${cards}${auxDiv}${unschedCard}${wishCard}`;
   $("#planner").querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;const c=b.closest(".pterm");c.classList.toggle("open");if(c.classList.contains("open"))EXP.add(id);else EXP.delete(id);});
   $("#planner").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
+  $("#planner").querySelectorAll("[data-asg]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); openCourseAssignments(b.dataset.asg); });
   $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:statusForTerm(b.dataset.add)}));
   $("#planner").querySelectorAll("[data-addwish]").forEach(b=>b.onclick=()=>openCourse(null,{status:"wishlist"}));
   const rcb=$("#rosterCheckBtn"); if(rcb) rcb.onclick=runRosterCheck;
@@ -1371,6 +1431,94 @@ function openAcadDay(day){
   }).join("");
   openModal($("#acDayModal"));
 }
+// ============ assignments UI (Planner course list + editor + review queue) ============
+let ASG_EID=null;
+const asgById=id=>(DB.assignments||[]).find(x=>String(x.id)===String(id));
+function pendingCount(eid){ return (DB.assignments||[]).filter(a=>String(a.enrollment_id)===String(eid)&&a.status==='pending').length; }
+function asgTimeLabel(t){ const m=/^(\d{1,2}):(\d{2})/.exec(String(t||"")); if(!m) return ""; let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12||12; return `${h}:${m[2]} ${ap}`; }
+function fmtAsgDate(a){ const d=asgDate(a); if(!d) return ""; const p=d.split("-"); let s=`${ACAL_MONTHS[(+p[1])-1]} ${+p[2]}`; if(KIND_TIMED(a.kind)&&a.due_time) s+=" · "+asgTimeLabel(a.due_time); return s; }
+
+async function saveAsg(row){ const saved=(await api("upsert",{table:"assignments",row})).row;
+  const i=(DB.assignments||[]).findIndex(x=>String(x.id)===String(saved.id));
+  if(i>=0) DB.assignments[i]=saved; else (DB.assignments=DB.assignments||[]).push(saved);
+  if(CUR==="schedule") renderSchedule(); return saved; }
+async function deleteAsg(id){ await api("delete",{table:"assignments",id});
+  DB.assignments=(DB.assignments||[]).filter(x=>String(x.id)!==String(id)); if(CUR==="schedule") renderSchedule(); }
+async function toggleAsgDone(a){ try{ await saveAsg({id:a.id, done:!a.done}); renderAsgList(a.enrollment_id); }catch(e){ toast(e.message||"Error"); } }
+async function approveAsg(a){ try{ await saveAsg({id:a.id, status:'active'}); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); }catch(e){ toast(e.message||"Error"); } }
+async function rejectAsg(a){ try{ await deleteAsg(a.id); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); }catch(e){ toast(e.message||"Error"); } }
+
+function openCourseAssignments(eid){ ASG_EID=eid; const en=(DB.enrollments||[]).find(x=>String(x.id)===String(eid));
+  $("#asgListTitle").textContent=en?codeLabel(en):"Assignments"; renderAsgList(eid); openModal($("#asgListModal")); }
+function renderAsgList(eid){ const body=$("#asgListBody"); if(!body) return;
+  const all=asgFor(eid); const pending=all.filter(a=>a.status==='pending');
+  const active=all.filter(a=>a.status!=='pending').sort((x,y)=> (x.done?1:0)-(y.done?1:0) || (asgDate(x)||"~").localeCompare(asgDate(y)||"~"));
+  const prow=a=>`<div class="asg-row pending"><div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${a.source==='canvas'?' · Canvas':''}</div></div>
+    <button class="asg-mini" data-edit="${a.id}">Edit</button><button class="asg-mini ok" data-approve="${a.id}">Approve</button><button class="asg-mini no" data-reject="${a.id}">Reject</button></div>`;
+  const arow=a=>`<div class="asg-row${a.done?' done':''}"><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Toggle done">${a.done?ICO.check:''}</button>
+    <div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}</div></div>
+    <button class="asg-edit" data-edit="${a.id}">Edit</button></div>`;
+  let html="";
+  if(pending.length) html+=`<div class="asg-review"><div class="asg-sec">${pending.length} to review</div>${pending.map(prow).join("")}</div>`;
+  html+=`<div class="asg-active">${active.length?active.map(arow).join(""):'<p class="asg-empty">No assignments yet.</p>'}</div>`;
+  html+=`<button class="btn asg-add" id="asgAddBtn" type="button">＋ Add assignment</button>`;
+  body.innerHTML=html;
+  body.querySelectorAll("[data-done]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.done); if(a) toggleAsgDone(a); });
+  body.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.edit); if(a) openAsgEditor(eid,a); });
+  body.querySelectorAll("[data-approve]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.approve); if(a) approveAsg(a); });
+  body.querySelectorAll("[data-reject]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.reject); if(a) rejectAsg(a); });
+  $("#asgAddBtn").onclick=()=>openAsgEditor(eid,null);
+}
+
+function openAsgEditor(eid, a){ const cur=a||{kind:'homework'};
+  $("#asgEditTitle").textContent=a?"Edit assignment":"Add assignment";
+  const seriesUsed=[...new Set(asgFor(eid).map(x=>x.series).filter(Boolean))];
+  const seriesOpts=seriesUsed.map(s=>`<option value="${esc(s)}">`).join("");
+  const ovOn=!!(cur.override_title);
+  const body=$("#asgEditBody");
+  body.innerHTML=`<form id="asgForm" class="asg-form" autocomplete="off">
+    <label class="asg-f"><span>Kind</span>
+      <select id="af_kind">${ASG_KINDS.map(k=>`<option value="${k.v}"${k.v===(cur.kind||'homework')?' selected':''}>${k.label}</option>`).join("")}</select></label>
+    <div class="asg-f2">
+      <label class="asg-f"><span>Series <small>optional</small></span><input id="af_series" list="af_series_list" value="${esc(cur.series||'')}" placeholder="e.g. Writing Case"></label>
+      <label class="asg-f af-num"><span>No.</span><input id="af_number" type="number" min="0" step="1" value="${cur.number??''}"></label>
+    </div>
+    <datalist id="af_series_list">${seriesOpts}</datalist>
+    <label class="asg-f"><span>Descriptor <small>optional</small></span><input id="af_descriptor" value="${esc(cur.descriptor||'')}" placeholder="e.g. Leasing Memo"></label>
+    <div class="asg-preview">Title: <b id="af_preview"></b></div>
+    <label class="asg-toggle"><input type="checkbox" id="af_override_on"${ovOn?' checked':''}> Custom title</label>
+    <label class="asg-f${ovOn?'':' hide'}" id="af_override_wrap"><input id="af_override" value="${esc(cur.override_title||'')}" placeholder="Type the exact title"></label>
+    <label class="asg-f"><span>Date</span><input id="af_date" type="date" value="${asgDate(cur)}"></label>
+    <div class="asg-f2 asg-timed${KIND_TIMED(cur.kind||'homework')?'':' hide'}" id="af_timed">
+      <label class="asg-f"><span>Time</span><input id="af_time" type="time" value="${String(cur.due_time||'').slice(0,5)}"></label>
+      <label class="asg-f"><span>Duration <small>min</small></span><input id="af_dur" type="number" min="0" step="5" value="${cur.duration_min??''}"></label>
+    </div>
+    <div class="asg-actions">
+      ${a?`<button type="button" class="asg-del" id="af_delete">Delete</button>`:''}
+      <button type="button" class="btn" id="af_cancel">Cancel</button>
+      <button type="submit" class="btn primary" id="af_save">Save</button>
+    </div></form>`;
+  const upd=()=>{ const f=readAsgForm(); $("#af_preview").textContent=composeAssignment(f)||"—"; };
+  const onKind=()=>{ const timed=KIND_TIMED($("#af_kind").value); $("#af_timed").classList.toggle("hide",!timed);
+    if(timed && $("#af_dur").value==="") $("#af_dur").value=($("#af_kind").value==='exam'?75:30); upd(); };
+  ["af_kind","af_series","af_number","af_descriptor","af_override","af_override_on"].forEach(id=>{ const el=$("#"+id); if(el){ el.addEventListener("input",upd); el.addEventListener("change",upd); } });
+  $("#af_kind").addEventListener("change",onKind);
+  $("#af_override_on").addEventListener("change",()=>$("#af_override_wrap").classList.toggle("hide",!$("#af_override_on").checked));
+  $("#af_cancel").onclick=()=>closeModal($("#asgEditModal"));
+  if(a){ $("#af_delete").onclick=()=>{ deleteAsg(a.id).then(()=>{ closeModal($("#asgEditModal")); renderAsgList(eid); if(CUR==='planner')renderPlanner(); }).catch(e=>toast(e.message||"Error")); }; }
+  $("#asgForm").onsubmit=ev=>{ ev.preventDefault(); submitAsg(eid,a); };
+  upd(); openModal($("#asgEditModal"));
+}
+function readAsgForm(){ const kind=$("#af_kind").value; const ovOn=$("#af_override_on").checked;
+  return { kind, series:($("#af_series").value||"").trim(), number:($("#af_number").value||"")===""?null:parseInt($("#af_number").value,10),
+    descriptor:($("#af_descriptor").value||"").trim(), override_title:ovOn?($("#af_override").value||"").trim():"",
+    due_on:$("#af_date").value||null, due_time:(KIND_TIMED(kind)&&$("#af_time").value)?$("#af_time").value:null,
+    duration_min:(KIND_TIMED(kind)&&$("#af_dur").value!=="")?parseInt($("#af_dur").value,10):null }; }
+async function submitAsg(eid, a){ const f=readAsgForm(); if(!f.due_on){ toast("Pick a date"); return; }
+  const row={ enrollment_id:a?a.enrollment_id:eid, kind:f.kind, series:f.series||null, number:f.number, descriptor:f.descriptor||null,
+    override_title:f.override_title||null, name:composeAssignment(f), due_on:f.due_on, due_time:f.due_time, duration_min:f.duration_min };
+  if(a){ row.id=a.id; } else { row.status='active'; row.source='manual'; }
+  try{ await saveAsg(row); closeModal($("#asgEditModal")); renderAsgList(eid); if(CUR==='planner')renderPlanner(); }catch(e){ toast(e.message||"Error"); } }
 function renderSchedule(){
   // once the published-roster list loads, re-render so newly-eligible future terms appear
   if(!AVAIL_ROSTERS && !renderSchedule._av){ renderSchedule._av=true; availRosters().then(()=>renderSchedule()); }
@@ -2337,6 +2485,10 @@ $("#gcalClose").onclick=()=>closeModal($("#gcalModal"));
 $("#gcalModal").addEventListener("click",e=>{ if(e.target===$("#gcalModal")) closeModal($("#gcalModal")); });
 $("#acDayClose").onclick=()=>closeModal($("#acDayModal"));
 $("#acDayModal").addEventListener("click",e=>{ if(e.target===$("#acDayModal")) closeModal($("#acDayModal")); });
+$("#asgListClose").onclick=()=>closeModal($("#asgListModal"));
+$("#asgListModal").addEventListener("click",e=>{ if(e.target===$("#asgListModal")) closeModal($("#asgListModal")); });
+$("#asgEditClose").onclick=()=>closeModal($("#asgEditModal"));
+$("#asgEditModal").addEventListener("click",e=>{ if(e.target===$("#asgEditModal")) closeModal($("#asgEditModal")); });
 $("#shareClose").onclick=()=>closeModal($("#shareModal"));
 $("#shareModal").addEventListener("click",e=>{ if(e.target===$("#shareModal")) closeModal($("#shareModal")); });
 $("#shareWeek").onclick=()=>shareSchedule(SCHED_WEEK||defaultWeekMon(termById(SCHED_TERM)));
