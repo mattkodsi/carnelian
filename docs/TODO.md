@@ -4,20 +4,18 @@ Non-urgent follow-ups, newest first.
 
 ## Assignments: richer deadline timing + schedule visualization
 
-**Status:** open · planned next
+**Status:** shipped 2026-08-26
 
-Rework assignment deadline timing so a due moment can be expressed as more than a
-single time. The user's example: a memo due by 8am the day of a Management
-Communication class, but they want to *set* it as due midnight the night before,
-since they'll never work on it that morning. So the "due" concept needs options —
-sketch: **all-day · specific time · time window (start–end) · during class · a plain
-deadline**. Decide how a single-moment deadline renders on the weekly Schedule grid
-(a line? a small marker at the time? a top-strip chip already exists for all-day).
-
-Hard constraint from the user: **do NOT complicate the app** — avoid rebuilding
-Google Calendar. Keep the model as small as it can be while covering these cases.
-Design this (brainstorm) before building. Touches the assignment editor + `asgWeek`
-/ schedule rendering in `index.html`.
+Resolved with the principle **spans on the grid, points in a Due strip**. Deadlines
+never go on the time grid (points don't belong on a span grid — at-class collides,
+late-night falls off, stacking overcrowds). Instead every deadline is a chip in the
+per-day Due strip: course-color dot · title · time (two lines on narrow columns),
+sorted by time, "+N more" → day sheet. Model added `target_on`/`target_time` (a
+work-by target, shown on the schedule when set; real `due_on`/`due_time` stays in the
+editor). Editor gained: optional time for any kind, a "Due at class time" fill, and a
+collapsed "Work by an earlier target" toggle. Schedule header compacted (dropped the
+"Schedule" H1; term+tools / week-nav+count) to give the grid room. See `asgWhenDate`/
+`asgWhenTime`/`asgWeek`/`openAsgEditor` in `index.html`.
 
 ## Course editor: link discussion/lab sections to their parent lecture
 
