@@ -5,7 +5,7 @@
 // carnelian.assignments as pending review items. Idempotent via ext_uid; never
 // overwrites user edits, never auto-deletes.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
-import { parseVEvents, icalDateToET, normCode, courseKey, guessKind, cleanSummary } from "./ical.ts";
+import { parseVEvents, icalDateToET, normCode, courseKeys, guessKind, cleanSummary } from "./ical.ts";
 
 const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, {
   prepare: false, ssl: "require", max: 3, idle_timeout: 20, connect_timeout: 15,
@@ -74,9 +74,12 @@ async function canvasSync() {
   const c = new Date(); c.setDate(c.getDate() - 7);
   const cutoff = `${c.getFullYear()}-${p2(c.getMonth() + 1)}-${p2(c.getDate())}`;
 
-  let added = 0, updated = 0, adopted = 0, unmapped = 0, total = 0;
+  let added = 0, updated = 0, adopted = 0, unmapped = 0, skipped = 0, total = 0;
   for (const ev of events) {
     if (!ev.uid) continue;
+    // Only Canvas *assignments* are deadlines. The feed also carries calendar events
+    // (office hours, career fairs) as event-calendar-event-* — skip those.
+    if (!/assignment/i.test(ev.uid)) { skipped++; continue; }
     const { due_on, due_time } = icalDateToET(ev.dtstart);
     if (!due_on || due_on < cutoff) continue;
     total++;
@@ -86,9 +89,10 @@ async function canvasSync() {
       if (own.due_on !== due_on) { await sql`update carnelian.assignments set due_on = ${due_on}, due_time = ${due_time} where id = ${own.id}`; updated++; }
       continue;
     }
-    // map to a course; unmapped events are skipped + counted (they re-appear next sync once mapped)
-    const ck = courseKey(ev.summary) || courseKey(ev.description);
-    const enrId = ck ? (codeToEnr.get(ck) ?? null) : null;
+    // map to a course — try every code in the (possibly cross-listed) tag, pick the
+    // one the user is enrolled in; unmapped items are skipped + counted.
+    let enrId: number | null = null;
+    for (const k of [...courseKeys(ev.summary), ...courseKeys(ev.description)]) { if (codeToEnr.has(k)) { enrId = codeToEnr.get(k)!; break; } }
     if (enrId == null) { unmapped++; continue; }
     const title = cleanSummary(ev.summary) || "Untitled";
     // 2) adopt a prior scrape at the same course+date+title → stamp its ext_uid (no dup)
@@ -99,7 +103,7 @@ async function canvasSync() {
       values (${enrId}, ${title}, ${title}, ${guessKind(ev.summary)}, ${due_on}, ${due_time}, 'pending', 'canvas', ${ev.uid}, false)`;
     added++;
   }
-  const result = { added, updated, adopted, unmapped, total };
+  const result = { added, updated, adopted, unmapped, skipped, total };
   await sql`update carnelian.canvas_config set last_sync_at = now(), last_result = ${sql.json(result)}, updated_at = now() where id = 1`;
   return { ok: true, ...result };
 }

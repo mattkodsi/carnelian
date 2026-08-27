@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  unfoldIcal, parseVEvents, icalDateToET, normCode, courseKey, guessKind, cleanSummary,
+  unfoldIcal, parseVEvents, icalDateToET, normCode, courseKey, courseKeys, guessKind, cleanSummary,
 } from "./ical.ts";
 
 test("unfoldIcal splices folded continuation lines", () => {
@@ -61,6 +61,12 @@ test("courseKey extracts SUBJECT+NUMBER, ignoring term tokens", () => {
   assert.equal(courseKey("HADM 6205 midterm"), "HADM6205");
   assert.equal(courseKey("Assignment (REAL 6101) 2026FA"), "REAL6101");
   assert.equal(courseKey("no code here"), "");
+});
+
+test("courseKeys returns every code in a cross-listed tag", () => {
+  assert.deepEqual(courseKeys("Assignment 01 [CEE5950/ENMGT5950/REAL5950]"), ["CEE5950", "ENMGT5950", "REAL5950"]);
+  assert.deepEqual(courseKeys("Quiz 3 [FA26-REAL-6640-001]"), ["REAL6640"]);
+  assert.deepEqual(courseKeys("Career Fair [Toolkit]"), []);
 });
 
 test("normCode strips separators", () => {

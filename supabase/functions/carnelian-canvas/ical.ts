@@ -87,14 +87,20 @@ export function normCode(s: string): string {
   return String(s || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
 }
 
-// Extract a canonical SUBJECT+NUMBER course key (e.g. "REAL6640") from a summary
-// or description, ignoring term tokens like FA26 / 2026FA.
-export function courseKey(s: string): string {
+// All SUBJECT+NUMBER course keys in a string, ignoring term tokens (FA26 / 2026FA).
+// A cross-listed Canvas tag like "[CEE5950/ENMGT5950/REAL5950]" yields every code
+// so the caller can pick whichever one the user is actually enrolled in.
+export function courseKeys(s: string): string[] {
   let u = String(s || "").toUpperCase();
   u = u.replace(/\b(FA|SP|SU|WI)\s*-?_?\s*\d{2,4}\b/g, " ").replace(/\b\d{4}\s*-?_?\s*(FA|SP|SU|WI)\b/g, " ");
-  const m = /([A-Z]{2,5})[\s\-_]*(\d{4})/.exec(u);
-  return m ? m[1] + m[2] : "";
+  const out: string[] = [];
+  const re = /([A-Z]{2,5})[\s\-_]*(\d{4})/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(u))) out.push(m[1] + m[2]);
+  return out;
 }
+// First course key (convenience).
+export function courseKey(s: string): string { return courseKeys(s)[0] || ""; }
 
 // Guess the assignment kind from the title. Kinds match the app's fixed set.
 export function guessKind(summary: string): string {
