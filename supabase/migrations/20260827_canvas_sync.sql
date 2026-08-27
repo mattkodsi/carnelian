@@ -24,3 +24,15 @@ insert into carnelian.canvas_config (id) values (1) on conflict (id) do nothing;
 update carnelian.canvas_config
   set cron_secret = replace(gen_random_uuid()::text,'-','') || replace(gen_random_uuid()::text,'-','')
   where id = 1 and cron_secret is null;
+
+-- Nightly sync job (05:30 UTC ≈ 1:30am ET). Requires pg_cron + pg_net. The job
+-- reads the shared secret from the DB at run time, so no secret appears here.
+select cron.unschedule('carnelian-canvas-sync')
+  where exists (select 1 from cron.job where jobname = 'carnelian-canvas-sync');
+select cron.schedule('carnelian-canvas-sync', '30 5 * * *', $job$
+  select net.http_post(
+    url     := 'https://uhwdnmbxiopfysodydty.supabase.co/functions/v1/carnelian-canvas',
+    body    := jsonb_build_object('action','canvas_sync','cron_secret',(select cron_secret from carnelian.canvas_config where id = 1)),
+    headers := '{"content-type":"application/json"}'::jsonb
+  );
+$job$);
