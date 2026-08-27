@@ -2,6 +2,24 @@
 
 Non-urgent follow-ups, newest first.
 
+## Canvas .ics deadline auto-sync
+
+**Status:** shipped 2026-08-27
+
+Nightly server-side sync of the user's tokenized Canvas calendar feed into the
+assignment review queue — no Chrome, no login. Built as an isolated edge function
+`carnelian-canvas` (kept separate from the main gateway) + `pg_cron`/`pg_net` job
++ a Planner "Sync Canvas" button. Parser: `supabase/functions/carnelian-canvas/
+ical.ts` (Node-tested). Only Canvas *assignments* sync (calendar events like office
+hours are filtered); cross-listed tags map to the enrolled course; idempotent via
+`assignments.ext_uid`; de-dupes against prior scrapes; never overwrites edits or
+auto-deletes. Spec/plan under `docs/superpowers/`.
+
+Possible follow-ups (low priority): the "Sync Canvas" toast surfaces raw server
+strings ("no feed configured") — fine as a fallback but could be friendlier; and
+the 4 genuinely-unmapped feed items (COCR 100, a sustainability program) are
+correctly skipped — no action unless the user starts tracking those.
+
 ## Assignments: richer deadline timing + schedule visualization
 
 **Status:** shipped 2026-08-26
