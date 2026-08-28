@@ -345,13 +345,15 @@
   :root{--gutter:46px}
   .schead{display:flex;flex-direction:column;gap:10px;margin-bottom:14px}
   .sh-top{display:flex;align-items:center;gap:12px}
-  .sh-top select{font-size:15px;font-weight:800;padding-top:8px;padding-bottom:8px}
+  .sh-top select{font-size:15px;font-weight:800;padding-top:8px;padding-bottom:8px;flex:0 1 auto;min-width:0}
   .schead h1{font-size:26px;font-weight:800}
   .sh-sub{display:flex;align-items:center;gap:12px}
   .schead select{appearance:none;-webkit-appearance:none;padding:9px 32px 9px 13px;border:1px solid var(--line-strong);border-radius:10px;background-color:var(--surface);color:var(--ink);font-weight:700;font-size:13.5px;max-width:100%;text-overflow:ellipsis}
-  .schead .summ{margin-left:auto;display:flex;align-items:center;gap:10px;min-width:0}
-  .schead .summ .scount{font-size:12.5px;font-weight:700;color:var(--ink-3);white-space:nowrap}
-  .schead .summ small.cf{margin-left:7px;font-size:11px;color:var(--accent);font-weight:800;white-space:nowrap}
+  .schead .scount{font-size:12.5px;font-weight:700;color:var(--ink-3);white-space:nowrap;flex:0 0 auto}
+  .sh-sub .scount{margin-left:auto}        /* course/credit count sits on the week-nav row, right-aligned */
+  .sh-right{margin-left:auto;display:flex;align-items:center;gap:10px;flex:0 0 auto}  /* term keeps full name; tools + optional conflict grouped on the right of row 1 */
+  .sh-top .shtools{margin-left:0}
+  .schead .cf{font-size:11px;color:var(--accent);font-weight:800;white-space:nowrap;flex:0 0 auto}
   .sched{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden;display:flex;flex-direction:column}
   .sched-days{display:grid;grid-template-columns:var(--gutter) repeat(5,1fr);border-bottom:1px solid var(--line);background:var(--surface-2);flex:0 0 auto}
   .sched-days .d{padding:8px 4px;text-align:center;font-size:11px;font-weight:800;color:var(--ink-2);display:flex;flex-direction:column;gap:1px;line-height:1.2}
@@ -363,7 +365,8 @@
   .sched-gutter .hr{position:absolute;left:0;right:7px;text-align:right;font-size:9.5px;font-weight:700;color:var(--ink-3);padding-top:3px}
   .sched-col{position:relative;height:100%;border-left:1px solid var(--sched-line)}
   .sched-col:first-of-type{border-left:0}
-  .sched-col.today{background-color:var(--accent-soft)}
+  /* today column: a translucent accent wash so the hour bands still read through it */
+  .sched-col.today{background-color:color-mix(in srgb,var(--accent) 8%,transparent)}
   .ev{position:absolute;border-radius:8px;padding:6px 7px;overflow:hidden;cursor:pointer;text-align:center;
     background:color-mix(in srgb,var(--h) var(--ev-strength),var(--ev-mixc));
     border:1px solid color-mix(in srgb,var(--h),var(--ev-bd-mix));border-left:4px solid color-mix(in srgb,var(--h),var(--ev-bl-mix));box-shadow:var(--ev-shadow);color:var(--ev-ink)}
@@ -405,7 +408,7 @@
   .sched-allday .ad-col{padding:3px;display:flex;flex-direction:column;gap:3px;border-left:1px solid var(--sched-line);min-width:0}
   .sched-allday .ad-col:first-of-type{border-left:0}
   .sched-allday .ad-col.noclass{background:color-mix(in srgb,var(--ink) 4%,transparent)}
-  .sched-allday .ad-col.today{background:var(--accent-soft)}
+  .sched-allday .ad-col.today{background:color-mix(in srgb,var(--accent) 8%,transparent)}
   .sched-allday .ad-col.has-ev{cursor:pointer}
   .sched-allday .ad-col.has-ev:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
   .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;pointer-events:none}
@@ -1285,17 +1288,16 @@ function renderPlanner(){
   const cvStat = CANVAS.configured
     ? `Canvas · ${CANVAS.last_sync_at ? 'synced '+relTime(CANVAS.last_sync_at) : 'not synced yet'}${CANVAS.pending ? ' · '+CANVAS.pending+' to review' : ''}`
     : (CANVAS.loaded ? 'Canvas deadlines not connected' : '');
-  const head=`<div class="phead"><h1>Planner</h1><div class="actions"><button id="canvasSyncBtn" class="rcheck-btn" type="button" title="Pull deadlines from Canvas">↻ Sync Canvas</button><button id="rosterCheckBtn" class="rcheck-btn" type="button">↻ Check rosters</button></div></div>${cvStat?`<div class="canvas-stat">${esc(cvStat)}</div>`:''}`;
+  const head=`<div class="phead"><h1>Planner</h1><div class="actions"><button id="plannerSyncBtn" class="rcheck-btn" type="button" title="Pull Canvas deadlines and check Cornell rosters">↻ Sync</button></div></div>${cvStat?`<div class="canvas-stat">${esc(cvStat)}</div>`:''}`;
   $("#planner").innerHTML=`${head}${rcheckPanelHTML()}${cards}${auxDiv}${unschedCard}${wishCard}`;
   if(!CANVAS.loaded && !renderPlanner._cv){ renderPlanner._cv=true; canvasRefresh().then(()=>{ if(CUR==='planner') renderPlanner(); }); }
-  { const cvb=$("#canvasSyncBtn"); if(cvb) cvb.onclick=canvasSyncNow; }
+  { const psb=$("#plannerSyncBtn"); if(psb) psb.onclick=plannerSync; }
   $("#planner").querySelectorAll("[data-toggle]").forEach(b=>b.onclick=()=>{const id=b.dataset.toggle;const c=b.closest(".pterm");c.classList.toggle("open");if(c.classList.contains("open"))EXP.add(id);else EXP.delete(id);});
   // A saved course opens its assignments sheet (with a quiet Edit-course button); wishlist ideas open the edit modal.
   $("#planner").querySelectorAll(".prow[data-cid]").forEach(b=>b.onclick=()=>openCourseAssignments(b.dataset.cid));
   $("#planner").querySelectorAll(".wcard[data-cid]").forEach(b=>b.onclick=()=>openCourse(b.dataset.cid));
   $("#planner").querySelectorAll("[data-add]").forEach(b=>b.onclick=()=>openCourse(null,{term_id:b.dataset.add,status:statusForTerm(b.dataset.add)}));
   $("#planner").querySelectorAll("[data-addwish]").forEach(b=>b.onclick=()=>openCourse(null,{status:"wishlist"}));
-  const rcb=$("#rosterCheckBtn"); if(rcb) rcb.onclick=runRosterCheck;
   wireRcheckActions();
   // fill in likely professors for planned/wishlist courses, then re-render once if any were learned
   if(!renderPlanner._hy){ renderPlanner._hy=true;
@@ -1728,8 +1730,8 @@ function renderSchedule(){
     unsched.map(e=>`<span class="uchip" data-cid="${e.id}"><span class="dot" style="background:${SCHED_COLORS[cidxOf(e)]}"></span>${esc(codeLabel(e))}<small>${nf(num(e.credits))} cr</small></span>`).join("")
   }</div>`:"";
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
-  const scount=`<span class="scount">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr${conflictAny?'<small class="cf">⚠ time conflict</small>':''}</span>`;
-  const summ=`<div class="summ">${scount}</div>`;
+  const scount=`<span class="scount">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr</span>`;
+  const conflictNote=conflictAny?`<small class="cf">⚠ conflict</small>`:'';
   const nowEls = SCHED_NOW ? `<div class="now-time" style="display:none"></div><div class="now-line" style="display:none"></div>` : '';
   // academic-calendar overlay strip for the visible week — compact clickable chips; tapping a day
   // opens a detail sheet with the full titles/times, so nothing is truncated and busy days stay tidy.
@@ -1762,7 +1764,7 @@ function renderSchedule(){
   }
   const body=`<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div>${alldayHtml}${bodyInner}${unschedHtml}</div>`;
   const tools=`<div class="shtools"><button id="schedImg" class="shbtn" aria-label="Share as image" title="Share this schedule as an image">${ICO.share}</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" aria-label="Sync to Google Calendar" title="Sync to Google Calendar">${GCAL.connected?ICO.check:ICO.cal}</button></div>`;
-  $("#schedule").innerHTML=`<div class="schead"><div class="sh-top"><select id="schedTerm">${termOpts}</select>${tools}</div><div class="sh-sub">${wkbar}${summ}</div></div>${body}`;
+  $("#schedule").innerHTML=`<div class="schead"><div class="sh-top"><select id="schedTerm">${termOpts}</select><div class="sh-right">${conflictNote}${tools}</div></div><div class="sh-sub">${wkbar}${scount}</div></div>${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;SCHED_WEEK=null;renderSchedule();};
   { const bi=$("#schedImg"); if(bi) bi.onclick=openShareChooser; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
   const wp=$("#wkPrev"); if(wp) wp.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()-7); renderSchedule(); };
@@ -2232,21 +2234,25 @@ async function applyRosterUpdate(e, st, mode){
 }
 // Results of the last "Check rosters" run. RCHECK_FLAG = ids to badge; DISMISSED = user-hidden this session.
 let RCHECK={ran:false, items:[]}, RCHECK_FLAG=new Set(), RCHECK_DISMISSED=new Set(), RCHECK_BUSY=false;
-async function runRosterCheck(){
-  if(RCHECK_BUSY) return; RCHECK_BUSY=true;
+// opts.silent → don't toast/render here (the caller does), just return a summary string.
+async function runRosterCheck(opts={}){
+  if(RCHECK_BUSY) return ""; RCHECK_BUSY=true;
   const btn=$("#rosterCheckBtn"); if(btn){ btn.classList.add("busy"); btn.disabled=true; }
+  let msg="";
   try{
     const cands=DB.enrollments.filter(e=>{const ds=displayStatus(e); return ds==="planned"||ds==="in_progress"||ds==="wishlist";});
     const states=await Promise.all(cands.map(async e=>({e, st:await courseRosterState(e)})));
     RCHECK.ran=true;
     RCHECK.items=states.filter(x=>["available","notoffered"].includes(x.st.state) && !RCHECK_DISMISSED.has(String(x.e.id)));
     RCHECK_FLAG=new Set(RCHECK.items.map(x=>String(x.e.id)));
-    renderPlanner();
+    if(!opts.silent) renderPlanner();
     const n=k=>RCHECK.items.filter(x=>x.st.state===k).length;
     const bits=[]; if(n("available"))bits.push(n("available")+" with new roster data"); if(n("changed"))bits.push(n("changed")+" changed"); if(n("notoffered"))bits.push(n("notoffered")+" may not be offered");
-    toast(bits.length?("Roster check — "+bits.join(" · ")):"Roster check — everything's current");
-  }catch(err){ toast(err.message||"Roster check failed"); }
+    msg=bits.length?("Roster check — "+bits.join(" · ")):"Roster check — everything's current";
+  }catch(err){ msg=err.message||"Roster check failed"; }
   finally{ RCHECK_BUSY=false; const b=$("#rosterCheckBtn"); if(b){ b.classList.remove("busy"); b.disabled=false; } }
+  if(!opts.silent && msg) toast(msg);
+  return msg;
 }
 async function runSearch(){
   const q=$("#mCode").value.trim().toUpperCase(); const res=$("#mResults"), msg=$("#mLookupMsg");
@@ -2645,21 +2651,33 @@ async function canvasRefresh(){
   }catch(e){ CANVAS.loaded=true; }
 }
 let CSYNC=false;
-async function canvasSyncNow(){
-  if(CSYNC) return; CSYNC=true;
+// opts.silent → don't toast/render here (the caller does), just return a summary string.
+async function canvasSyncNow(opts={}){
+  if(CSYNC) return ""; CSYNC=true;
   const btn=$("#canvasSyncBtn"); if(btn){ btn.disabled=true; btn.textContent="↻ Syncing…"; }
+  let msg="";
   try{
     const r=await api("canvas_sync",{},FN_CANVAS);
-    if(r&&r.ok===false){ toast(r.error||"Sync failed"); }
+    if(r&&r.ok===false){ msg=r.error||"Sync failed"; }
     else{
       const p=[]; if(r.added)p.push(`${r.added} new`); if(r.updated)p.push(`${r.updated} updated`); if(r.adopted)p.push(`${r.adopted} linked`); if(r.unmapped)p.push(`${r.unmapped} unmatched`);
-      toast(p.length?`Canvas: ${p.join(", ")}`:"Canvas: nothing new");
+      msg=p.length?`Canvas: ${p.join(", ")}`:"Canvas: nothing new";
       try{ DB=(await api("load")).data; }catch(e){}   // reload so new pending items show in the review queues
     }
-  }catch(e){ toast(e.message||"Sync failed"); }
+  }catch(e){ msg=e.message||"Sync failed"; }
   await canvasRefresh();
   CSYNC=false;
-  if(CUR==="planner") renderPlanner(); else renderAll();
+  if(!opts.silent){ if(msg) toast(msg); if(CUR==="planner") renderPlanner(); else renderAll(); }
+  return msg;
+}
+// Combined Planner refresh: pull Canvas deadlines + check Cornell rosters in one tap.
+async function plannerSync(){
+  if(RCHECK_BUSY||CSYNC) return;
+  const btn=$("#plannerSyncBtn"); if(btn){ btn.disabled=true; btn.textContent="↻ Syncing…"; }
+  const [canvasMsg, rosterMsg]=await Promise.all([ canvasSyncNow({silent:true}), runRosterCheck({silent:true}) ]);
+  if(CUR==="planner") renderPlanner();
+  const parts=[canvasMsg,rosterMsg].filter(Boolean);
+  toast(parts.length?parts.join("   ·   "):"Up to date");
 }
 function openGcal(){ renderGcalModal(); openModal($("#gcalModal")); }
 function renderGcalModal(){
