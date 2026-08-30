@@ -414,8 +414,7 @@
   .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;pointer-events:none}
   .adchip.noclass{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:800}
   .adchip.more{color:var(--ink-3);background:transparent;border-style:dashed;font-weight:800}
-  .adchip.asg{color:var(--ink);background:var(--surface);border-color:var(--line-strong);display:flex;align-items:flex-start;gap:5px;white-space:normal}
-  .adchip.asg .asg-dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;margin-top:3px}
+  .adchip.asg{color:var(--ink);background:var(--surface);border-color:var(--line-strong);border-left-width:3px;border-left-style:solid;padding-left:5px;white-space:normal}
   .adchip.asg .adchip-body{display:flex;flex-direction:column;min-width:0;line-height:1.25}
   .adchip.asg .adchip-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .adchip.asg .adchip-tm{font-size:9px;font-weight:800;color:var(--ink-3);margin-top:1px}
@@ -1744,7 +1743,7 @@ function renderSchedule(){
     const items=[...evs.map(o=>({ac:true,o})), ...asgs.map(r=>({ac:false,r}))];
     let chips=items.slice(0,2).map(it=> it.ac
       ? `<div class="adchip${it.o.noclass?' noclass':''}">${esc(acalShort(it.o.title))}</div>`
-      : `<div class="adchip asg${it.r.a.done?' done':''}"><span class="asg-dot" style="background:${it.r.color}"></span><span class="adchip-body"><span class="adchip-t">${esc(asgTitle(it.r.a))}</span>${it.r.time?`<span class="adchip-tm">${esc(asgTimeShort(it.r.time))}</span>`:''}</span></div>`).join("");
+      : `<div class="adchip asg${it.r.a.done?' done':''}" style="border-left-color:${it.r.color}"><span class="adchip-body"><span class="adchip-t">${esc(asgTitle(it.r.a))}</span>${it.r.time?`<span class="adchip-tm">${esc(asgTimeShort(it.r.time))}</span>`:''}</span></div>`).join("");
     if(items.length>2) chips+=`<div class="adchip more">+${items.length-2} more</div>`;
     return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}${items.length?' has-ev':''}" data-adcol="${di}">${chips}</div>`; }).join("");
   const hasAd=adDays.some(x=>x.events.length||x.asgs.length);
@@ -2865,10 +2864,10 @@ function buildSchedCanvas(termId, weekMon){
         if(it.kind==='asg'){ const a=it.r.a;
           roundRectPath(x,bx,yy,bw,boxH,5); x.fillStyle=surface; x.fill();
           x.strokeStyle=line; x.lineWidth=1; roundRectPath(x,bx+0.5,yy+0.5,bw-1,boxH-1,5); x.stroke();
-          x.fillStyle=it.r.color; x.beginPath(); x.arc(bx+boxPadX+3, yy+boxPadY+bandFont/2, 3, 0, Math.PI*2); x.fill();
+          x.fillStyle=it.r.color; x.fillRect(bx, yy, 3, boxH);
           x.fillStyle=a.done?ink3:ink2; x.font=`700 ${bandFont}px -apple-system,system-ui,sans-serif`;
-          it.lines.forEach((ln,li)=>x.fillText(ln, bx+boxPadX+10, yy+boxPadY+li*bandLH));
-          if(a.done){ x.strokeStyle=ink3; x.lineWidth=1; const sy=yy+boxPadY+bandFont/2; x.beginPath(); x.moveTo(bx+boxPadX+10,sy); x.lineTo(bx+boxPadX+10+Math.min(x.measureText(it.lines[0]||'').width,bw-boxPadX*2-10),sy); x.stroke(); }
+          it.lines.forEach((ln,li)=>x.fillText(ln, bx+boxPadX+4, yy+boxPadY+li*bandLH));
+          if(a.done){ x.strokeStyle=ink3; x.lineWidth=1; const sy=yy+boxPadY+bandFont/2; x.beginPath(); x.moveTo(bx+boxPadX+4,sy); x.lineTo(bx+boxPadX+4+Math.min(x.measureText(it.lines[0]||'').width,bw-boxPadX*2-4),sy); x.stroke(); }
           yy+=boxH+boxGap; continue; }
         roundRectPath(x,bx,yy,bw,boxH,5); x.fillStyle=it.o.noclass?accentSoft:surface; x.fill();
         x.strokeStyle=it.o.noclass?accentLine:line; x.lineWidth=1; roundRectPath(x,bx+0.5,yy+0.5,bw-1,boxH-1,5); x.stroke();
