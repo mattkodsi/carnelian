@@ -2,6 +2,24 @@
 
 Non-urgent follow-ups, newest first.
 
+## Assignments agenda page (Academic tab)
+
+**Status:** shipped 2026-08-30
+
+The Academic tab is now a rolling, color-coded **Assignments agenda** instead of the
+Cornell calendar: this-term-forward, overdue pinned on top, day sections (empty days
+skipped), rows sorted by course color within each day, each row carrying the course
+color as a left bar + colored code. Canvas-scraped items appear inline with
+**Accept/Reject/Edit**; active items get a done-checkbox; done items dim + strike in
+place. A **Sync** button reuses the `carnelian-canvas` path. The Cornell academic
+calendar moved to a **button in the Schedule header** (opens a sheet reusing the
+existing scrape/cache); the Schedule's day-top **Due chips** are now colored by course
+(3px left bar, was a dot) — live strip + share PNG. Nav item relabeled Academic →
+Assignments. Pure `index.html` change; color map matches `renderSchedule` exactly. Spec
+`docs/superpowers/specs/2026-08-30-assignments-agenda-design.md`, plan
+`docs/superpowers/plans/2026-08-30-assignments-agenda.md`. See `renderAssignments`/
+`agFocusTerm`/`agColorMap`/`wireAgenda`/`openAcalSheet` in `index.html`.
+
 ## Canvas .ics deadline auto-sync
 
 **Status:** shipped 2026-08-27
