@@ -430,9 +430,9 @@
   .ag-sec{font-size:12px;font-weight:700;color:var(--ink-3);letter-spacing:.02em;margin:16px 2px 6px;display:flex;align-items:center;gap:6px}
   .ag-sec.overdue{color:#c2405b}
   .ag-sec .ag-sec-d{color:var(--ink-3);font-weight:600}
-  .ag-row{display:flex;gap:10px;align-items:flex-start;padding:9px 8px;border-top:.5px solid var(--line);border-left:3px solid var(--line);cursor:pointer}
+  .ag-row{display:flex;gap:10px;align-items:center;padding:9px 8px;border-top:.5px solid var(--line);border-left:3px solid var(--line);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .12s ease}
   .ag-row:first-of-type{border-top:0}
-  .ag-row.pending{background:color-mix(in srgb,var(--accent) 6%,transparent);cursor:default}
+  .ag-row.pending{background:color-mix(in srgb,var(--accent) 5%,transparent);flex-direction:column;align-items:stretch;gap:8px;cursor:default}
   .ag-row.over{background:color-mix(in srgb,#c2405b 7%,transparent)}
   .ag-row.done{opacity:.5}
   .ag-main{flex:1;min-width:0}
@@ -440,13 +440,13 @@
   .ag-t{font-size:14px;color:var(--ink);line-height:1.3;overflow:hidden;text-overflow:ellipsis}
   .ag-row.done .ag-t{text-decoration:line-through}
   .ag-meta{font-size:11.5px;color:var(--ink-3);margin-top:1px}
-  .ag-acts{display:flex;flex-direction:column;gap:5px;flex:0 0 auto}
-  .ag-mini{font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:7px;padding:3px 9px;white-space:nowrap}
-  .ag-mini.ok{color:#1c8074;border-color:color-mix(in srgb,#1c8074 45%,var(--line))}
+  .ag-acts{display:flex;gap:7px;justify-content:flex-end}
+  .ag-mini{flex:0 0 auto;font-size:11.5px;font-weight:800;border-radius:8px;padding:5px 10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);-webkit-tap-highlight-color:transparent}
+  .ag-mini.ok{color:#fff;background:var(--accent);border-color:var(--accent)}
   .ag-mini.no{color:var(--ink-3)}
-  .ag-check{width:26px;height:26px;flex:0 0 auto;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);color:#fff;display:flex;align-items:center;justify-content:center;padding:0}
-  .ag-check.on{background:#3b7d4f;border-color:#3b7d4f}
-  .ag-check .ico{width:15px;height:15px}
+  .ag-check{flex:0 0 auto;width:22px;height:22px;border-radius:7px;border:1.6px solid var(--line-strong);background:var(--surface);color:var(--accent);display:grid;place-items:center;padding:0;transition:background .12s ease,border-color .12s ease;-webkit-tap-highlight-color:transparent}
+  .ag-check svg,.ag-check .ico{width:14px;height:14px}
+  .ag-check.on{background:var(--accent-soft);border-color:var(--accent)}
   .ag-empty{color:var(--ink-3);font-size:14px;text-align:center;padding:40px 16px}
   .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* academic-calendar day detail sheet */
@@ -1973,7 +1973,7 @@ function renderAssignments(){
   const nPend=items.filter(it=>it.pending).length, nUp=upcoming.filter(it=>!it.pending&&!it.a.done).length;
   const row=it=>{ const c=colorOf(it.en); const code=esc(codeLabel(it.en)); const title=esc(asgTitle(it.a));
     const meta=(it.tm?esc(asgTimeShort(it.tm)):'')+(it.pending?(it.tm?' · ':'')+'from Canvas':'');
-    if(it.pending) return `<div class="ag-row pending${it.over?' over':''}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code" style="color:${c}">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-mini ok" data-approve="${it.a.id}">Accept</button><button class="ag-mini no" data-reject="${it.a.id}">Reject</button><button class="ag-mini" data-edit="${it.a.id}">Edit</button></div></div>`;
+    if(it.pending) return `<div class="ag-row pending${it.over?' over':''}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code" style="color:${c}">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-mini" data-edit="${it.a.id}">Edit</button><button class="ag-mini ok" data-approve="${it.a.id}">Accept</button><button class="ag-mini no" data-reject="${it.a.id}">Reject</button></div></div>`;
     return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code" style="color:${c}">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button></div>`; };
   let html=`<div class="agenda"><div class="ag-head"><h1>Assignments</h1><button class="ag-sync" id="agSync"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Sync</button></div>`;
   html+=`<div class="ag-count">${nPend?`${nPend} from Canvas to review · `:''}${nUp} upcoming</div>`;
@@ -1991,7 +1991,12 @@ function wireAgenda(el){
   el.querySelectorAll("[data-approve]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.approve); if(a) approveAsg(a); });
   el.querySelectorAll("[data-reject]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.reject); if(a) rejectAsg(a); });
   el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.edit); if(a) openAsgEditor(a.enrollment_id,a); });
-  el.querySelectorAll("[data-done]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const a=asgById(b.dataset.done); if(a) toggleAsgDone(a); });
+  el.querySelectorAll("[data-done]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
+    const a=asgById(b.dataset.done); if(!a) return;
+    // Optimistic: flip the visual state instantly, persist in the background, revert on error.
+    const nv=!a.done, row=b.closest('.ag-row'); const paint=v=>{ a.done=v; if(row) row.classList.toggle('done',v); b.classList.toggle('on',v); b.innerHTML=v?ICO.check:''; };
+    paint(nv);
+    saveAsg({id:a.id, done:nv}).catch(err=>{ paint(!nv); toast(err.message||"Error"); }); });
   el.querySelectorAll("[data-open]").forEach(r=>r.onclick=()=>{ const a=asgById(r.dataset.open); if(a) openAsgEditor(a.enrollment_id,a); });
 }
 // Cornell academic calendar — opened from the Schedule header (its own sheet).
