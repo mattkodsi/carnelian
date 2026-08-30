@@ -419,6 +419,35 @@
   .adchip.asg .adchip-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
   .adchip.asg .adchip-tm{font-size:9px;font-weight:800;color:var(--ink-3);margin-top:1px}
   .adchip.asg.done{opacity:.5;text-decoration:line-through}
+  /* Assignments agenda (Academic tab) */
+  .agenda{padding:2px 0 90px}
+  .ag-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 2px 2px}
+  .ag-head h1{font-size:22px;font-weight:700;margin:0}
+  .ag-sync{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 11px}
+  .ag-sync .ico{width:15px;height:15px}
+  .ag-sync.spin .ico{animation:acal-spin .8s linear infinite}
+  .ag-count{font-size:12.5px;color:var(--ink-3);margin:0 2px 14px}
+  .ag-sec{font-size:12px;font-weight:700;color:var(--ink-3);letter-spacing:.02em;margin:16px 2px 6px;display:flex;align-items:center;gap:6px}
+  .ag-sec.overdue{color:#c2405b}
+  .ag-sec .ag-sec-d{color:var(--ink-3);font-weight:600}
+  .ag-row{display:flex;gap:10px;align-items:flex-start;padding:9px 8px;border-top:.5px solid var(--line);border-left:3px solid var(--line);cursor:pointer}
+  .ag-row:first-of-type{border-top:0}
+  .ag-row.pending{background:color-mix(in srgb,var(--accent) 6%,transparent);cursor:default}
+  .ag-row.over{background:color-mix(in srgb,#c2405b 7%,transparent)}
+  .ag-row.done{opacity:.5}
+  .ag-main{flex:1;min-width:0}
+  .ag-code{font-size:11px;font-weight:800;line-height:1.2}
+  .ag-t{font-size:14px;color:var(--ink);line-height:1.3;overflow:hidden;text-overflow:ellipsis}
+  .ag-row.done .ag-t{text-decoration:line-through}
+  .ag-meta{font-size:11.5px;color:var(--ink-3);margin-top:1px}
+  .ag-acts{display:flex;flex-direction:column;gap:5px;flex:0 0 auto}
+  .ag-mini{font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);border-radius:7px;padding:3px 9px;white-space:nowrap}
+  .ag-mini.ok{color:#1c8074;border-color:color-mix(in srgb,#1c8074 45%,var(--line))}
+  .ag-mini.no{color:var(--ink-3)}
+  .ag-check{width:26px;height:26px;flex:0 0 auto;border-radius:50%;border:2px solid var(--line-strong);background:var(--surface);color:#fff;display:flex;align-items:center;justify-content:center;padding:0}
+  .ag-check.on{background:#3b7d4f;border-color:#3b7d4f}
+  .ag-check .ico{width:15px;height:15px}
+  .ag-empty{color:var(--ink-3);font-size:14px;text-align:center;padding:40px 16px}
   .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* academic-calendar day detail sheet */
   #acDayBody{display:flex;flex-direction:column;gap:8px}
@@ -639,7 +668,7 @@
       <button class="navitem on" data-nav="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
       <button class="navitem" data-nav="requirements"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Requirements</button>
       <button class="navitem" data-nav="planner"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C9.8 5.2 6.9 4.8 4 5.2v13c2.9-.4 5.8 0 8 1.3 2.2-1.3 5.1-1.7 8-1.3v-13c-2.9-.4-5.8 0-8 1.3z"/><path d="M12 6.5v13"/></svg>Planner</button>
-      <button class="navitem" data-nav="academic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Academic</button>
+      <button class="navitem" data-nav="academic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.2 1.2L7.5 4.8"/><path d="M4 12l1.2 1.2L7.5 10.8"/><path d="M4 18l1.2 1.2L7.5 16.8"/><path d="M11 6h9M11 12h9M11 18h9"/></svg>Assignments</button>
       <button class="navitem" data-nav="schedule"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Schedule</button>
     </nav>
     <div class="rail-foot">
@@ -796,6 +825,17 @@
   <div class="sheet" style="max-width:400px">
     <div class="sh"><h3 id="acDayTitle">Academic dates</h3><button class="x" id="acDayClose" aria-label="Close">×</button></div>
     <div class="sb" id="acDayBody"></div>
+  </div>
+</div>
+<!-- full academic calendar (opened from the Schedule) -->
+<div class="modal" id="acalModal">
+  <div class="sheet" style="max-width:440px">
+    <div class="sh"><h3>Academic calendar</h3><button class="x" id="acalClose" aria-label="Close">×</button></div>
+    <div class="sb">
+      <div class="ph-note" id="acal-note">Cornell University Registrar</div>
+      <div id="acal-body"><div class="acal-load">Loading academic calendar…</div></div>
+      <button class="btn" id="acal-refresh" style="margin-top:10px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Refresh</button>
+    </div>
   </div>
 </div>
 <!-- assignments: per-course list + review -->
@@ -1076,7 +1116,7 @@ function bar2(donePct,plannedPct,met){ const d=Math.max(0,Math.min(100,donePct))
 const pctPlan=pr=>pr.need?Math.round(100*Math.min(1,(pr.done+(pr.planned||0))/pr.need)):(pr.met?100:0);
 
 /* ---- render ---- */
-function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderAcademic(); renderSchedule(); showPage(CUR); }
+function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderAssignments(); renderSchedule(); showPage(CUR); }
 function renderRail(){
   const ug=gpa("undergrad"), gr=gpa("grad");
   $("#railGpas").innerHTML=
@@ -1524,9 +1564,9 @@ async function saveAsg(row){ const saved=(await api("upsert",{table:"assignments
   if(CUR==="schedule") renderSchedule(); return saved; }
 async function deleteAsg(id){ await api("delete",{table:"assignments",id});
   DB.assignments=(DB.assignments||[]).filter(x=>String(x.id)!==String(id)); if(CUR==="schedule") renderSchedule(); }
-async function toggleAsgDone(a){ try{ await saveAsg({id:a.id, done:!a.done}); renderAsgList(a.enrollment_id); }catch(e){ toast(e.message||"Error"); } }
-async function approveAsg(a){ try{ await saveAsg({id:a.id, status:'active'}); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); }catch(e){ toast(e.message||"Error"); } }
-async function rejectAsg(a){ try{ await deleteAsg(a.id); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); }catch(e){ toast(e.message||"Error"); } }
+async function toggleAsgDone(a){ try{ await saveAsg({id:a.id, done:!a.done}); renderAsgList(a.enrollment_id); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
+async function approveAsg(a){ try{ await saveAsg({id:a.id, status:'active'}); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
+async function rejectAsg(a){ try{ await deleteAsg(a.id); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
 
 function openCourseAssignments(eid){ ASG_EID=eid; const en=(DB.enrollments||[]).find(x=>String(x.id)===String(eid));
   $("#asgListTitle").textContent=en?codeLabel(en):"Assignments"; renderAsgList(eid); openModal($("#asgListModal")); }
@@ -1762,10 +1802,10 @@ function renderSchedule(){
     bodyInner=`<div class="sched-noweek">${esc(note)}</div>`;
   }
   const body=`<div class="sched" style="--rows:${rows}"><div class="sched-days"><div class="d"></div>${dayHead}</div>${alldayHtml}${bodyInner}${unschedHtml}</div>`;
-  const tools=`<div class="shtools"><button id="schedImg" class="shbtn" aria-label="Share as image" title="Share this schedule as an image">${ICO.share}</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" aria-label="Sync to Google Calendar" title="Sync to Google Calendar">${GCAL.connected?ICO.check:ICO.cal}</button></div>`;
+  const tools=`<div class="shtools"><button id="schedImg" class="shbtn" aria-label="Share as image" title="Share this schedule as an image">${ICO.share}</button><button id="schedCal" class="shbtn${GCAL.connected?' on':''}" aria-label="Sync to Google Calendar" title="Sync to Google Calendar">${GCAL.connected?ICO.check:ICO.cal}</button><button id="schedAcal" class="shbtn" aria-label="Academic calendar" title="Cornell academic calendar"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/><path d="M8 13h3M8 16.5h6"/></svg></button></div>`;
   $("#schedule").innerHTML=`<div class="schead"><div class="sh-top"><select id="schedTerm">${termOpts}</select><div class="sh-right">${conflictNote}${tools}</div></div><div class="sh-sub">${wkbar}${scount}</div></div>${body}`;
   const sel=$("#schedTerm"); if(sel) sel.onchange=e=>{SCHED_TERM=e.target.value;SCHED_WEEK=null;renderSchedule();};
-  { const bi=$("#schedImg"); if(bi) bi.onclick=openShareChooser; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; }
+  { const bi=$("#schedImg"); if(bi) bi.onclick=openShareChooser; const bc=$("#schedCal"); if(bc) bc.onclick=openGcal; const ba=$("#schedAcal"); if(ba) ba.onclick=openAcalSheet; }
   const wp=$("#wkPrev"); if(wp) wp.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()-7); renderSchedule(); };
   const wnx=$("#wkNext"); if(wnx) wnx.onclick=()=>{ SCHED_WEEK=new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+7); renderSchedule(); };
   const wnw=$("#wkNow"); if(wnw) wnw.onclick=()=>{ SCHED_WEEK=defaultWeekMon(term); renderSchedule(); };
@@ -1899,15 +1939,66 @@ function acalTime(raw){
   if(sp && /^12:00 AM$/i.test(sp[1].replace(/\s+/g," ")) && /^11:59 PM$/i.test(sp[2].replace(/\s+/g," "))) return "All day";
   return t;
 }
-function renderAcademic(){
+// ---- Assignments agenda (Academic tab): rolling, color-coded, this-term-forward ----
+// Focus term for the agenda: the term containing today, else the nearest upcoming term.
+function agFocusTerm(){ const c=currentTerm(); if(c) return c; const t=today();
+  return (DB.terms||[]).filter(x=>x.ends_on&&x.ends_on>=t).sort((a,b)=>String(a.starts_on).localeCompare(String(b.starts_on)))[0]||null; }
+// Per-term color map matching renderSchedule's algorithm exactly (sequential, code-keyed, DB order).
+function agColorMap(termId){ const m={}; let ci=0;
+  (DB.enrollments||[]).filter(e=>e.term_id===termId&&displayStatus(e)!=="wishlist").forEach(e=>{ const k=e.code||('#'+e.id); if(m[k]==null){ m[k]=ci%SCHED_COLORS.length; ci++; } });
+  return m; }
+function agFmtSec(iso,tstr){ const p=iso.split("-"); const d=new Date(+p[0],+p[1]-1,+p[2]);
+  const dow=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
+  const md=`${ACAL_MONTHS[+p[1]-1]} ${+p[2]}`;
+  const td=new Date(+tstr.slice(0,4),+tstr.slice(5,7)-1,+tstr.slice(8,10));
+  const dd=Math.round((d-td)/864e5); const lead=dd===0?"Today":dd===1?"Tomorrow":dow;
+  return `<span>${lead}</span><span class="ag-sec-d">· ${md}</span>`; }
+function renderAssignments(){
   const el=$("#academic"); if(!el) return;
-  el.innerHTML=`<div class="phead"><h1>Academic Calendar</h1>
-    <div class="actions"><button class="btn" id="acal-refresh"><svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Refresh</button></div>
-    <div class="ph-note" id="acal-note">Cornell University Registrar · deterministically scraped</div></div>
-    <div id="acal-body"><div class="acal-load">Loading academic calendar…</div></div>`;
-  $("#acal-refresh").onclick=()=>loadAcademic(true);
-  try{ const raw=localStorage.getItem("carn_acal"); if(raw){ const o=JSON.parse(raw); if(o&&o.v===1&&Array.isArray(o.events)) paintAcademic(o,false); } }catch(e){}
+  const term=agFocusTerm(); const t=today();
+  const eids=new Set((DB.enrollments||[]).filter(e=>term&&e.term_id===term.id&&displayStatus(e)!=="wishlist").map(e=>String(e.id)));
+  const enById=Object.fromEntries((DB.enrollments||[]).map(e=>[String(e.id),e]));
+  const cmap=term?agColorMap(term.id):{};
+  const colorOf=e=>SCHED_COLORS[(cmap[e.code||('#'+e.id)]??courseColorIdx(e.code))];
+  const cidxOf=e=>(cmap[e.code||('#'+e.id)]??courseColorIdx(e.code));
+  // In-scope items with a placement date; done-in-the-past drops off (done is done).
+  const items=(DB.assignments||[]).filter(a=>eids.has(String(a.enrollment_id))).map(a=>{
+    const en=enById[String(a.enrollment_id)]; const on=asgWhenDate(a);
+    return {a,en,on,tm:asgWhenTime(a),over:!!(on&&on<t&&!a.done),pending:a.status==='pending'}; })
+    .filter(it=>it.en && it.on && (it.on>=t || it.over));
+  const overdue=items.filter(it=>it.over).sort((x,y)=> x.on.localeCompare(y.on) || cidxOf(x.en)-cidxOf(y.en));
+  const upcoming=items.filter(it=>!it.over);
+  const byDay={}; upcoming.forEach(it=>{ (byDay[it.on]=byDay[it.on]||[]).push(it); });
+  const days=Object.keys(byDay).sort();
+  const nPend=items.filter(it=>it.pending).length, nUp=upcoming.filter(it=>!it.pending&&!it.a.done).length;
+  const row=it=>{ const c=colorOf(it.en); const code=esc(codeLabel(it.en)); const title=esc(asgTitle(it.a));
+    const meta=(it.tm?esc(asgTimeShort(it.tm)):'')+(it.pending?(it.tm?' · ':'')+'from Canvas':'');
+    if(it.pending) return `<div class="ag-row pending${it.over?' over':''}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code" style="color:${c}">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-mini ok" data-approve="${it.a.id}">Accept</button><button class="ag-mini no" data-reject="${it.a.id}">Reject</button><button class="ag-mini" data-edit="${it.a.id}">Edit</button></div></div>`;
+    return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code" style="color:${c}">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button></div>`; };
+  let html=`<div class="agenda"><div class="ag-head"><h1>Assignments</h1><button class="ag-sync" id="agSync"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Sync</button></div>`;
+  html+=`<div class="ag-count">${nPend?`${nPend} from Canvas to review · `:''}${nUp} upcoming</div>`;
+  if(!items.length){ html+=`<div class="ag-empty">No assignments this term. Add them per course in the Planner, or use Sync to pull from Canvas.</div></div>`; el.innerHTML=html; wireAgenda(el); return; }
+  if(overdue.length){ html+=`<div class="ag-sec overdue"><svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.01"/><path d="M10.3 3.9 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Overdue</div>`+overdue.map(row).join(""); }
+  days.forEach(d=>{ html+=`<div class="ag-sec">${agFmtSec(d,t)}</div>`+byDay[d].sort((x,y)=> cidxOf(x.en)-cidxOf(y.en) || String(x.tm||'~').localeCompare(String(y.tm||'~'))).map(row).join(""); });
+  html+=`</div>`;
+  el.innerHTML=html; wireAgenda(el);
 }
+function wireAgenda(el){
+  const sb=$("#agSync"); if(sb) sb.onclick=async()=>{ if(CSYNC) return; sb.classList.add('spin'); sb.disabled=true;
+    try{ const msg=await canvasSyncNow({silent:true}); if(msg) toast(msg); }
+    catch(e){ toast(e.message||"Sync failed"); }
+    finally{ sb.classList.remove('spin'); sb.disabled=false; if(CUR==='academic') renderAssignments(); } };
+  el.querySelectorAll("[data-approve]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.approve); if(a) approveAsg(a); });
+  el.querySelectorAll("[data-reject]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.reject); if(a) rejectAsg(a); });
+  el.querySelectorAll("[data-edit]").forEach(b=>b.onclick=()=>{ const a=asgById(b.dataset.edit); if(a) openAsgEditor(a.enrollment_id,a); });
+  el.querySelectorAll("[data-done]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const a=asgById(b.dataset.done); if(a) toggleAsgDone(a); });
+  el.querySelectorAll("[data-open]").forEach(r=>r.onclick=()=>{ const a=asgById(r.dataset.open); if(a) openAsgEditor(a.enrollment_id,a); });
+}
+// Cornell academic calendar — opened from the Schedule header (its own sheet).
+function openAcalSheet(){ const m=$("#acalModal"); if(!m) return;
+  const rb=$("#acal-refresh"); if(rb) rb.onclick=()=>loadAcademic(true);
+  const cb=$("#acalClose"); if(cb) cb.onclick=()=>closeModal(m);
+  openModal(m); loadAcademic(false); }
 function paintAcademic(data,scroll){
   const body=$("#acal-body"); if(!body) return;
   const evs=data.events||[], note=$("#acal-note");
@@ -1927,7 +2018,7 @@ function paintAcademic(data,scroll){
   });
   if(curMonth!==null) html+=`</div>`;
   body.innerHTML=html;
-  if(scroll&&CUR==="academic"){ const nx=body.querySelector(".acal-row.next"); if(nx) nx.scrollIntoView({block:"center",behavior:"auto"}); }
+  if(scroll){ const m=$("#acalModal"); if(m&&m.classList.contains("on")){ const nx=body.querySelector(".acal-row.next"); if(nx) nx.scrollIntoView({block:"center",behavior:"auto"}); } }
 }
 async function loadAcademic(force){
   const body=$("#acal-body"); if(!body) return;
@@ -2562,7 +2653,7 @@ function showPage(id){ const changed=CUR!==id; CUR=id; document.querySelectorAll
   updateFab();
   if(id==="schedule") requestAnimationFrame(fitSchedule);
   if(id==="planner" && changed) requestAnimationFrame(centerPlannerTerm);
-  if(id==="academic") loadAcademic(false);
+  if(id==="academic") renderAssignments();
 }
 // On opening the planner, bring the current term to the vertical middle of the view
 // (the browser clamps naturally when it's the first or last section).
