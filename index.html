@@ -386,10 +386,16 @@
   .now-line{position:absolute;height:0;border-top:1.5px solid var(--accent);z-index:6;pointer-events:none}
   .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
   .now-time{position:absolute;transform:translate(-100%,-50%);margin-left:-3px;font-size:9px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:1px 4px;z-index:7;pointer-events:none;line-height:1.2;white-space:nowrap}
-  /* TA / audit flag: plain bold text in the bottom-right corner, in the block's title colour. (Half-term
-     H1/H2 badges were dropped — the week view already omits a half course in the weeks it isn't held.) */
+  /* TA / audit flag: plain bold text in the bottom-right corner, in the block's title colour. */
   .ev[data-role]::before{content:attr(data-role);position:absolute;bottom:1px;right:4px;z-index:2;font-size:8px;font-weight:800;letter-spacing:.03em;line-height:1;color:var(--ev-title);pointer-events:none}
   .ev[data-role] .loc{padding:0 26px}
+  /* Half-term flag: small H1/H2 in the top-right corner (opposite the TA/audit tag). The code line
+     reserves room for it so nothing is cropped. */
+  .ev[data-half]::after{content:attr(data-half);position:absolute;top:1px;right:3px;z-index:2;font-size:8px;font-weight:800;letter-spacing:.02em;line-height:1;color:var(--ev-ink2);pointer-events:none}
+  .ev[data-half] .c{padding-right:17px}
+  /* Conflict/narrow columns are too small to fit a corner tag without cropping the code — drop it there. */
+  .ev.narrow[data-half]::after{display:none}
+  .ev.narrow[data-half] .c{padding-right:0}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
@@ -1747,12 +1753,13 @@ function renderSchedule(){
       const w=100/ev.ncols, left=ev.col*w, dur=ev.en-ev.s;
       const showLoc=dur>=50 && ev.ncols===1;
       const timeLbl=`${min2label(ev.s).replace(/[ap]m$/,'')}–${min2label(ev.en).replace(/[ap]m$/,'')}`;
-      // Week-by-week view: a half-term course just doesn't appear in weeks it isn't in session, so no
-      // H1/H2 badge is needed. Only TA/Audit gets a corner tag. The section (LEC 001) is dropped from
-      // the block to cut clutter and let the full time fit — it still lives in the course editor.
+      // A half-term meeting gets a small H1/H2 corner tag (top-right, opposite the TA/Audit tag) so
+      // it's clear at a glance which 7-week half it runs. The section (LEC 001) is still dropped from
+      // the block to cut clutter — it lives in the course editor.
       const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow");
       const _r=roleOf(ev.e), roleWord=_r==='audit'?'AUDIT':(_r==='ta_paid'||_r==='ta_credit')?'TA':'';
-      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}"${roleWord?` data-role="${roleWord}"`:''} style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
+      const _p=partOf(ev.m), halfLbl=_p==='1'?'H1':_p==='2'?'H2':'';
+      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}"${roleWord?` data-role="${roleWord}"`:''}${halfLbl?` data-half="${halfLbl}"`:''} style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
         <div class="et">${esc(timeLbl)}</div>
         ${showLoc&&ev.m.location?`<div class="loc">${esc(ev.m.location)}</div>`:''}
@@ -2071,14 +2078,18 @@ const fmtClock=v=>{ const t=hm2min(v); return t==null?"":min2label(t).replace(/(
 const timeField=(i,f,val)=>{ const has=hm2min(val)!=null;
   return `<span class="tf-wrap"><span class="tf-disp${has?'':' empty'}">${has?fmtClock(val):'Set time'}</span>${CLOCK_SVG}<input type="time" data-mfield="${i}:${f}" data-timedisp value="${esc(val||'')}"></span>`; };
 function renderMeetRows(){
+  // Component + Section are always editable (the live roster picker above is a convenience that
+  // fills these from the roster; hand-editing here always works even when no picker is available).
+  const compOpts=m=>`<option value="">—</option>`+COMP_ORDER.map(c=>`<option value="${c}"${m.component===c?' selected':''}>${esc(compName(c))} · ${c}</option>`).join("");
   $("#mMeetRows").innerHTML=MMEET.map((m,i)=>{
-    // A roster-filled meeting is labelled by its component (Lecture · 001) and its section
-    // is chosen up in the pickers; a hand-added meeting keeps an editable Section field.
     const label = m.component ? `${compName(m.component)}${m.section?" · "+esc(m.section):""}` : `Meeting ${i+1}`;
-    const sectionField = m.component ? "" : `<span class="mfw"><label>Section</label><input type="text" data-mfield="${i}:section" value="${esc(m.section||'')}"></span>`;
     return `
     <div class="meet-row">
       <div class="meet-hd"><span class="ml">${label}</span><button type="button" class="rmrow" data-mrm="${i}">Remove</button></div>
+      <div class="meet-2">
+        <span class="mfw"><label>Component</label><select data-mfield="${i}:component">${compOpts(m)}</select></span>
+        <span class="mfw"><label>Section</label><input type="text" data-mfield="${i}:section" value="${esc(m.section||'')}" placeholder="e.g. 201"></span>
+      </div>
       <div class="meet-days">${SDAYS.map(d=>`<button type="button" data-mday="${i}:${d}" class="${(m.days||[]).includes(d)?'on':''}">${d}</button>`).join("")}</div>
       <div class="meet-2">
         <span class="mfw"><label>Start</label>${timeField(i,"start",m.start)}</span>
@@ -2086,7 +2097,6 @@ function renderMeetRows(){
       </div>
       <span class="mfw"><label>Location</label><input type="text" data-mfield="${i}:location" value="${esc(m.location||'')}"></span>
       <span class="mfw"><label>Instructor</label><input type="text" data-mfield="${i}:instructor" value="${esc(m.instructor||'')}"></span>
-      ${sectionField}
       <span class="mfw"><label>Part of term</label><select data-mfield="${i}:part">
         <option value="full" ${(m.part!=='1'&&m.part!=='2')?'selected':''}>Full term</option>
         <option value="1" ${m.part==='1'?'selected':''}>First half</option>
@@ -2257,6 +2267,42 @@ async function getSubjectClasses(sub, roster){
   catch(e){ SEARCH_CACHE[key]=null; }
   return SEARCH_CACHE[key];
 }
+// The roster's department codes (ASIAN, CS, HADM…), so a first word that isn't one routes to title
+// search. Cached in memory + localStorage per roster.
+let AVAIL_SUBJECTS={};
+async function availSubjects(roster){
+  if(!roster) return new Set();
+  if(AVAIL_SUBJECTS[roster]) return AVAIL_SUBJECTS[roster];
+  try{ const raw=localStorage.getItem("carn_subjects_"+roster); if(raw){ const a=JSON.parse(raw); if(Array.isArray(a)&&a.length){ return AVAIL_SUBJECTS[roster]=new Set(a); } } }catch(e){}
+  try{ const j=await (await fetch(`https://classes.cornell.edu/api/2.0/config/subjects.json?roster=${roster}`)).json();
+    if(j.status==="success"){ const subs=(j.data.subjects||[]).map(s=>s.value).filter(Boolean);
+      if(subs.length){ try{ localStorage.setItem("carn_subjects_"+roster, JSON.stringify(subs)); }catch(e){} return AVAIL_SUBJECTS[roster]=new Set(subs); } } }catch(e){}
+  return AVAIL_SUBJECTS[roster]=new Set();
+}
+// Full-catalog title index for a roster: [{s:subject, n:catalogNbr, t:title, u:credits}], built once by
+// pulling every department (Cornell's API has no cross-catalog title search), cached to localStorage
+// (~7-day TTL) so later name searches are instant. Reuses getSubjectClasses' cache.
+let CATALOG={}, CATALOG_BUILDING={};
+const CATALOG_TTL=7*24*3600*1000;
+async function buildCatalog(roster, onProgress){
+  if(!roster) return [];
+  if(CATALOG[roster]) return CATALOG[roster];
+  try{ const raw=localStorage.getItem("carn_catalog_"+roster); if(raw){ const o=JSON.parse(raw); if(o&&o.at&&(Date.now()-o.at<CATALOG_TTL)&&Array.isArray(o.index)&&o.index.length){ return CATALOG[roster]=o.index; } } }catch(e){}
+  if(CATALOG_BUILDING[roster]) return CATALOG_BUILDING[roster];
+  CATALOG_BUILDING[roster]=(async()=>{
+    const subs=[...await availSubjects(roster)];
+    if(!subs.length){ return CATALOG[roster]=[]; }
+    const index=[]; let done=0, idx=0; const CONC=8;
+    async function worker(){ while(idx<subs.length){ const sub=subs[idx++];
+      const classes=await getSubjectClasses(sub, roster);
+      if(classes) for(const c of classes){ const eg=(c.enrollGroups||[])[0]||{}; index.push({s:sub,n:c.catalogNbr,t:c.titleLong||"",u:eg.unitsMaximum!=null?eg.unitsMaximum:null}); }
+      done++; if(onProgress) onProgress(done, subs.length); } }
+    await Promise.all(Array.from({length:Math.min(CONC,subs.length)}, worker));
+    try{ localStorage.setItem("carn_catalog_"+roster, JSON.stringify({at:Date.now(), index})); }catch(e){}
+    return CATALOG[roster]=index;
+  })();
+  try{ return await CATALOG_BUILDING[roster]; } finally{ delete CATALOG_BUILDING[roster]; }
+}
 function classTags(cls){ let tags=[]; if(cls.crseAttrValueGroups&&cls.crseAttrValueGroups.length) cls.crseAttrValueGroups.forEach(g=>(g.crseAttrValues||"").split(",").forEach(v=>{const t=v.replace(/[()\s]/g,"");if(t)tags.push(t);})); else if(cls.catalogDistr) cls.catalogDistr.replace(/[()]/g," ").split(/[,\s]+/).forEach(t=>{if(t)tags.push(t);}); return tags; }
 
 /* ---- likely professor + roster freshness (cards, wishlist, "Check rosters") ---- */
@@ -2350,23 +2396,66 @@ async function runRosterCheck(opts={}){
   if(!opts.silent && msg) toast(msg);
   return msg;
 }
+let TITLE_MODE=false;
 async function runSearch(){
   const q=$("#mCode").value.trim().toUpperCase(); const res=$("#mResults"), msg=$("#mLookupMsg");
+  if(q.length<2){ res.classList.remove("on"); msg.textContent=""; return; }
   const parts=q.split(/\s+/), sub=parts[0];
-  if(q.length<2||!/^[A-Z]{2,7}$/.test(sub)){ res.classList.remove("on"); msg.textContent=""; return; }
   const {roster,recycled}=await resolveRoster(termRoster(termById($("#mTerm").value)));
   CUR_ROSTER=roster; CUR_RECYCLED=recycled;
-  msg.textContent="Searching Cornell roster…";
-  const classes=await getSubjectClasses(sub, roster); msg.textContent="";
-  if(q!==$("#mCode").value.trim().toUpperCase()) return; // stale
-  if(!classes){ res.classList.remove("on"); return; }
-  const rest=parts.slice(1).join(" ");
-  let ms=classes.filter(c=>!rest||(c.catalogNbr||"").startsWith(rest)||((c.catalogNbr+" "+(c.titleLong||"")).toUpperCase().includes(rest))).slice(0,40);
+  const subjects=await availSubjects(roster);
+  const isCode=/^[A-Z]{2,7}$/.test(sub) && (subjects.size ? subjects.has(sub) : true);
+  // Still typing a department code (a prefix of a real one, e.g. "ASIA" → ASIAN): wait, don't title-search.
+  if(!isCode && parts.length===1 && /^[A-Z]{2,7}$/.test(sub) && [...subjects].some(s=>s.startsWith(sub))){ res.classList.remove("on"); msg.textContent=""; return; }
+  if(isCode){
+    // ---- department-code search (fast, exact) ----
+    TITLE_MODE=false;
+    msg.textContent="Searching Cornell roster…";
+    const classes=await getSubjectClasses(sub, roster); msg.textContent="";
+    if(q!==$("#mCode").value.trim().toUpperCase()) return; // stale
+    if(!classes){ res.classList.remove("on"); return; }
+    const rest=parts.slice(1).join(" ");
+    let ms=classes.filter(c=>!rest||(c.catalogNbr||"").startsWith(rest)||((c.catalogNbr+" "+(c.titleLong||"")).toUpperCase().includes(rest))).slice(0,40);
+    MRESULTS=ms;
+    if(!ms.length){ res.classList.remove("on"); return; }
+    res.innerHTML=ms.map((c,i)=>{const eg=(c.enrollGroups||[])[0]||{};return `<div class="result" data-ri="${i}"><span class="rc">${esc(sub)} ${esc(c.catalogNbr)}</span><span class="rt">${esc(c.titleLong||'')}</span><span class="rr">${eg.unitsMaximum!=null?esc(String(eg.unitsMaximum))+' cr':''}</span></div>`;}).join("");
+    res.querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>pickResult(MRESULTS[+b.dataset.ri],sub));
+    res.classList.add("on");
+    return;
+  }
+  // ---- title search across the full catalog ----
+  const words=q.toLowerCase().split(/\s+/).filter(Boolean);
+  if(words.join("").length<3){ res.classList.remove("on"); msg.textContent=""; return; }   // too short → too noisy
+  let cat=CATALOG[roster];
+  if(!cat){
+    msg.textContent="Indexing Cornell catalog… 0%";
+    cat=await buildCatalog(roster,(d,t)=>{ if($("#mCode").value.trim().toUpperCase()===q) msg.textContent=`Indexing Cornell catalog… ${Math.round(d/t*100)}%`; });
+    if(q!==$("#mCode").value.trim().toUpperCase()) return; // user kept typing; a later runSearch handles it
+    msg.textContent="";
+  }
+  TITLE_MODE=true;
+  const phrase=words.join(" ");
+  const scored=[];
+  for(const e of cat){ const tl=(e.t||"").toLowerCase(); const hay=(e.s+" "+e.n+" "+tl).toLowerCase();
+    if(words.every(w=>hay.includes(w))){ let score=tl.startsWith(phrase)?0:tl.includes(phrase)?1:2; scored.push({e,score}); } }
+  scored.sort((a,b)=>a.score-b.score || (a.e.t||"").length-(b.e.t||"").length);
+  const ms=scored.slice(0,40).map(x=>x.e);
   MRESULTS=ms;
-  if(!ms.length){ res.classList.remove("on"); return; }
-  res.innerHTML=ms.map((c,i)=>{const eg=(c.enrollGroups||[])[0]||{};return `<div class="result" data-ri="${i}"><span class="rc">${esc(sub)} ${esc(c.catalogNbr)}</span><span class="rt">${esc(c.titleLong||'')}</span><span class="rr">${eg.unitsMaximum!=null?esc(String(eg.unitsMaximum))+' cr':''}</span></div>`;}).join("");
-  res.querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>pickResult(MRESULTS[+b.dataset.ri],sub));
+  if(!ms.length){ res.innerHTML=""; res.classList.remove("on"); msg.textContent="No matching course titles."; return; }
+  res.innerHTML=ms.map((e,i)=>`<div class="result" data-ri="${i}"><span class="rc">${esc(e.s)} ${esc(e.n)}</span><span class="rt">${esc(e.t||'')}</span><span class="rr">${e.u!=null?esc(String(e.u))+' cr':''}</span></div>`).join("");
+  res.querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>pickTitleResult(MRESULTS[+b.dataset.ri]));
   res.classList.add("on");
+}
+// A title hit is a lightweight index entry; fetch its department's full class to fill sections/times.
+async function pickTitleResult(entry){
+  if(!entry) return; const msg=$("#mLookupMsg"); msg.textContent="Loading course…";
+  let classes=null; try{ classes=await getSubjectClasses(entry.s, CUR_ROSTER); }catch(e){}
+  msg.textContent="";
+  const cls=classes&&classes.find(c=>c.catalogNbr===entry.n);
+  if(cls){ pickResult(cls, entry.s); return; }
+  // fallback: fill code/title/credits from the index entry
+  $("#mCode").value=entry.s+" "+entry.n; $("#mTitleIn").value=entry.t||""; if(entry.u!=null)$("#mCredits").value=entry.u;
+  $("#mResults").classList.remove("on"); renderSatBox();
 }
 const secOptLabel=s=>{ const mt=(s.s.meetings||[])[0]; const when=mt?fmtRosterWhen(mt):"no set time"; return s.section+" · "+when+(s.topic?" · "+s.topic:""); };
 // Group a class's sections by component (LEC/DIS/LAB…) and default-pick one of each.
@@ -2448,8 +2537,10 @@ async function loadSectionsForCourse(e){
   if(!MSEC_GROUPS.length) return;
   MSEC_GROUPS.forEach(g=>{
     const saved=(e.meetings||[]).find(m=>(m.component||"")===g.comp) || (e.meetings||[])[0]; let idx=-1;
-    if(saved){ if(saved.start) idx=g.sections.findIndex(s=>{const mt=(s.s.meetings||[])[0];return mt&&parseRosterTime(mt.timeStart)===saved.start;});
-      if(idx<0 && saved.section) idx=g.sections.findIndex(s=>s.section===saved.section); }
+    // Match the saved section by its number first (unique); only fall back to start time when there's
+    // no saved section number — many discussions share a start time, so time-first mismatches.
+    if(saved){ if(saved.section) idx=g.sections.findIndex(s=>s.section===saved.section);
+      if(idx<0 && saved.start) idx=g.sections.findIndex(s=>{const mt=(s.s.meetings||[])[0];return mt&&parseRosterTime(mt.timeStart)===saved.start;}); }
     MSEC_PICK[g.comp]=idx<0?0:idx;
   });
   renderMeetSel(); renderMeetRows();   // meetings unchanged; surfaces the pickers + component labels
@@ -2992,6 +3083,9 @@ function buildSchedCanvas(termId, weekMon){
     // TA / audit corner tag (bottom-right), matching the on-screen block
     const _cr=roleOf(ev.e), rtag=_cr==='audit'?'AUDIT':(_cr==='ta_paid'||_cr==='ta_credit')?'TA':'';
     if(rtag){ x.textAlign='right'; x.textBaseline='alphabetic'; x.fillStyle=ec.title; x.font='800 9px -apple-system,system-ui,sans-serif'; x.fillText(rtag, bx+W2-6, by+bh-6); }
+    // Half-term tag (top-right), matching the on-screen block — skipped on narrow/conflict columns
+    const _hp=partOf(ev.m), htag=(ev.ncols===1)?(_hp==='1'?'H1':_hp==='2'?'H2':''):'';
+    if(htag){ x.textAlign='right'; x.textBaseline='top'; x.fillStyle=ec.meta; x.font='800 9px -apple-system,system-ui,sans-serif'; x.fillText(htag, bx+W2-5, by+5); }
     x.restore();
   }});
   // timed assignment blocks (exam/quiz): dashed "assessment" boxes over the class grid
