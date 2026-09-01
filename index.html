@@ -169,6 +169,7 @@
   .req .chev{width:11px;color:var(--ink-3);transition:transform .2s;flex:0 0 auto} .req.open .chev{transform:rotate(90deg)}
   /* name flexes to fill so the bar + count sit in fixed, aligned right-hand columns */
   .req .nm{font-weight:800;font-size:13.5px;flex:1 1 auto;min-width:0;line-height:1.25}
+  .req.met .nm{color:var(--ok)}   /* completed requirement → green name, matching the major/minor/distribution rows */
   .req .cr{font-weight:800;font-size:12.5px;flex:0 0 auto;width:62px;text-align:right;font-variant-numeric:tabular-nums}
   .req .mini{width:58px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;flex:0 0 auto;display:flex} .req .mini i{display:block;height:100%}
   .req .edit{flex:0 0 auto;color:var(--ink-3);font-size:12px;font-weight:700;padding:4px 8px;border-radius:7px}
@@ -225,7 +226,7 @@
   .rc-act.ghost{color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line)}
   .pterm.unsched{border-color:var(--warn-line,var(--line))} .pterm .badge.warn{background:var(--warn-bg,var(--surface-2));color:var(--warn)}
   .pterm .tstat{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px}
-  .pterm .tstat.done{background:var(--ok-bg);color:var(--ok)} .pterm .tstat.now{background:var(--warn-bg);color:var(--warn)} .pterm .tstat.soon{background:var(--plan-bg);color:var(--plan)}
+  .pterm .tstat.done{background:var(--ok-bg);color:var(--ok)} .pterm .tstat.now{background:var(--plan-bg);color:var(--plan)} .pterm .tstat.soon{background:var(--warn-bg);color:var(--warn)}
   .segrow{margin:2px 0 14px} .segrow .seg{margin-bottom:6px} .segnote{font-size:11.5px;color:var(--ink-3);line-height:1.45;max-width:60ch}
   .crow.waivernote .grow{font-size:11.5px;color:var(--warn);font-weight:600}
   .crow.termhdr{padding:11px 0 3px;border-bottom:0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
@@ -966,7 +967,9 @@ function displayStatus(e){
   if(term&&term.starts_on&&term.starts_on<=t&&(!term.ends_on||t<=term.ends_on)) return "in_progress";
   return e.status==="completed"?"completed":"planned";
 }
-const STATUS_CLASS={completed:"ok",in_progress:"warn",planned:"plan",transferred:"t",wishlist:"none"};
+// Colour by state: completed = green (ok), being taken now = blue (plan token), future = amber (warn token).
+// "plan"/"warn" are the CSS class names; their token VALUES are --plan=blue and --warn=amber (see :root).
+const STATUS_CLASS={completed:"ok",in_progress:"plan",planned:"warn",transferred:"t",wishlist:"none"};
 const STATUS_LABEL={completed:"done",in_progress:"in progress",planned:"planned",transferred:"transferred",wishlist:"idea"};
 // A course's role: plain coursework (default), a paid TA post (no credit/GPA/transcript), a
 // for-credit teaching-experience course, or an audit (transcript grade V, no credit/GPA). Only
@@ -1038,46 +1041,63 @@ const isEarned=e=>{ const ds=displayStatus(e); return ds==="completed"||ds==="tr
 // Credits past the cap "overflow" to the requirement in spec.overflowTo (e.g. Free
 // Electives) so they still show as electives; the degree total still counts each course
 // once (via matchedFor), so nothing is lost or double-counted.
+// A course's progress state toward a requirement: earned (done), being taken now (cur), or future (fut).
+const progState=e=>{ const ds=displayStatus(e); return (ds==="completed"||ds==="transferred")?"done":(ds==="in_progress"?"cur":"fut"); };
 function cappedCredits(req){
   const caps=(req.spec&&req.spec.caps)||null;
+  // A requirement with an overflowTo target only ABSORBS up to its own `need`; credits beyond that
+  // (e.g. a 3-cr course filling a 1.5-cr bucket) spill into the target (Free Electives). Baker buckets
+  // are minimums, so nothing is wasted — the degree total still counts each course once (via matchedFor).
+  const needN=(req.spec&&req.spec.need&&req.spec.need.type==="credits")?req.spec.need.n:null;
+  const bucketOverflow=!!(req.spec&&req.spec.overflowTo)&&needN!=null;
   const courses=matchedFor(req);
-  let done=0,planned=0,ovDone=0,ovPlanned=0; const kept=[],overflowed=[]; const r1=n=>Math.round(n*10)/10;
-  if(!caps){ for(const e of courses){ if(isEarned(e)) done+=num(e.credits); else planned+=num(e.credits); } return {done:r1(done),planned:r1(planned),ovDone:0,ovPlanned:0,kept:courses,overflowed}; }
+  const r1=n=>Math.round(n*10)/10;
+  let done=0,cur=0,fut=0, ovDone=0,ovCur=0,ovFut=0; const kept=[],overflowed=[];
   const used={};
-  // earned courses fill the cap first, so completed credits are never bumped out by planned ones
-  const ordered=courses.slice().sort((a,b)=>(isEarned(b)?1:0)-(isEarned(a)?1:0));
-  for(const e of ordered){ const c=num(e.credits), cap=caps[e.code];
-    if(cap==null){ if(isEarned(e)) done+=c; else planned+=c; kept.push(e); continue; }
-    const u=used[e.code]||0, take=Math.max(0,Math.min(c,cap-u)), over=c-take; used[e.code]=u+take;
-    if(take>0){ if(isEarned(e)) done+=take; else planned+=take; kept.push(e); } else overflowed.push(e);
-    if(over>0){ if(isEarned(e)) ovDone+=over; else ovPlanned+=over; } }
-  return {done:r1(done),planned:r1(planned),ovDone:r1(ovDone),ovPlanned:r1(ovPlanned),kept,overflowed};
+  // fill order: earned first, then in-progress, then planned — so the realest work stays in the bucket
+  const rank={done:0,cur:1,fut:2};
+  const ordered=courses.slice().sort((a,b)=>rank[progState(a)]-rank[progState(b)]);
+  for(const e of ordered){ const c=num(e.credits), st=progState(e), cap=caps?caps[e.code]:null;
+    let contrib=c, over=0;
+    if(cap!=null){ const u=used[e.code]||0; contrib=Math.max(0,Math.min(c,cap-u)); over=c-contrib; used[e.code]=u+contrib; }
+    if(contrib>0){ if(st==="done")done+=contrib; else if(st==="cur")cur+=contrib; else fut+=contrib; kept.push(e); }
+    else if(cap!=null) overflowed.push(e);
+    if(over>0){ if(st==="done")ovDone+=over; else if(st==="cur")ovCur+=over; else ovFut+=over; } }
+  // bucket-level: absorb only up to `need`; the excess (planned first, then in-progress, then earned) overflows
+  if(bucketOverflow){ let excess=r1(done+cur+fut-needN);
+    if(excess>0){ const take=v=>{ const m=Math.min(v,excess); excess=r1(excess-m); return r1(m); };
+      const mf=take(fut); fut=r1(fut-mf); ovFut=r1(ovFut+mf);
+      const mc=take(cur); cur=r1(cur-mc); ovCur=r1(ovCur+mc);
+      const md=take(done); done=r1(done-md); ovDone=r1(ovDone+md); } }
+  return {done:r1(done),cur:r1(cur),fut:r1(fut),planned:r1(cur+fut),ovDone:r1(ovDone),ovCur:r1(ovCur),ovFut:r1(ovFut),kept,overflowed};
 }
-// Credits pushed out of a capped requirement surface here for the overflow target.
-function overflowInto(reqId){ let done=0,planned=0,courses=[];
-  for(const r of DB.requirements){ if(r.spec&&r.spec.overflowTo===reqId){ const cc=cappedCredits(r); done+=cc.ovDone; planned+=cc.ovPlanned; courses=courses.concat(cc.overflowed); } }
-  return {done:Math.round(done*10)/10,planned:Math.round(planned*10)/10,courses}; }
+// Credits pushed out of capped / over-filled requirements surface here for the overflow target.
+function overflowInto(reqId){ let done=0,cur=0,fut=0,courses=[]; const r1=n=>Math.round(n*10)/10;
+  for(const r of DB.requirements){ if(r.spec&&r.spec.overflowTo===reqId){ const cc=cappedCredits(r); done+=cc.ovDone; cur+=cc.ovCur; fut+=cc.ovFut; courses=courses.concat(cc.overflowed); } }
+  return {done:r1(done),cur:r1(cur),fut:r1(fut),courses}; }
 function reqProgress(req){
   const need=(req.spec&&req.spec.need)||{type:"courses",n:num(req.count_required||req.credits_required||1)};
-  if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,planned:0,need:1,met:done>=1,kind:"flag",courses:[]}; }
+  const r1=n=>Math.round(n*10)/10;
+  if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,cur:0,fut:0,planned:0,need:1,met:done>=1,kind:"flag",courses:[]}; }
   if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope;
-    let doneCr=0, progCr=0, courses=[];
+    let doneCr=0, curCr=0, futCr=0, courses=[];
     if(scope){ for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist") continue;
         const car=(termById(e.term_id)||{}).career||"undergrad";
         if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
-        if(isEarned(e)) doneCr+=num(e.credits); else progCr+=num(e.credits); } }
-    else { const cc=cappedCredits(req); doneCr=cc.done; progCr=cc.planned; courses=cc.kept;
-      const ov=overflowInto(req.id); doneCr=Math.round((doneCr+ov.done)*10)/10; progCr=Math.round((progCr+ov.planned)*10)/10; courses=courses.concat(ov.courses); }
+        const st=progState(e), cr=num(e.credits); if(st==="done")doneCr+=cr; else if(st==="cur")curCr+=cr; else futCr+=cr; } }
+    else { const cc=cappedCredits(req); doneCr=cc.done; curCr=cc.cur; futCr=cc.fut; courses=cc.kept;
+      const ov=overflowInto(req.id); doneCr=r1(doneCr+ov.done); curCr=r1(curCr+ov.cur); futCr=r1(futCr+ov.fut); courses=courses.concat(ov.courses); }
     const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     const N=(BAKER_VIEW==="standard"&&req.program_id==="baker-mps"&&req.spec&&req.spec.standard!=null)?req.spec.standard:need.n;
-    return {done:Math.round(doneCr*10)/10,planned:Math.round(progCr*10)/10,need:N,met:doneCr>=N,kind:"credits",courses,kids}; }
+    return {done:r1(doneCr),cur:r1(curCr),fut:r1(futCr),planned:r1(curCr+futCr),need:N,met:doneCr>=N,kind:"credits",courses,kids}; }
   if(need.type==="coverage"){ const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
-    const cov=kids.filter(k=>matchedFor(k).some(isEarned)).length;
-    const covPlan=kids.filter(k=>{const ms=matchedFor(k);return !ms.some(isEarned)&&ms.length>0;}).length;
-    return {done:cov,planned:covPlan,need:need.n,met:cov>=need.n,kind:"coverage",kids}; }
+    let cov=0,covCur=0,covFut=0;
+    for(const k of kids){ const ms=matchedFor(k); if(ms.some(isEarned)) cov++; else if(ms.some(e=>displayStatus(e)==="in_progress")) covCur++; else if(ms.length>0) covFut++; }
+    return {done:cov,cur:covCur,fut:covFut,planned:covCur+covFut,need:need.n,met:cov>=need.n,kind:"coverage",kids}; }
   const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
   const courses=matchedFor(req); const doneN=courses.filter(isEarned).length;
-  return {done:doneN,planned:courses.length-doneN,need:need.n,met:doneN>=need.n,kind:"courses",courses,kids};
+  const curN=courses.filter(e=>displayStatus(e)==="in_progress").length;
+  return {done:doneN,cur:curN,fut:courses.length-doneN-curN,planned:courses.length-doneN,need:need.n,met:doneN>=need.n,kind:"courses",courses,kids};
 }
 // progress is CREDIT-WEIGHTED: a 27.5-cr Core moves the ring far more than a 1.5-cr bucket
 const reqRatio=pr=>pr.need?Math.min(1,pr.done/pr.need):(pr.met?1:0);
@@ -1124,6 +1144,13 @@ const barFill=(pct,met)=>`<i class="fill ${met?'ok':'warn'}" style="width:${Math
 function bar2(donePct,plannedPct,met){ const d=Math.max(0,Math.min(100,donePct)); const p=Math.max(0,Math.min(100,plannedPct||0)-d);
   return `<i class="fill ${met?'ok':'warn'}" style="width:${d}%"></i>`+(p>0.5?`<i class="fill planned" style="width:${p}%"></i>`:""); }
 const pctPlan=pr=>pr.need?Math.round(100*Math.min(1,(pr.done+(pr.planned||0))/pr.need)):(pr.met?100:0);
+// three-tone requirement bar: earned (green) → in-progress (blue) → planned (amber), rest = empty track.
+// Segments stack and are clamped so the total never exceeds the bar; unfilled width = credits not yet planned.
+function bar3(pr){ const need=pr.need||0; const seg=v=> need?Math.max(0,Math.min(100,100*v/need)):(v>0?100:0);
+  let d=seg(pr.done), c=seg(pr.cur||0), f=seg(pr.fut||0);
+  d=Math.min(100,d); c=Math.min(100-d,c); f=Math.min(100-d-c,f);
+  const px=(cls,w)=> w>0.5?`<i class="fill ${cls}" style="width:${w}%"></i>`:"";
+  return px('ok',d)+px('plan',c)+px('warn',f); }
 
 /* ---- render ---- */
 function renderAll(){ renderRail(); renderDashboard(); renderRequirements(); renderPlanner(); renderTranscript(); renderAssignments(); renderSchedule(); showPage(CUR); }
@@ -1237,18 +1264,19 @@ function reqBlocks(prog){
     const r={req,...reqProgress(req)};
     let inner="";
     if(r.kind==="coverage"||(r.kids&&r.kids.length&&r.kind!=="credits")){
-      inner=r.kids.map(k=>{const kc=matchedFor(k);const met=kc.some(isEarned);const inprog=!met&&kc.length>0;
-        return `<div class="crow"><span class="cdot dot ${met?'ok':(inprog?'warn':'none')}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join("");
+      inner=r.kids.map(k=>{const kc=matchedFor(k);const met=kc.some(isEarned);const cur=!met&&kc.some(e=>displayStatus(e)==="in_progress");
+        return `<div class="crow"><span class="cdot dot ${met?'ok':(cur?'plan':(kc.length?'warn':'none'))}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join("");
       if(r.kind!=="coverage" && r.done<r.need) inner+=`<div class="crow"><span class="cdot dot none"></span><span class="grow muted">${nf(r.need-r.done)} more needed</span></div>`;
     } else if(r.kind==="flag"){
       inner=`<div class="crow"><span class="cdot dot ${r.met?'ok':'none'}"></span><span class="grow">${r.met?'Recorded as done':'Not recorded yet'}</span></div>`;
     } else if(r.kind==="credits"){
-      const planStr=(r.planned>0)?` <span class="muted">(+${nf(r.planned)} planned)</span>`:"";
-      const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits${planStr}</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex">${bar2(r.need?Math.min(100,100*r.done/r.need):0,pctPlan(r),r.met)}</span></div>`;
+      const pp=[]; if((r.cur||0)>0) pp.push(`${nf(r.cur)} in progress`); if((r.fut||0)>0) pp.push(`${nf(r.fut)} planned`);
+      const planStr=pp.length?` <span class="muted">(+${pp.join(", ")})</span>`:"";
+      const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits${planStr}</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex">${bar3(r)}</span></div>`;
       const note=(BAKER_VIEW==='plan'&&req.spec&&req.spec.note)?`<div class="crow waivernote"><span class="grow">${esc(req.spec.note)}</span></div>`:"";
       let detail=note;
       if(req.spec&&req.spec.groupByTerm && r.courses&&r.courses.length){ detail=coursesByTermHTML(r.courses); }
-      else if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);return `<div class="crow"><span class="cdot dot ${km?'ok':(kc.length?'warn':'none')}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
+      else if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);const kcur=!km&&kc.some(e=>displayStatus(e)==="in_progress");return `<div class="crow"><span class="cdot dot ${km?'ok':(kcur?'plan':(kc.length?'warn':'none'))}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
       else if(r.courses&&r.courses.length){ detail=r.courses.map(courseRowHTML).join(""); }
       inner=bar+detail;
     } else {
@@ -1257,11 +1285,11 @@ function reqBlocks(prog){
     }
     const pct=r.need?Math.min(100,100*r.done/r.need):(r.met?100:0);
     const openByDefault=REXP.has(r.req.id);
-    return `<div class="req ${openByDefault?'open':''}"><div class="bh" data-rt="${r.req.id}" role="button" tabindex="0" aria-label="Toggle ${esc(r.req.name)}">
+    return `<div class="req ${openByDefault?'open':''} ${r.met?'met':''}"><div class="bh" data-rt="${r.req.id}" role="button" tabindex="0" aria-label="Toggle ${esc(r.req.name)}">
       <span class="chev">›</span>
-      <span class="cdot dot ${r.met?'ok':((pct>0||(r.planned||0)>0)?'warn':'none')}"></span>
+      <span class="cdot dot ${r.met?'ok':(r.cur>0?'plan':((r.done>0||r.fut>0)?'warn':'none'))}"></span>
       <span class="nm">${esc(r.req.name)}</span>
-      <span class="mini">${bar2(pct,pctPlan(r),r.met)}</span>
+      <span class="mini">${bar3(r)}</span>
       <span class="cr ${r.met?'c-ok':''}">${r.kind==='flag'?(r.met?'✓':'—'):nf(r.done)+'/'+nf(r.need)}</span>
       <button class="edit" data-editreq="${r.req.id}">edit</button></div>
       <div class="body">${inner}</div></div>`;
