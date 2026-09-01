@@ -1370,8 +1370,28 @@ function wireRcheckActions(){
 /* ---- schedule (weekly grid) ---- */
 const SDAYS=["M","T","W","R","F"];
 const SDAY_LABEL={M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri"};
-const SCHED_COLORS=["#2F5FA6","#C0562B","#1C8074","#B23A5B","#3B7D4F","#6A4A8C","#2C8FB0","#C24E7D","#7D3A52","#4C5CA8"];
-let SCHED_CIDX={};  // per-render map: distinct color per course so a schedule never repeats a color (until >10 courses)
+// Vibrant, widely hue-spaced palette — white text sits on every one. Index 11 is a desaturated
+// blue-grey that harmonises with the blues but reads as neutral, reserved for TA/no-credit roles
+// that should recede. Specific courses are pinned below.
+const SCHED_COLORS=["#1971C2","#E8590C","#099268","#C2255C","#2B8A3E","#7048E8","#1098AD","#E03131","#9C36B5","#4263EB","#A0522D","#64748B"];
+// Course-code → palette-index pins (user-chosen): REAL 6595 = ocean blue; REAL 6640 (Management
+// Communication) = bright red; the half-term pair REAL 5560 / 5561 = violet + grape (visibly paired);
+// HADM 6205 = the muted grey (a TA post — it should fade back, not compete); REAL 6901 = royal blue;
+// ASIAN 4377 = raspberry; GOVT 1109 = green.
+const COURSE_PIN={REAL6595:0, REAL6640:7, ASIAN4377:3, REAL5560:5, REAL5561:8, HADM6205:11, REAL6901:9, GOVT1109:4};
+const pinKey=code=>String(code||"").toUpperCase().replace(/\s+/g,"");
+// Distinct colour per course: pinned courses take their pin; everyone else fills the remaining
+// (unpinned) colours in order, so no auto-assigned course ever collides with a pin.
+function assignCourseColors(list){
+  const map={}, pinned=new Set();
+  list.forEach(e=>{ const p=COURSE_PIN[pinKey(e.code)]; if(p!=null) pinned.add(p); });
+  const avail=SCHED_COLORS.map((_,i)=>i).filter(i=>!pinned.has(i)); let ai=0;
+  list.forEach(e=>{ const k=e.code||('#'+e.id); if(map[k]!=null) return;
+    const p=COURSE_PIN[pinKey(e.code)];
+    map[k]=(p!=null)?p:(avail.length?avail[ai++%avail.length]:(ai++%SCHED_COLORS.length)); });
+  return map;
+}
+let SCHED_CIDX={};  // per-render map (from assignCourseColors): distinct colour per course
 const hm2min=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||""));return m?(+m[1])*60+(+m[2]):null;};
 function min2label(t){let h=Math.floor(t/60),m=t%60;const ap=h>=12?"pm":"am";h=h%12||12;return m?`${h}:${String(m).padStart(2,"0")}${ap}`:`${h}${ap}`;}
 function courseColorIdx(code){let h=0;const s=String(code||"");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%SCHED_COLORS.length;}
@@ -1492,6 +1512,7 @@ function composeAssignment(a){ a=a||{}; const ov=(a.override_title||"").trim(); 
 // ---- assignment data helpers ----
 // Palette color for a course: prefer the schedule's per-term index (set in renderSchedule), else a stable hash.
 function courseColor(en){ if(!en) return SCHED_COLORS[0]; const k=en.code||('#'+en.id);
+  const pin=COURSE_PIN[pinKey(en.code)]; if(pin!=null) return SCHED_COLORS[pin];
   const i=(typeof SCHED_CIDX!=='undefined'&&SCHED_CIDX&&SCHED_CIDX[k]!=null)?SCHED_CIDX[k]:courseColorIdx(en.code); return SCHED_COLORS[i]; }
 // due_on comes back from Postgres as an ISO timestamp; slice to the plain YYYY-MM-DD (no TZ shift).
 function asgDate(a){ return String(a&&a.due_on||"").slice(0,10); }
@@ -1690,7 +1711,7 @@ function renderSchedule(){
   const dateOf=d=>{ const i=SDAYS.indexOf(d); return new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+i); };
   const es=DB.enrollments.filter(e=>e.term_id===SCHED_TERM&&displayStatus(e)!=="wishlist");
   // assign a distinct palette color to each course in this term (no repeats until >10 courses)
-  SCHED_CIDX={}; let _ci=0; es.forEach(e=>{ const k=e.code||('#'+e.id); if(SCHED_CIDX[k]==null){ SCHED_CIDX[k]=_ci%SCHED_COLORS.length; _ci++; } });
+  SCHED_CIDX=assignCourseColors(es);
   const cidxOf=e=>{ const k=e.code||('#'+e.id); return SCHED_CIDX[k]!=null?SCHED_CIDX[k]:courseColorIdx(e.code); };
   // today's column shows only when the visible week is the real current week and today is in-term
   const inTermNow=ac.ts&&ac.te&&todayD>=ac.ts&&todayD<=ac.te;
@@ -1957,9 +1978,7 @@ function acalTime(raw){
 function agFocusTerm(){ const c=currentTerm(); if(c) return c; const t=today();
   return (DB.terms||[]).filter(x=>x.ends_on&&x.ends_on>=t).sort((a,b)=>String(a.starts_on).localeCompare(String(b.starts_on)))[0]||null; }
 // Per-term color map matching renderSchedule's algorithm exactly (sequential, code-keyed, DB order).
-function agColorMap(termId){ const m={}; let ci=0;
-  (DB.enrollments||[]).filter(e=>e.term_id===termId&&displayStatus(e)!=="wishlist").forEach(e=>{ const k=e.code||('#'+e.id); if(m[k]==null){ m[k]=ci%SCHED_COLORS.length; ci++; } });
-  return m; }
+function agColorMap(termId){ return assignCourseColors((DB.enrollments||[]).filter(e=>e.term_id===termId&&displayStatus(e)!=="wishlist")); }
 function agFmtSec(iso,tstr){ const p=iso.split("-"); const d=new Date(+p[0],+p[1]-1,+p[2]);
   const dow=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"][d.getDay()];
   const md=`${ACAL_MONTHS[+p[1]-1]} ${+p[2]}`;
