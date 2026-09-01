@@ -1624,7 +1624,7 @@ function openAsgEditor(eid, a){ const cur=a||{kind:'homework'};
       <label class="asg-f"><span>Due</span><input id="af_date" type="date" value="${asgDate(cur)}"></label>
       <label class="asg-f"><span>Time <small>optional</small></span><input id="af_time" type="time" value="${String(cur.due_time||'').slice(0,5)}"></label>
     </div>
-    <label class="asg-f asg-dur${KIND_TIMED(cur.kind||'homework')?'':' hide'}" id="af_durwrap"><span>Duration <small>min</small></span><input id="af_dur" type="number" min="0" step="5" value="${cur.duration_min??''}"></label>
+    <label class="asg-f asg-dur${KIND_TIMED(cur.kind||'homework')?'':' hide'}" id="af_durwrap"><span>Duration <small>min</small></span><input id="af_dur" type="number" min="0" step="any" inputmode="decimal" value="${cur.duration_min??''}"></label>
     <button type="button" class="asg-atclass" id="af_atclass">Due at class time</button>
     <label class="asg-toggle"><input type="checkbox" id="af_workby_on"${wbOn?' checked':''}> Work by an earlier target</label>
     <div class="asg-f2${wbOn?'':' hide'}" id="af_workby_wrap">
@@ -1659,7 +1659,7 @@ function readAsgForm(){ const kind=$("#af_kind").value; const ovOn=$("#af_overri
   return { kind, series:($("#af_series").value||"").trim(), number:($("#af_number").value||"")===""?null:parseInt($("#af_number").value,10),
     descriptor:($("#af_descriptor").value||"").trim(), override_title:ovOn?($("#af_override").value||"").trim():"",
     due_on:$("#af_date").value||null, due_time:$("#af_time").value||null,
-    duration_min:(KIND_TIMED(kind)&&$("#af_dur").value!=="")?parseInt($("#af_dur").value,10):null,
+    duration_min:(KIND_TIMED(kind)&&$("#af_dur").value!==""&&isFinite(parseFloat($("#af_dur").value)))?parseFloat($("#af_dur").value):null,
     target_on:td||null, target_time:(td && $("#af_target_time").value)?$("#af_target_time").value:null }; }
 async function submitAsg(eid, a){ const f=readAsgForm(); if(!f.due_on){ toast("Pick a date"); return; }
   const row={ enrollment_id:a?a.enrollment_id:eid, kind:f.kind, series:f.series||null, number:f.number, descriptor:f.descriptor||null,
