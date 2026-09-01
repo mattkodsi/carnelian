@@ -386,16 +386,11 @@
   .now-line{position:absolute;height:0;border-top:1.5px solid var(--accent);z-index:6;pointer-events:none}
   .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
   .now-time{position:absolute;transform:translate(-100%,-50%);margin-left:-3px;font-size:9px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:1px 4px;z-index:7;pointer-events:none;line-height:1.2;white-space:nowrap}
-  /* TA / audit flag: plain bold text in the bottom-right corner, in the block's title colour. */
-  .ev[data-role]::before{content:attr(data-role);position:absolute;bottom:1px;right:4px;z-index:2;font-size:8px;font-weight:800;letter-spacing:.03em;line-height:1;color:var(--ev-title);pointer-events:none}
-  .ev[data-role] .loc{padding:0 26px}
-  /* Half-term flag: small H1/H2 in the top-right corner (opposite the TA/audit tag). The code line
-     reserves room for it so nothing is cropped. */
-  .ev[data-half]::after{content:attr(data-half);position:absolute;top:1px;right:3px;z-index:2;font-size:8px;font-weight:800;letter-spacing:.02em;line-height:1;color:var(--ev-ink2);pointer-events:none}
-  .ev[data-half] .c{padding-right:17px}
-  /* Conflict/narrow columns are too small to fit a corner tag without cropping the code — drop it there. */
-  .ev.narrow[data-half]::after{display:none}
-  .ev.narrow[data-half] .c{padding-right:0}
+  /* Half-term (H1/H2) and TA/Audit flags share one line in the bottom-right corner, kept out of the
+     text flow so the code never wraps or clips. Hidden on narrow/conflict columns with no room. */
+  .ev-tags{position:absolute;bottom:1px;right:4px;z-index:2;font-size:8px;font-weight:800;letter-spacing:.02em;line-height:1;color:var(--ev-title);pointer-events:none;white-space:nowrap}
+  .ev[data-tags] .loc{padding:0 34px}
+  .ev.narrow .ev-tags{display:none}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
@@ -460,6 +455,9 @@
   #acDayBody{display:flex;flex-direction:column;gap:8px}
   .acd-item{padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
   .acd-item.noclass{border-color:var(--accent-line);background:var(--accent-soft)}
+  .acd-item.asg{border-left-width:3px;border-left-style:solid}
+  .acd-item.asg.done{opacity:.6}
+  .acd-code{font-weight:800}
   .acd-t{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
   .acd-no{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle}
   .acd-meta{font-size:12px;font-weight:600;color:var(--ink-3);margin-top:4px}
@@ -597,6 +595,11 @@
     .ev .loc{display:block;font-size:8px;letter-spacing:-.01em;margin-top:1px}
     .ev.narrow .c{white-space:normal;line-height:1.05;font-size:9px}
     .ev.narrow .et,.ev.narrow .loc{display:none}
+    /* Short blocks (≤55 min): shrink + tighten the code and time so the full code (wrapped) and the
+       time both fit the reduced height without clipping, and drop the corner tag (no room for it). */
+    .ev.short:not(.narrow) .c{font-size:9px;line-height:1}
+    .ev.short:not(.narrow) .et{font-size:8.5px;line-height:1;margin-top:1px}
+    .ev.short .ev-tags{display:none}
     .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
   /* schedule toolbar + google-calendar modal */
@@ -1551,7 +1554,7 @@ function openAcadDay(day){
   let html=(day.events||[]).map(o=>{ const tm=acalTime(o.time);
     return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalFull(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
   }).join("");
-  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${a.done?' done':''}" data-asgcourse="${a.enrollment_id}"><div class="acd-t"><span class="asg-dot" style="background:${r.color}"></span>${esc(r.code)} · ${esc(asgTitle(a))}${a.done?' <span class="acd-no">done</span>':''}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div>`; }).join("");
+  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${a.done?' done':''}" data-asgcourse="${a.enrollment_id}" style="border-left-color:${r.color}"><div class="acd-t"><span class="acd-code" style="color:${r.color}">${esc(r.code)}</span> ${esc(asgTitle(a))}${a.done?' <span class="acd-no">done</span>':''}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div>`; }).join("");
   b.innerHTML=html;
   b.querySelectorAll("[data-asgcourse]").forEach(el=>el.onclick=()=>{ closeModal($("#acDayModal")); openCourseAssignments(el.dataset.asgcourse); });
   openModal($("#acDayModal"));
@@ -1756,13 +1759,15 @@ function renderSchedule(){
       // A half-term meeting gets a small H1/H2 corner tag (top-right, opposite the TA/Audit tag) so
       // it's clear at a glance which 7-week half it runs. The section (LEC 001) is still dropped from
       // the block to cut clutter — it lives in the course editor.
-      const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow");
+      const cls=["ev"]; if(ev.hard)cls.push("conflict"); if(ev.ncols>1)cls.push("narrow"); if(dur<=55)cls.push("short");
       const _r=roleOf(ev.e), roleWord=_r==='audit'?'AUDIT':(_r==='ta_paid'||_r==='ta_credit')?'TA':'';
       const _p=partOf(ev.m), halfLbl=_p==='1'?'H1':_p==='2'?'H2':'';
-      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}"${roleWord?` data-role="${roleWord}"`:''}${halfLbl?` data-half="${halfLbl}"`:''} style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
+      const tags=[halfLbl,roleWord].filter(Boolean);
+      return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}"${tags.length?' data-tags':''} style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
         <div class="c">${esc(ev.e.code||'—')}</div>
         <div class="et">${esc(timeLbl)}</div>
         ${showLoc&&ev.m.location?`<div class="loc">${esc(ev.m.location)}</div>`:''}
+        ${tags.length?`<div class="ev-tags">${esc(tags.join(' · '))}</div>`:''}
       </div>`;
     }).join("");
     const ablocks=(asgBlocksByDay[d]||[]).map(b=>{ const a=b.a;
@@ -1791,7 +1796,7 @@ function renderSchedule(){
     const items=[...evs.map(o=>({ac:true,o})), ...asgs.map(r=>({ac:false,r}))];
     let chips=items.slice(0,2).map(it=> it.ac
       ? `<div class="adchip${it.o.noclass?' noclass':''}">${esc(acalShort(it.o.title))}</div>`
-      : `<div class="adchip asg${it.r.a.done?' done':''}" style="border-left-color:${it.r.color}"><span class="adchip-body"><span class="adchip-t">${esc(asgTitle(it.r.a))}</span>${it.r.time?`<span class="adchip-tm">${esc(asgTimeShort(it.r.time))}</span>`:''}</span></div>`).join("");
+      : `<div class="adchip asg${it.r.a.done?' done':''}" style="border-left-color:${it.r.color};background:color-mix(in srgb,${it.r.color} 10%,var(--surface))"><span class="adchip-body"><span class="adchip-t">${esc(asgTitle(it.r.a))}</span>${it.r.time?`<span class="adchip-tm">${esc(asgTimeShort(it.r.time))}</span>`:''}</span></div>`).join("");
     if(items.length>2) chips+=`<div class="adchip more">+${items.length-2} more</div>`;
     return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}${items.length?' has-ev':''}" data-adcol="${di}">${chips}</div>`; }).join("");
   const hasAd=adDays.some(x=>x.events.length||x.asgs.length);
@@ -3080,12 +3085,12 @@ function buildSchedCanvas(termId, weekMon){
     x.fillStyle=ec.title; x.font='800 12px -apple-system,system-ui,sans-serif'; x.fillText(ev.e.code||'—', tx, by+5);
     if(bh>=30){ x.fillStyle=ec.meta; x.font='700 10px -apple-system,system-ui,sans-serif'; x.fillText(min2label(ev.s)+' – '+min2label(ev.en), tx, by+21); }
     if(bh>=46 && ev.m.location){ x.fillStyle=ec.loc; x.font='600 10px -apple-system,system-ui,sans-serif'; x.fillText(ev.m.location, tx, by+34); }
-    // TA / audit corner tag (bottom-right), matching the on-screen block
+    // Half-term (H1/H2) + TA/Audit tags share one bottom-right line, matching the on-screen block
+    // (skipped on narrow/conflict columns with no room).
     const _cr=roleOf(ev.e), rtag=_cr==='audit'?'AUDIT':(_cr==='ta_paid'||_cr==='ta_credit')?'TA':'';
-    if(rtag){ x.textAlign='right'; x.textBaseline='alphabetic'; x.fillStyle=ec.title; x.font='800 9px -apple-system,system-ui,sans-serif'; x.fillText(rtag, bx+W2-6, by+bh-6); }
-    // Half-term tag (top-right), matching the on-screen block — skipped on narrow/conflict columns
-    const _hp=partOf(ev.m), htag=(ev.ncols===1)?(_hp==='1'?'H1':_hp==='2'?'H2':''):'';
-    if(htag){ x.textAlign='right'; x.textBaseline='top'; x.fillStyle=ec.meta; x.font='800 9px -apple-system,system-ui,sans-serif'; x.fillText(htag, bx+W2-5, by+5); }
+    const _hp=partOf(ev.m), htag=_hp==='1'?'H1':_hp==='2'?'H2':'';
+    const tagStr=(ev.ncols===1)?[htag,rtag].filter(Boolean).join(' · '):'';
+    if(tagStr){ x.textAlign='right'; x.textBaseline='alphabetic'; x.fillStyle=ec.title; x.font='800 9px -apple-system,system-ui,sans-serif'; x.fillText(tagStr, bx+W2-6, by+bh-6); }
     x.restore();
   }});
   // timed assignment blocks (exam/quiz): dashed "assessment" boxes over the class grid
