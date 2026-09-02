@@ -1094,7 +1094,16 @@ function reqProgress(req){
       const ov=overflowInto(req.id); doneCr=r1(doneCr+ov.done); curCr=r1(curCr+ov.cur); futCr=r1(futCr+ov.fut); courses=courses.concat(ov.courses); splits=ov.splits; }
     const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     const N=(BAKER_VIEW==="standard"&&req.program_id==="baker-mps"&&req.spec&&req.spec.standard!=null)?req.spec.standard:need.n;
-    return {done:r1(doneCr),cur:r1(curCr),fut:r1(futCr),planned:r1(curCr+futCr),need:N,met:doneCr>=N,kind:"credits",courses,kids,contrib,splits}; }
+    // Coupled requirement: a credit floor that's only meaningful alongside another (the 120-credit total
+    // is real only with the ≥100-in-A&S floor). spec.alsoRequire lists requirement ids that must ALSO be
+    // met. When this bucket's own credits already clear N but a gate isn't met, it's `gatedOnly` — not
+    // complete, and the actionable shortfall lives in the gate requirement, not here (so we don't print
+    // a negative "credits left").
+    let met=doneCr>=N, gatedOnly=false, gateNote="";
+    const gate=(req.spec&&req.spec.alsoRequire)||null;
+    if(gate&&gate.length){ for(const gid of gate){ if(gid===req.id) continue; const g=DB.requirements.find(x=>x.id===gid); if(!g) continue;
+        const gp=reqProgress(g); if(!gp.met){ met=false; if(doneCr>=N){ gatedOnly=true; const gl=(g.spec&&g.spec.short)||g.name; gateNote=`${nf(r1((gp.need||0)-gp.done))} more ${gl} needed`; } } } }
+    return {done:r1(doneCr),cur:r1(curCr),fut:r1(futCr),planned:r1(curCr+futCr),need:N,met,gatedOnly,gateNote,kind:"credits",courses,kids,contrib,splits}; }
   if(need.type==="coverage"){ const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     let cov=0,covCur=0,covFut=0;
     for(const k of kids){ const ms=matchedFor(k); if(ms.some(isEarned)) cov++; else if(ms.some(e=>displayStatus(e)==="in_progress")) covCur++; else if(ms.length>0) covFut++; }
@@ -1131,6 +1140,7 @@ function outstanding(){ // every unmet leaf requirement across all programs
   for(const p of DB.programs){
     const tops=DB.requirements.filter(r=>r.program_id===p.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort);
     for(const r of tops){ const pr=reqProgress(r); if(pr.met) continue;
+      if(pr.gatedOnly) continue; // coupled gate (e.g. A&S credits) carries the actionable shortfall — don't double-list
       let amt="", detail="";
       if(pr.kind==="credits"){ amt=nf(pr.need-pr.done)+" cr"; }
       else if(pr.kind==="coverage"){ amt=(pr.need-pr.done)+" left"; detail=(pr.kids||[]).filter(k=>matchedFor(k).length===0).map(k=>k.name).join(", "); }
@@ -1290,7 +1300,9 @@ function reqBlocks(prog){
       else if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);const kcur=!km&&kc.some(e=>displayStatus(e)==="in_progress");return `<div class="crow"><span class="cdot dot ${km?'ok':(kcur?'plan':(kc.length?'warn':'none'))}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
       else if(r.courses&&r.courses.length){ detail=r.courses.map(e=>courseRowHTML(e, r.contrib&&r.contrib.get(String(e.id)))).join(""); }
       if(r.splits&&r.splits.length) detail+=r.splits.map(splitRowHTML).join("");   // partial overflows spilled in from other buckets
-      inner=bar+detail;
+      // Coupled-floor gate: own credits clear the bar but a partner floor (e.g. ≥100 in A&S) isn't met yet.
+      const gnote=r.gatedOnly?`<div class="crow"><span class="cdot dot warn"></span><span class="grow muted">${esc(r.gateNote)}</span></div>`:"";
+      inner=bar+gnote+detail;
     } else {
       const list=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="pill ${STATUS_CLASS[displayStatus(e)]}">${STATUS_LABEL[displayStatus(e)]}</span></div>`).join("");
       inner=list+(r.done<r.need?`<div class="crow"><span class="cdot dot none"></span><span class="grow muted">${nf(r.need-r.done)} more needed</span></div>`:"");
