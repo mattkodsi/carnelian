@@ -388,10 +388,11 @@
   .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
   .now-time{position:absolute;transform:translate(-100%,-50%);margin-left:-3px;font-size:9px;font-weight:700;color:var(--accent);background:var(--surface);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent);border-radius:4px;padding:1px 4px;z-index:7;pointer-events:none;line-height:1.2;white-space:nowrap}
   /* Half-term (H1/H2) and TA/Audit flags share one line in the bottom-right corner, kept out of the
-     text flow so the code never wraps or clips. Hidden on narrow/conflict columns with no room. */
+     text flow so the code never wraps or clips. On narrow (shared-slot) columns they shrink rather than
+     vanish — a stacked TA/H1 course still needs to advertise what it is. */
   .ev-tags{position:absolute;bottom:1px;right:4px;z-index:2;font-size:8px;font-weight:800;letter-spacing:.02em;line-height:1;color:var(--ev-title);pointer-events:none;white-space:nowrap}
   .ev[data-tags] .loc{padding:0 34px}
-  .ev.narrow .ev-tags{display:none}
+  .ev.narrow .ev-tags{right:2px;font-size:7px;letter-spacing:-.01em}
   .sched-unsched{padding:12px 15px;border-top:1px solid var(--line)}
   .sched-unsched .h{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin-bottom:8px}
   .uchip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:700;background:var(--surface-2);cursor:pointer;margin:0 7px 7px 0}
@@ -413,12 +414,23 @@
   .sched-allday .ad-col.today{background:color-mix(in srgb,var(--accent) 8%,transparent)}
   .sched-allday .ad-col.has-ev{cursor:pointer}
   .sched-allday .ad-col.has-ev:hover{background:color-mix(in srgb,var(--ink) 5%,transparent)}
-  .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;pointer-events:none}
+  /* Touch has no real pointer, so :hover sticks after a tap — a cell/row/option the finger brushed stays
+     color-graded until you tap elsewhere. Each control below rests transparent (or unfiltered), so undo the
+     hover tint where hover isn't a real capability; the resting look returns the instant the finger lifts. */
+  @media (hover: none){
+    .ev:hover, .sched-asg:hover{filter:none}
+    .sched-allday .ad-col.has-ev:hover,
+    .drow:hover, .titem:hover, .req .bh:hover, .pterm .ph:hover, .req .edit:hover,
+    .satopt:hover:not(.auto), .dd-opt:hover:not(.on), .result:hover:not(.rhead){background:transparent}
+    .navitem:hover:not(.on){background:transparent;color:var(--ink-2)}
+    .stat.tap:hover{border-color:var(--line)}
+  }
+  .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;max-width:100%;pointer-events:none;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:break-word}
   .adchip.noclass{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:800}
   .adchip.more{color:var(--ink-3);background:transparent;border-style:dashed;font-weight:800}
-  .adchip.asg{color:var(--ink);background:var(--surface);border-color:var(--line-strong);border-left-width:3px;border-left-style:solid;padding-left:5px;white-space:normal}
+  .adchip.asg{color:var(--ink);background:var(--surface);border-color:var(--line-strong);border-left-width:3px;border-left-style:solid;padding-left:3px;white-space:normal;display:block}
   .adchip.asg .adchip-body{display:flex;flex-direction:column;min-width:0;line-height:1.25}
-  .adchip.asg .adchip-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+  .adchip.asg .adchip-t{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;white-space:normal;overflow-wrap:break-word;min-width:0;font-size:8.5px}
   .adchip.asg .adchip-tm{font-size:9px;font-weight:800;color:var(--ink-3);margin-top:1px}
   .adchip.asg.done{opacity:.5;text-decoration:line-through}
   /* Assignments agenda (Academic tab) */
@@ -594,13 +606,15 @@
     .ev .c{font-size:10px;letter-spacing:-.02em;white-space:normal;line-height:1.1}
     .ev .et{font-size:9px;letter-spacing:-.04em;white-space:normal;line-height:1.05;margin-top:1px}
     .ev .loc{display:block;font-size:8px;letter-spacing:-.01em;margin-top:1px}
-    .ev.narrow .c{white-space:normal;line-height:1.05;font-size:9px}
+    .ev.narrow{padding-left:2px;padding-right:1px}
+    .ev.narrow .c{white-space:normal;line-height:1.05;font-size:8.5px;letter-spacing:-.03em}
     .ev.narrow .et,.ev.narrow .loc{display:none}
     /* Short blocks (≤55 min): shrink + tighten the code and time so the full code (wrapped) and the
        time both fit the reduced height without clipping, and drop the corner tag (no room for it). */
     .ev.short:not(.narrow) .c{font-size:9px;line-height:1}
     .ev.short:not(.narrow) .et{font-size:8.5px;line-height:1;margin-top:1px}
-    .ev.short .ev-tags{display:none}
+    /* Only full-width short blocks drop the tag (truly no room); a stacked (narrow) block keeps it. */
+    .ev.short:not(.narrow) .ev-tags{display:none}
     .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
   /* schedule toolbar + google-calendar modal */
