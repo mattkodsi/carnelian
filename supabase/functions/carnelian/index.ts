@@ -214,17 +214,54 @@ async function ensureCalendar(access: string) {
 // ---- event building (recurrence, half-term windows) ----
 const DOW: Record<string, number> = { M: 1, T: 2, W: 3, R: 4, F: 5, S: 6, U: 0 };
 const BYDAY: Record<string, string> = { M: "MO", T: "TU", W: "WE", R: "TH", F: "FR", S: "SA", U: "SU" };
-// App schedule palette → nearest Google Calendar event colorId (by hue) so
-// events are colour-matched to the app's weekly grid.
-const SCHED_COLORS = ["#2F5FA6", "#C0562B", "#1C8074", "#B23A5B", "#3B7D4F", "#6A4A8C", "#2C8FB0", "#C24E7D", "#7D3A52", "#4C5CA8"];
-const GCOLORS: Record<string, string> = { "1": "#a4bdfc", "2": "#7ae7bf", "3": "#dbadff", "4": "#ff887c", "5": "#fbd75b", "6": "#ffb878", "7": "#46d6db", "9": "#5484ed", "10": "#51b749", "11": "#dc2127" };
+// App schedule palette (MUST match index.html SCHED_COLORS) → nearest Google Calendar event colorId
+// (by hue) so Google events are colour-matched to the app's weekly grid. Index 11 is the desaturated
+// blue-grey used for TA/no-credit roles → routed to Graphite. Specific courses are pinned (COURSE_PIN,
+// mirroring the app) so HADM 6205 shows grey, Management Communication shows red, etc. on Google too.
+const SCHED_COLORS = ["#1971C2", "#E8590C", "#099268", "#C2255C", "#2B8A3E", "#7048E8", "#1098AD", "#E03131", "#9C36B5", "#4263EB", "#A0522D", "#64748B"];
+const COURSE_PIN: Record<string, number> = { REAL6595: 0, REAL6640: 7, ASIAN4377: 3, REAL5560: 5, REAL5561: 8, HADM6205: 11, REAL6901: 9, GOVT1109: 4 };
+const pinKey = (code: string) => String(code || "").toUpperCase().replace(/\s+/g, "");
+// Distinct colour per course, identical algorithm to the app: pinned courses take their pin; everyone
+// else fills the remaining (unpinned) palette slots in order — so no auto-assigned course hits a pin.
+function assignCourseColors(list: { id: number; code?: string }[]): Record<string, number> {
+  const map: Record<string, number> = {}; const pinned = new Set<number>();
+  for (const e of list) { const p = COURSE_PIN[pinKey(e.code || "")]; if (p != null) pinned.add(p); }
+  const avail = SCHED_COLORS.map((_, i) => i).filter((i) => !pinned.has(i)); let ai = 0;
+  for (const e of list) { const k = e.code || ("#" + e.id); if (map[k] != null) continue;
+    const p = COURSE_PIN[pinKey(e.code || "")];
+    map[k] = (p != null) ? p : (avail.length ? avail[ai++ % avail.length] : (ai++ % SCHED_COLORS.length)); }
+  return map;
+}
+// Google's fixed event-colour palette (API hex). "9" Blueberry is deliberately OMITTED — the user
+// reserves that bright blue (#5484ed) for manually-entered events, so Carnelian never assigns it.
+const GCOLORS: Record<string, string> = { "1": "#a4bdfc", "2": "#7ae7bf", "3": "#dbadff", "4": "#ff887c", "5": "#fbd75b", "6": "#ffb878", "7": "#46d6db", "10": "#51b749", "11": "#dc2127" };
 function hexRgb(h: string) { h = h.replace("#", ""); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
 function hueOf(hex: string) { const [r, g, b] = hexRgb(hex).map((v) => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (d === 0) return -1; let h; if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; return h < 0 ? h + 360 : h; }
-function colorIdForIndex(i: number) {
-  const H = hueOf(SCHED_COLORS[i % SCHED_COLORS.length]); if (H < 0) return "8";
-  let best = "9", bd = 1e9;
+function satOf(hex: string) { const [r, g, b] = hexRgb(hex).map((v) => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn; if (d === 0) return 0; return d / (1 - Math.abs(2 * l - 1)); }
+// Nearest Google colourId for an app palette hex. Desaturated (grey) → Graphite "8"; else nearest hue
+// among GCOLORS (Blueberry "9" excluded, reserved for the user's manual events).
+function colorIdForHex(hex: string) {
+  if (satOf(hex) < 0.18) return "8";
+  const H = hueOf(hex); if (H < 0) return "8";
+  let best = "1", bd = 1e9;
   for (const id in GCOLORS) { const gh = hueOf(GCOLORS[id]); if (gh < 0) continue; let dd = Math.abs(H - gh); if (dd > 180) dd = 360 - dd; if (dd < bd) { bd = dd; best = id; } }
   return best;
+}
+const colorIdForIndex = (i: number) => colorIdForHex(SCHED_COLORS[i % SCHED_COLORS.length]);
+// Per-term course → Google colourId, matching the app's assignCourseColors exactly, so a course's
+// classes and its deadlines share one colour. Built from all non-wishlist enrollments in current/
+// upcoming terms; returns enrollment_id → colourId.
+async function courseColorIds(): Promise<Map<number, string>> {
+  const rows = await sql`select e.id, e.code, e.term_id from carnelian.enrollments e
+    left join carnelian.terms t on t.id = e.term_id
+    where coalesce(e.status, '') <> 'wishlist' and (t.ends_on is null or t.ends_on >= current_date)
+    order by e.term_id, e.id`;
+  const byTerm = new Map<string, any[]>();
+  for (const e of rows as any[]) { const k = e.term_id || "_"; if (!byTerm.has(k)) byTerm.set(k, []); byTerm.get(k)!.push(e); }
+  const out = new Map<number, string>();
+  for (const [, list] of byTerm) { const idx = assignCourseColors(list);
+    for (const e of list) { const key = e.code || ("#" + e.id); out.set(e.id, colorIdForIndex(idx[key])); } }
+  return out;
 }
 const p2 = (n: number) => String(n).padStart(2, "0");
 const hm = (s: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(s || ""); return m ? (+m[1]) * 60 + (+m[2]) : -1; };
@@ -309,17 +346,11 @@ async function syncAll(access: string, calId: string) {
     taCache.set(key, ta);
     return ta;
   };
-  const tcol = new Map<string, { map: Map<string, number>; n: number }>();
-  const colorIndexFor = (e: any) => {
-    const t = e.term_id || "_"; if (!tcol.has(t)) tcol.set(t, { map: new Map(), n: 0 });
-    const g = tcol.get(t)!; const k = e.code || ("#" + e.id);
-    if (!g.map.has(k)) { g.map.set(k, g.n % SCHED_COLORS.length); g.n++; }
-    return g.map.get(k)!;
-  };
+  const colorIds = await courseColorIds();
   const desired = new Map<string, { enrId: number; mkey: string; body: any; sig: string }>();
   let skipped = 0;
   for (const e of rows as any[]) {
-    const colorId = colorIdForIndex(colorIndexFor(e));
+    const colorId = colorIds.get(e.id) || "8";
     const meetings = Array.isArray(e.meetings) ? e.meetings : [];
     const ta = taFor(e);
     meetings.forEach((m: any, i: number) => {
@@ -403,6 +434,108 @@ async function syncAcademic(access: string, calId: string) {
     if (desired.has(akey)) continue;
     try { await gapi(access, "DELETE", ev(r.event_id)); } catch { /* ignore */ }
     await sql`delete from carnelian.gcal_academic where akey = ${akey}`;
+    deleted++;
+  }
+  return { created, updated, deleted };
+}
+
+// Third Google calendar: per-class assignment deadlines. The user's rule — a deadline with a TIME
+// becomes a timed event on the grid; one with NO time stays an all-day event at the top. Placement
+// mirrors the app's Schedule: exams/quizzes are timed blocks at the real due date/time spanning
+// duration_min (busy); every other deadline uses the work-by target (target_on/target_time, falling
+// back to the real deadline) as a short marker ENDING at that time (free, so it never marks you busy
+// and an 11:59pm deadline stays on its own day), or an all-day event when it carries no time.
+const KIND_TIMED_SET = new Set(["exam", "quiz"]);
+const DEADLINE_MARKER_MIN = 30;
+function fmt12(t: string) { const m = /^(\d{1,2}):(\d{2})/.exec(t || ""); if (!m) return t || ""; let h = +m[1]; const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12; return `${h}:${m[2]} ${ap}`; }
+// Shift a wall-clock time (hh:mm on YYYY-MM-DD) by delta minutes, rolling the date across midnight.
+function shiftClock(dstr: string, hh: number, mm: number, delta: number) {
+  // round to whole minutes: durations can be fractional (e.g. a 112.5-min exam), and Google needs HH:MM
+  const d = pdate(dstr)!; let total = Math.round(hh * 60 + mm + delta); const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  while (total < 0) { total += 1440; day.setDate(day.getDate() - 1); }
+  while (total >= 1440) { total -= 1440; day.setDate(day.getDate() + 1); }
+  return { date: `${day.getFullYear()}-${p2(day.getMonth() + 1)}-${p2(day.getDate())}`, h: Math.floor(total / 60), m: total % 60 };
+}
+function buildDeadlineEvent(a: any, colorId: string) {
+  const dueDate = String(a.due_on || "").slice(0, 10); if (!dueDate) return null;
+  const title = a.name || "Assignment";
+  const summary = a.code ? `${title} (${a.code})` : title;
+  const timed = KIND_TIMED_SET.has(a.kind);
+  const placeDate = timed ? dueDate : String((a.target_on || a.due_on) || "").slice(0, 10);
+  const placeTime = timed ? (a.due_time || null) : (a.target_on ? (a.target_time || null) : (a.due_time || null));
+  if (!placeDate) return null;
+  const desc: string[] = [];
+  if (a.title_course) desc.push(a.title_course);
+  desc.push(a.due_time ? `Due ${dueDate} ${fmt12(a.due_time)}` : `Due ${dueDate}`);
+  desc.push("Synced from Carnelian");
+  const description = desc.join("\n");
+  let body: any, sigKey: any[];
+  if (!placeTime) {
+    const d = pdate(placeDate)!; const ex = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
+    const endStr = `${ex.getFullYear()}-${p2(ex.getMonth() + 1)}-${p2(ex.getDate())}`;
+    body = { summary, description, colorId, transparency: "transparent", start: { date: placeDate }, end: { date: endStr } };
+    sigKey = [summary, "allday", placeDate, colorId];
+  } else {
+    const [hh, mm] = placeTime.split(":").map((x: string) => +x);
+    let s, e;
+    if (timed) { const dur = (a.duration_min != null && isFinite(+a.duration_min) && +a.duration_min > 0) ? +a.duration_min : 60;
+      s = { date: placeDate, h: hh, m: mm }; e = shiftClock(placeDate, hh, mm, dur); }
+    else { e = { date: placeDate, h: hh, m: mm }; s = shiftClock(placeDate, hh, mm, -DEADLINE_MARKER_MIN); }
+    const startDT = `${s.date}T${p2(s.h)}:${p2(s.m)}:00`, endDT = `${e.date}T${p2(e.h)}:${p2(e.m)}:00`;
+    body = { summary, description, colorId, start: { dateTime: startDT, timeZone: TZ }, end: { dateTime: endDT, timeZone: TZ } };
+    if (!timed) body.transparency = "transparent"; // a deadline marker shouldn't mark you busy; an exam should
+    sigKey = [summary, "timed", startDT, endDT, colorId];
+  }
+  return { body, sig: JSON.stringify(sigKey) };
+}
+async function ensureDeadlinesCalendar(access: string) {
+  const cfg = await gcalCfg();
+  if (cfg.calendar_deadlines) return cfg.calendar_deadlines as string;
+  const { status, j } = await gapi(access, "POST", "/calendars", { summary: "Carnelian - Deadlines", timeZone: TZ });
+  if (status >= 300 || !j.id) throw new Error("could not create deadlines calendar");
+  await sql`update carnelian.gcal_config set calendar_deadlines = ${j.id} where id = 1`;
+  return j.id as string;
+}
+async function syncDeadlines(access: string, calId: string) {
+  const colorIds = await courseColorIds();
+  // Reviewed (non-pending) assignments on courses in current/upcoming terms — exactly what the app's Schedule shows.
+  const rows = await sql`select a.id, a.enrollment_id, a.name, a.kind, a.due_on::text as due_on, a.due_time::text as due_time,
+      a.duration_min, a.target_on::text as target_on, a.target_time::text as target_time,
+      e.code as code, e.title as title_course
+    from carnelian.assignments a
+    join carnelian.enrollments e on e.id = a.enrollment_id
+    left join carnelian.terms t on t.id = e.term_id
+    where coalesce(a.status, '') <> 'pending' and coalesce(e.status, '') <> 'wishlist'
+      and (t.ends_on is null or t.ends_on >= current_date)
+    order by a.id`;
+  const desired = new Map<string, { body: any; sig: string }>();
+  for (const a of rows as any[]) {
+    const colorId = colorIds.get(a.enrollment_id) || "8";
+    const built = buildDeadlineEvent(a, colorId);
+    if (built) desired.set(String(a.id), built);
+  }
+  const existing = await sql`select dkey, event_id, sig from carnelian.gcal_deadlines`;
+  const exMap = new Map((existing as any[]).map((r) => [r.dkey, r]));
+  let created = 0, updated = 0, deleted = 0;
+  const ev = (id: string) => `/calendars/${encodeURIComponent(calId)}/events/${encodeURIComponent(id)}`;
+  for (const [dkey, d] of desired) {
+    const ex = exMap.get(dkey);
+    if (ex) {
+      if (ex.sig === d.sig) continue;
+      const { status } = await gapi(access, "PATCH", ev(ex.event_id), d.body);
+      if (status === 404 || status === 410) {
+        const ins = await gapi(access, "POST", `/calendars/${encodeURIComponent(calId)}/events`, d.body);
+        if (ins.j?.id) { await sql`update carnelian.gcal_deadlines set event_id = ${ins.j.id}, sig = ${d.sig} where dkey = ${dkey}`; created++; }
+      } else { await sql`update carnelian.gcal_deadlines set sig = ${d.sig} where dkey = ${dkey}`; updated++; }
+    } else {
+      const ins = await gapi(access, "POST", `/calendars/${encodeURIComponent(calId)}/events`, d.body);
+      if (ins.j?.id) { await sql`insert into carnelian.gcal_deadlines (dkey, event_id, sig) values (${dkey}, ${ins.j.id}, ${d.sig}) on conflict (dkey) do update set event_id = ${ins.j.id}, sig = ${d.sig}`; created++; }
+    }
+  }
+  for (const [dkey, r] of exMap) {
+    if (desired.has(dkey)) continue;
+    try { await gapi(access, "DELETE", ev(r.event_id)); } catch { /* ignore */ }
+    await sql`delete from carnelian.gcal_deadlines where dkey = ${dkey}`;
     deleted++;
   }
   return { created, updated, deleted };
@@ -603,7 +736,8 @@ Deno.serve(async (req) => {
       const cfg = await gcalCfg();
       const cnt = (await sql`select count(*)::int as n from carnelian.gcal_events`)[0].n;
       const acnt = (await sql`select count(*)::int as n from carnelian.gcal_academic`)[0].n;
-      return json({ ok: true, connected: !!cfg.refresh_token, email: cfg.email ?? null, calendar: !!cfg.calendar_id, count: cnt, sync_academic: !!cfg.sync_academic, academic_count: acnt });
+      const dcnt = (await sql`select count(*)::int as n from carnelian.gcal_deadlines`)[0].n;
+      return json({ ok: true, connected: !!cfg.refresh_token, email: cfg.email ?? null, calendar: !!cfg.calendar_id, count: cnt, sync_academic: !!cfg.sync_academic, academic_count: acnt, sync_deadlines: !!cfg.sync_deadlines, deadline_count: dcnt });
     }
     if (action === "gcal_auth_url") {
       if (!GOOGLE_CLIENT_SECRET) return json({ error: "Server is missing GOOGLE_CLIENT_SECRET — set it in Supabase Edge Function secrets." }, 500);
@@ -625,10 +759,11 @@ Deno.serve(async (req) => {
         const access = await accessToken();
         const calId = await ensureCalendar(access);
         const res = await syncAll(access, calId);
-        let academic = null;
+        let academic = null, deadlines = null;
         const cfg = await gcalCfg();
         if (cfg.sync_academic) { const acId = await ensureAcademicCalendar(access); academic = await syncAcademic(access, acId); }
-        return json({ ok: true, ...res, academic });
+        if (cfg.sync_deadlines) { const dlId = await ensureDeadlinesCalendar(access); deadlines = await syncDeadlines(access, dlId); }
+        return json({ ok: true, ...res, academic, deadlines });
       } catch (e) {
         if (e && (e as any).reauth) return json({ ok: false, reconnect: true, error: "reauth" });
         return json({ error: String((e as Error)?.message ?? e) }, 500);
@@ -658,6 +793,30 @@ Deno.serve(async (req) => {
         return json({ error: String((e as Error)?.message ?? e) }, 500);
       }
     }
+    // Toggle the class-deadlines layer: on → create/sync its calendar; off → delete it and forget it.
+    if (action === "gcal_deadlines_toggle") {
+      try {
+        const on = !!body.enabled;
+        await sql`update carnelian.gcal_config set sync_deadlines = ${on} where id = 1`;
+        if (on) {
+          const access = await accessToken();
+          const dlId = await ensureDeadlinesCalendar(access);
+          const res = await syncDeadlines(access, dlId);
+          return json({ ok: true, sync_deadlines: true, ...res });
+        }
+        const cfg = await gcalCfg();
+        if (cfg.calendar_deadlines) {
+          const access = await accessToken().catch(() => null);
+          if (access) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_deadlines)}`); } catch { /* ignore */ } }
+        }
+        await sql`delete from carnelian.gcal_deadlines`;
+        await sql`update carnelian.gcal_config set calendar_deadlines = null where id = 1`;
+        return json({ ok: true, sync_deadlines: false });
+      } catch (e) {
+        if (e && (e as any).reauth) return json({ ok: false, reconnect: true, error: "reauth" });
+        return json({ error: String((e as Error)?.message ?? e) }, 500);
+      }
+    }
     if (action === "gcal_disconnect") {
       const cfg = await gcalCfg();
       try {
@@ -665,12 +824,14 @@ Deno.serve(async (req) => {
           const access = await accessToken().catch(() => null);
           if (access && cfg.calendar_id) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_id)}`); } catch { /* ignore */ } }
           if (access && cfg.calendar_academic) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_academic)}`); } catch { /* ignore */ } }
+          if (access && cfg.calendar_deadlines) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_deadlines)}`); } catch { /* ignore */ } }
           await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(cfg.refresh_token), { method: "POST" }).catch(() => {});
         }
       } catch { /* ignore */ }
       await sql`delete from carnelian.gcal_events`;
       await sql`delete from carnelian.gcal_academic`;
-      await sql`update carnelian.gcal_config set refresh_token = null, access_token = null, access_expiry = null, calendar_id = null, calendar_academic = null, sync_academic = false, email = null, connected_at = null, oauth_state = null, oauth_state_at = null where id = 1`;
+      await sql`delete from carnelian.gcal_deadlines`;
+      await sql`update carnelian.gcal_config set refresh_token = null, access_token = null, access_expiry = null, calendar_id = null, calendar_academic = null, sync_academic = false, calendar_deadlines = null, sync_deadlines = false, email = null, connected_at = null, oauth_state = null, oauth_state_at = null where id = 1`;
       return json({ ok: true });
     }
 
