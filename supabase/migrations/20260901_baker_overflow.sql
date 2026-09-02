@@ -12,3 +12,15 @@ update carnelian.requirements
 set spec = jsonb_set(spec, '{overflowTo}', '"baker-free"')
 where id in ('baker-cst', 'baker-lead', 'baker-conc')
   and spec->'need'->>'type' = 'credits';
+
+-- Short labels for the overflow source line under Free Electives ("... over CST minimum"), so the
+-- attribution stays terse instead of printing each bucket's full name.
+update carnelian.requirements as r
+set spec = jsonb_set(spec, '{short}', to_jsonb(v.short))
+from (values
+  ('baker-core', 'Core'),
+  ('baker-lead', 'L&M'),
+  ('baker-cst',  'CST'),
+  ('baker-conc', 'Concentration')
+) as v(id, short)
+where r.id = v.id;

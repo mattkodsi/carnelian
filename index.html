@@ -679,7 +679,7 @@
       <button class="navitem on" data-nav="dashboard"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>Dashboard</button>
       <button class="navitem" data-nav="requirements"><svg viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Requirements</button>
       <button class="navitem" data-nav="planner"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6.5C9.8 5.2 6.9 4.8 4 5.2v13c2.9-.4 5.8 0 8 1.3 2.2-1.3 5.1-1.7 8-1.3v-13c-2.9-.4-5.8 0-8 1.3z"/><path d="M12 6.5v13"/></svg>Planner</button>
-      <button class="navitem" data-nav="academic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6l1.2 1.2L7.5 4.8"/><path d="M4 12l1.2 1.2L7.5 10.8"/><path d="M4 18l1.2 1.2L7.5 16.8"/><path d="M11 6h9M11 12h9M11 18h9"/></svg>Assignments</button>
+      <button class="navitem" data-nav="academic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 3h6.5l4 4v12.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19.5v-15A1.5 1.5 0 0 1 7.5 3z"/><path d="M14 3v4h4"/><path d="M9 13h6M9 17h3.5"/></svg>Assignments</button>
       <button class="navitem" data-nav="schedule"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/></svg>Schedule</button>
     </nav>
     <div class="rail-foot">
@@ -1052,44 +1052,49 @@ function cappedCredits(req){
   const bucketOverflow=!!(req.spec&&req.spec.overflowTo)&&needN!=null;
   const courses=matchedFor(req);
   const r1=n=>Math.round(n*10)/10;
-  let done=0,cur=0,fut=0, ovDone=0,ovCur=0,ovFut=0; const kept=[],overflowed=[];
-  const used={};
-  // fill order: earned first, then in-progress, then planned — so the realest work stays in the bucket
+  let done=0,cur=0,fut=0, ovDone=0,ovCur=0,ovFut=0, bucketUsed=0;
+  const kept=[],overflowed=[],splitOut=[]; const contrib=new Map(); const used={};
+  // Fill order: earned first, then in-progress, then planned — so the realest work stays in the bucket and
+  // only the least-committed credits spill out. Applying the per-course cap AND the bucket-level cap-at-need
+  // in this single pass lets us record exactly how much of each course counted here (`contrib`, e.g. 1.5 of a
+  // 3-cr course) and which single course partially spilled (`splitOut`), for the "1.5 of 3 cr" / "over … minimum" display.
   const rank={done:0,cur:1,fut:2};
   const ordered=courses.slice().sort((a,b)=>rank[progState(a)]-rank[progState(b)]);
   for(const e of ordered){ const c=num(e.credits), st=progState(e), cap=caps?caps[e.code]:null;
-    let contrib=c, over=0;
-    if(cap!=null){ const u=used[e.code]||0; contrib=Math.max(0,Math.min(c,cap-u)); over=c-contrib; used[e.code]=u+contrib; }
-    if(contrib>0){ if(st==="done")done+=contrib; else if(st==="cur")cur+=contrib; else fut+=contrib; kept.push(e); }
-    else if(cap!=null) overflowed.push(e);
-    if(over>0){ if(st==="done")ovDone+=over; else if(st==="cur")ovCur+=over; else ovFut+=over; } }
-  // bucket-level: absorb only up to `need`; the excess (planned first, then in-progress, then earned) overflows
-  if(bucketOverflow){ let excess=r1(done+cur+fut-needN);
-    if(excess>0){ const take=v=>{ const m=Math.min(v,excess); excess=r1(excess-m); return r1(m); };
-      const mf=take(fut); fut=r1(fut-mf); ovFut=r1(ovFut+mf);
-      const mc=take(cur); cur=r1(cur-mc); ovCur=r1(ovCur+mc);
-      const md=take(done); done=r1(done-md); ovDone=r1(ovDone+md); } }
-  return {done:r1(done),cur:r1(cur),fut:r1(fut),planned:r1(cur+fut),ovDone:r1(ovDone),ovCur:r1(ovCur),ovFut:r1(ovFut),kept,overflowed};
+    let take=c, capOver=0;
+    if(cap!=null){ const u=used[e.code]||0; take=Math.max(0,Math.min(c,cap-u)); capOver=r1(c-take); used[e.code]=u+take; }
+    let bucketOver=0;
+    if(bucketOverflow && take>0){ const room=Math.max(0,r1(needN-bucketUsed)); const fit=Math.min(take,room); bucketOver=r1(take-fit); take=fit; bucketUsed=r1(bucketUsed+fit); }
+    if(take>0){ if(st==="done")done+=take; else if(st==="cur")cur+=take; else fut+=take; kept.push(e); contrib.set(String(e.id),r1(take)); }
+    else if(capOver>0 && bucketOver===0) overflowed.push(e);   // whole course pushed out by its per-course cap
+    const over=r1(capOver+bucketOver);
+    if(over>0){ if(st==="done")ovDone+=over; else if(st==="cur")ovCur+=over; else ovFut+=over;
+      if(bucketOver>0) splitOut.push({e, amount:bucketOver}); }   // a single course split across two buckets → show its source
+  }
+  return {done:r1(done),cur:r1(cur),fut:r1(fut),planned:r1(cur+fut),ovDone:r1(ovDone),ovCur:r1(ovCur),ovFut:r1(ovFut),kept,overflowed,splitOut,contrib};
 }
-// Credits pushed out of capped / over-filled requirements surface here for the overflow target.
-function overflowInto(reqId){ let done=0,cur=0,fut=0,courses=[]; const r1=n=>Math.round(n*10)/10;
-  for(const r of DB.requirements){ if(r.spec&&r.spec.overflowTo===reqId){ const cc=cappedCredits(r); done+=cc.ovDone; cur+=cc.ovCur; fut+=cc.ovFut; courses=courses.concat(cc.overflowed); } }
-  return {done:r1(done),cur:r1(cur),fut:r1(fut),courses}; }
+// Credits pushed out of capped / over-filled requirements surface here for the overflow target. `splits`
+// carries the single courses that were partially spilled (with the source requirement's name) so the
+// target can show e.g. "REAL 5950 · 1.5 cr · over Construction… minimum" without duplicating the whole course.
+function overflowInto(reqId){ let done=0,cur=0,fut=0,courses=[],splits=[]; const r1=n=>Math.round(n*10)/10;
+  for(const r of DB.requirements){ if(r.spec&&r.spec.overflowTo===reqId){ const cc=cappedCredits(r); done+=cc.ovDone; cur+=cc.ovCur; fut+=cc.ovFut; courses=courses.concat(cc.overflowed);
+    for(const s of cc.splitOut) splits.push({e:s.e, amount:s.amount, from:(r.spec&&r.spec.short)||r.name}); } }
+  return {done:r1(done),cur:r1(cur),fut:r1(fut),courses,splits}; }
 function reqProgress(req){
   const need=(req.spec&&req.spec.need)||{type:"courses",n:num(req.count_required||req.credits_required||1)};
   const r1=n=>Math.round(n*10)/10;
   if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,cur:0,fut:0,planned:0,need:1,met:done>=1,kind:"flag",courses:[]}; }
   if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope;
-    let doneCr=0, curCr=0, futCr=0, courses=[];
+    let doneCr=0, curCr=0, futCr=0, courses=[], contrib=null, splits=[];
     if(scope){ for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist") continue;
         const car=(termById(e.term_id)||{}).career||"undergrad";
         if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
         const st=progState(e), cr=num(e.credits); if(st==="done")doneCr+=cr; else if(st==="cur")curCr+=cr; else futCr+=cr; } }
-    else { const cc=cappedCredits(req); doneCr=cc.done; curCr=cc.cur; futCr=cc.fut; courses=cc.kept;
-      const ov=overflowInto(req.id); doneCr=r1(doneCr+ov.done); curCr=r1(curCr+ov.cur); futCr=r1(futCr+ov.fut); courses=courses.concat(ov.courses); }
+    else { const cc=cappedCredits(req); doneCr=cc.done; curCr=cc.cur; futCr=cc.fut; courses=cc.kept; contrib=cc.contrib;
+      const ov=overflowInto(req.id); doneCr=r1(doneCr+ov.done); curCr=r1(curCr+ov.cur); futCr=r1(futCr+ov.fut); courses=courses.concat(ov.courses); splits=ov.splits; }
     const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     const N=(BAKER_VIEW==="standard"&&req.program_id==="baker-mps"&&req.spec&&req.spec.standard!=null)?req.spec.standard:need.n;
-    return {done:r1(doneCr),cur:r1(curCr),fut:r1(futCr),planned:r1(curCr+futCr),need:N,met:doneCr>=N,kind:"credits",courses,kids}; }
+    return {done:r1(doneCr),cur:r1(curCr),fut:r1(futCr),planned:r1(curCr+futCr),need:N,met:doneCr>=N,kind:"credits",courses,kids,contrib,splits}; }
   if(need.type==="coverage"){ const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
     let cov=0,covCur=0,covFut=0;
     for(const k of kids){ const ms=matchedFor(k); if(ms.some(isEarned)) cov++; else if(ms.some(e=>displayStatus(e)==="in_progress")) covCur++; else if(ms.length>0) covFut++; }
@@ -1248,7 +1253,13 @@ function renderRequirements(){
 }
 // Render a requirement's course list grouped by term (chronological) and sorted by
 // course code within each term. Used when a requirement's spec sets groupByTerm.
-function courseRowHTML(e){ return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${nf(num(e.credits))} cr</span></div>`; }
+// `counted` (optional) = credits this course actually contributes to THIS requirement; when it's less
+// than the course's full credits (a big course over-filling a small bucket), show "1.5 of 3 cr".
+function courseRowHTML(e, counted){ const full=num(e.credits);
+  const cr=(counted!=null&&counted<full)?`${nf(counted)} <span class="muted">of ${nf(full)}</span> cr`:`${nf(full)} cr`;
+  return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${cr}</span></div>`; }
+// A single course's overflow into this bucket (e.g. the 1.5 cr of REAL 5950 beyond the 1.5-cr CST minimum).
+function splitRowHTML(s){ return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(s.e)]}"></span><span class="grow"><span class="co code" data-cid="${s.e.id}">${esc(s.e.code)}</span> <span class="ti muted">over ${esc(s.from)} minimum</span></span><span class="cc num">${nf(s.amount)} cr</span></div>`; }
 function coursesByTermHTML(courses){
   const groups=new Map();
   for(const e of courses){ const k=e.term_id||'~none'; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(e); }
@@ -1277,7 +1288,8 @@ function reqBlocks(prog){
       let detail=note;
       if(req.spec&&req.spec.groupByTerm && r.courses&&r.courses.length){ detail=coursesByTermHTML(r.courses); }
       else if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);const kcur=!km&&kc.some(e=>displayStatus(e)==="in_progress");return `<div class="crow"><span class="cdot dot ${km?'ok':(kcur?'plan':(kc.length?'warn':'none'))}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
-      else if(r.courses&&r.courses.length){ detail=r.courses.map(courseRowHTML).join(""); }
+      else if(r.courses&&r.courses.length){ detail=r.courses.map(e=>courseRowHTML(e, r.contrib&&r.contrib.get(String(e.id)))).join(""); }
+      if(r.splits&&r.splits.length) detail+=r.splits.map(splitRowHTML).join("");   // partial overflows spilled in from other buckets
       inner=bar+detail;
     } else {
       const list=r.courses.map(e=>`<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="pill ${STATUS_CLASS[displayStatus(e)]}">${STATUS_LABEL[displayStatus(e)]}</span></div>`).join("");
