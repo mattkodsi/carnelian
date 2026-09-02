@@ -128,9 +128,14 @@
   .degree .dh{display:flex;align-items:center;gap:14px;padding:15px 17px}
   .degree .ring{position:relative;width:52px;height:52px;flex:0 0 auto}
   .degree .ring b{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;font-weight:800}
-  .degree .dt{min-width:0}
+  .degree .dt{min-width:0;flex:1}
   .degree .dt .nm{font-size:16.5px;font-weight:800;font-family:var(--font-display)}
   .degree .dt .mt{font-size:12px;color:var(--ink-2);font-weight:600;margin-top:2px}
+  /* GPA folded into each degree header — kept large and beside the degree it belongs to */
+  .degree .dgpa{flex:0 0 auto;text-align:right;background:none;border:0;padding:3px 3px 3px 10px;cursor:pointer;border-radius:9px;transition:background .12s}
+  .degree .dgpa:hover{background:var(--surface-2)}
+  .degree .dgpa .k{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--ink-3)}
+  .degree .dgpa .v{display:block;font-size:24px;font-weight:800;letter-spacing:-.02em;line-height:1.05;margin-top:1px}
   .degree .rows{border-top:1px solid var(--line)}
   .drow{display:flex;align-items:center;gap:11px;padding:11px 17px;border-top:1px solid var(--line);width:100%;text-align:left}
   .drow:first-child{border-top:0}
@@ -1203,15 +1208,18 @@ function renderDashboard(){
   const asShort=asC<asNeed;
   const gradTerms=DB.terms.filter(t=>t.career==="grad").sort((a,b)=>a.sort-b.sort); const firstGrad=gradTerms[0];
   const bakerNote=gr.gpa?nf(gr.credits)+" graded credits":(firstGrad?(termTiming(firstGrad)==="planned"?"Starts "+esc(firstGrad.name.replace(/ · Baker$/,"")):"In progress"):"Not started");
+  // GPAs used to sit in their own two boxes here; they now live large inside each degree card
+  // header (see below), so this strip is just the two credit tallies.
   const stat=`<div class="statgrid">
-    <div class="stat tap" data-tc-open="undergrad" role="button" tabindex="0"><span class="tap-c" aria-hidden="true">›</span><div class="k">Undergrad GPA</div><div class="v">${ug.gpa?ug.gpa.toFixed(2):"—"}</div><div class="sub">Arts &amp; Sciences · BA</div></div>
-    <div class="stat tap" data-tc-open="grad" role="button" tabindex="0"><span class="tap-c" aria-hidden="true">›</span><div class="k">Baker GPA</div><div class="v">${gr.gpa?gr.gpa.toFixed(2):"—"}</div><div class="sub">${esc(bakerNote)}</div></div>
     <div class="stat"><div class="k">Undergrad Credits</div><div class="v">${nf(allC)}<small> / ${nf(ugNeed)}</small></div><div class="sub ${asShort?'warnsub':''}">${nf(asC)} / ${nf(asNeed)} in A&amp;S${asShort?'':' ✓'}</div></div>
     <div class="stat"><div class="k">Baker Credits</div><div class="v">${nf(bakerEarned)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerEarned>=bakerNeed?'All requirements earned ✓':`${nf(bakerPlan)} planned · ${nf(bakerFind)} remaining`}</div></div>
   </div>`;
 
   const degrees=topPrograms().map(p=>{
     const dp=degreeProgress(p); let rows="";
+    // each degree carries its own GPA: the A&S umbrella shows the undergrad GPA, Baker the grad GPA
+    const gcar=(p.id==="baker-mps")?"grad":"undergrad"; const dg=(gcar==="grad")?gr:ug;
+    const dgStr=dg.gpa?dg.gpa.toFixed(2):"—";
     if(dp.kids.length){
       rows+=drow("College requirements", dp.self.pct, dp.self.met, leftLabel(dp.self), ()=>goToReqs(p.id), p.id, dp.self.ppct);
       for(const k of dp.kids) rows+=drow(k.prog.name, k.pct, k.met, leftLabel(k), null, k.prog.id, k.ppct);
@@ -1220,7 +1228,8 @@ function renderDashboard(){
     }
     return `<div class="degree">
       <div class="dh"><div class="ring">${ring(dp.pct,52,dp.met,dp.ppct)}<b>${dp.pct}%</b></div>
-        <div class="dt"><div class="nm">${esc(p.name)}</div><div class="mt">${dp.met?'Complete':dp.pct+'% complete'}</div></div></div>
+        <div class="dt"><div class="nm">${esc(p.name)}</div><div class="mt">${dp.met?'Complete':dp.pct+'% complete'}</div></div>
+        <button class="dgpa" data-tc-open="${gcar}" aria-label="GPA, open transcript"><span class="k">GPA</span><span class="v">${dgStr}</span></button></div>
       <div class="rows" data-prog="${p.id}">${rows}</div></div>`;
   }).join("");
 
