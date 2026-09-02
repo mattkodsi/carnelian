@@ -13,10 +13,11 @@
 <style>
   :root{
     --bg:#FAF7F4; --surface:#FFFFFF; --surface-2:#F4EFEA; --surface-3:#EFE8E2;
-    --line:#EBE3DC; --line-strong:#DCD1C8; --ink:#1E1A18; --ink-2:#6C625B; --ink-3:#9C9188;
+    --line:#EBE3DC; --line-strong:#DCD1C8; --ink:#1E1A18; --ink-2:#6C625B; --ink-3:#786D64;
     --accent:#A81F23; --accent-ink:#FFFFFF; --accent-soft:#F8E9E7; --accent-line:#E9C9C6;
-    --ok:#2E8B57; --ok-bg:#E4F1E9; --ok-line:#BFE0CC; --warn:#B9770F; --warn-bg:#F8EDD6; --warn-line:#EAD3A0;
-    --plan:#39699F; --plan-bg:#E7EEF6; --plan-line:#C7D8EA;
+    /* vivid --ok/--warn/--plan are FILLS (bars, dots, cells); --*-ink are the darker text shades that pass AA */
+    --ok:#2E8B57; --ok-ink:#217043; --ok-bg:#E4F1E9; --ok-line:#BFE0CC; --warn:#B9770F; --warn-ink:#8C590B; --warn-bg:#F8EDD6; --warn-line:#EAD3A0;
+    --plan:#39699F; --plan-ink:#345F90; --plan-bg:#E7EEF6; --plan-line:#C7D8EA;
     --ev-strength:91%; --ev-mixc:#000000; --ev-ink:#fff; --ev-ink2:rgba(255,255,255,.93); --ev-ink3:rgba(255,255,255,.85); --ev-title:#fff;
     --ev-bd-mix:#000 12%; --ev-bl-mix:#000 30%; --ev-shadow:0 1px 3px rgba(30,20,12,.18);
     --sched-band:color-mix(in srgb, var(--ink) 3.5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 7%, transparent);
@@ -27,23 +28,23 @@
   }
   @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
     --bg:#131317; --surface:#1C1C22; --surface-2:#24242B; --surface-3:#2D2D35;
-    --line:#302F39; --line-strong:#41404C; --ink:#F1EFF5; --ink-2:#ABA7B5; --ink-3:#787480;
+    --line:#302F39; --line-strong:#41404C; --ink:#F1EFF5; --ink-2:#ABA7B5; --ink-3:#918D9B;
     --accent:#F0665F; --accent-ink:#1a0f0e; --accent-soft:#2B1A1C; --accent-line:#4B2A2C;
-    --ok:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
-    --plan:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
-    --ev-strength:26%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 74%, var(--ink));
-    --ev-bd-mix:var(--surface) 66%; --ev-bl-mix:#000 0%; --ev-shadow:none;
+    --ok:#5FBE86; --ok-ink:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-ink:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
+    --plan:#7FA9DB; --plan-ink:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
+    --ev-strength:40%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 80%, var(--ink));
+    --ev-bd-mix:var(--surface) 34%; --ev-bl-mix:#000 0%; --ev-shadow:none;
     --sched-band:color-mix(in srgb, var(--ink) 5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 11%, transparent);
     --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72); color-scheme:dark;
   }}
   :root[data-theme="dark"]{
     --bg:#131317; --surface:#1C1C22; --surface-2:#24242B; --surface-3:#2D2D35;
-    --line:#302F39; --line-strong:#41404C; --ink:#F1EFF5; --ink-2:#ABA7B5; --ink-3:#787480;
+    --line:#302F39; --line-strong:#41404C; --ink:#F1EFF5; --ink-2:#ABA7B5; --ink-3:#918D9B;
     --accent:#F0665F; --accent-ink:#1a0f0e; --accent-soft:#2B1A1C; --accent-line:#4B2A2C;
-    --ok:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
-    --plan:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
-    --ev-strength:26%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 74%, var(--ink));
-    --ev-bd-mix:var(--surface) 66%; --ev-bl-mix:#000 0%; --ev-shadow:none;
+    --ok:#5FBE86; --ok-ink:#5FBE86; --ok-bg:#152318; --ok-line:#274633; --warn:#E4AC55; --warn-ink:#E4AC55; --warn-bg:#241E12; --warn-line:#463819;
+    --plan:#7FA9DB; --plan-ink:#7FA9DB; --plan-bg:#141F2C; --plan-line:#273E54;
+    --ev-strength:40%; --ev-mixc:var(--surface); --ev-ink:var(--ink); --ev-ink2:var(--ink-2); --ev-ink3:var(--ink-3); --ev-title:color-mix(in srgb, var(--h) 80%, var(--ink));
+    --ev-bd-mix:var(--surface) 34%; --ev-bl-mix:#000 0%; --ev-shadow:none;
     --sched-band:color-mix(in srgb, var(--ink) 5%, transparent); --sched-line:color-mix(in srgb, var(--ink) 11%, transparent);
     --shadow:0 1px 2px rgba(0,0,0,.34), 0 14px 34px -18px rgba(0,0,0,.72); color-scheme:dark;
   }
@@ -148,17 +149,16 @@
   .drow .rt{font-weight:800;font-size:12px;flex:0 0 auto;width:52px;text-align:right}
   .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.plan{background:var(--plan)} .dot.none{background:var(--surface-3);border:1.5px solid var(--line-strong)}
   .fill.ok{background:var(--ok)} .fill.warn{background:var(--warn)} .fill.plan{background:var(--plan)} .fill.planned{background:var(--warn);opacity:.32}
-  .c-ok{color:var(--ok)} .c-warn{color:var(--warn)} .c-ink3{color:var(--ink-3)}
+  .c-ok{color:var(--ok-ink)} .c-warn{color:var(--warn-ink)} .c-ink3{color:var(--ink-3)}
 
   /* ---- "what's left" ---- */
   .sect-h{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);margin:22px 2px 10px}
   .todo{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);overflow:hidden}
   .titem{display:flex;align-items:center;gap:12px;padding:12px 16px;border-top:1px solid var(--line);width:100%;text-align:left}
   .titem:first-child{border-top:0} .titem:hover{background:var(--surface-2)}
-  .titem .ic{width:26px;height:26px;border-radius:8px;background:var(--warn-bg);color:var(--warn);display:grid;place-items:center;font-weight:800;font-size:12px;flex:0 0 auto}
   .titem .nm{font-weight:700;font-size:13px} .titem .sub{font-size:11.5px;color:var(--ink-3);margin-top:1px}
-  .titem .amt{margin-left:auto;font-weight:800;font-size:12px;color:var(--warn);flex:0 0 auto}
-  .done-note{display:flex;align-items:center;gap:9px;padding:14px 16px;color:var(--ok);font-weight:700;font-size:13px}
+  .titem .amt{margin-left:auto;font-weight:800;font-size:12px;color:var(--warn-ink);flex:0 0 auto;font-variant-numeric:tabular-nums}
+  .done-note{display:flex;align-items:center;gap:9px;padding:14px 16px;color:var(--ok-ink);font-weight:700;font-size:13px}
 
   /* ---- requirements tree ---- */
   .pgroup{margin-bottom:12px}
@@ -174,7 +174,7 @@
   .req .chev{width:11px;color:var(--ink-3);transition:transform .2s;flex:0 0 auto} .req.open .chev{transform:rotate(90deg)}
   /* name flexes to fill so the bar + count sit in fixed, aligned right-hand columns */
   .req .nm{font-weight:800;font-size:13.5px;flex:1 1 auto;min-width:0;line-height:1.25}
-  .req.met .nm{color:var(--ok)}   /* completed requirement → green name, matching the major/minor/distribution rows */
+  .req.met .nm{color:var(--ok-ink)}   /* completed requirement → green name, matching the major/minor/distribution rows */
   .req .cr{font-weight:800;font-size:12.5px;flex:0 0 auto;width:62px;text-align:right;font-variant-numeric:tabular-nums}
   .req .mini{width:58px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;flex:0 0 auto;display:flex} .req .mini i{display:block;height:100%}
   .req .edit{flex:0 0 auto;color:var(--ink-3);font-size:12px;font-weight:700;padding:4px 8px;border-radius:7px}
@@ -184,8 +184,8 @@
   .crow:last-child{border-bottom:0} .crow .co{font-weight:700;cursor:pointer} .crow .ti{color:var(--ink-2)} .crow .grow{flex:1 1 55%;min-width:0}
   .cdot{width:9px;height:9px;border-radius:99px;flex:0 0 auto;display:inline-block}
   .pill{font-size:10px;font-weight:800;padding:2px 8px;border-radius:99px;white-space:nowrap;display:inline-block}
-  .pill.ok{background:var(--ok-bg);color:var(--ok)} .pill.warn{background:var(--warn-bg);color:var(--warn)}
-  .pill.plan{background:var(--plan-bg);color:var(--plan)} .pill.none{background:var(--surface-2);color:var(--ink-3);border:1px dashed var(--line-strong)}
+  .pill.ok{background:var(--ok-bg);color:var(--ok-ink)} .pill.warn{background:var(--warn-bg);color:var(--warn-ink)}
+  .pill.plan{background:var(--plan-bg);color:var(--plan-ink)} .pill.none{background:var(--surface-2);color:var(--ink-3);border:1px dashed var(--line-strong)}
   .pill.t{background:var(--surface-2);color:var(--ink-2)}
 
   /* ---- planner ---- */
@@ -197,7 +197,7 @@
   .pterm .nowtag{font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--accent)}
   .pterm .meta{margin-left:auto;font-weight:800;font-size:14px;color:var(--ink);flex:0 0 auto;text-align:right}
   .pterm .meta small{display:block;font-size:10px;color:var(--ink-3);font-weight:700}
-  .pterm.now{border-color:var(--accent-line)} .pterm.now>.ph{box-shadow:inset 3px 0 0 var(--accent)}
+  .pterm.now{border-color:color-mix(in srgb,var(--accent) 34%,var(--line-strong))}
   .pterm.past>.ph .nm{color:var(--ink-2)} .pterm.past{box-shadow:none;background:var(--surface)}
   .pterm.aux{background:transparent;border-style:dashed;box-shadow:none} .pterm.aux>.ph .nm{color:var(--ink-2)}
   .pterm.aux .meta.acount{font-size:12px;font-weight:800;color:var(--ink-3);background:var(--surface-2);border-radius:99px;min-width:22px;padding:2px 8px;text-align:center}
@@ -231,9 +231,9 @@
   .rc-act.ghost{color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line)}
   .pterm.unsched{border-color:var(--warn-line,var(--line))} .pterm .badge.warn{background:var(--warn-bg,var(--surface-2));color:var(--warn)}
   .pterm .tstat{font-size:10px;font-weight:800;padding:2px 7px;border-radius:99px}
-  .pterm .tstat.done{background:var(--ok-bg);color:var(--ok)} .pterm .tstat.now{background:var(--plan-bg);color:var(--plan)} .pterm .tstat.soon{background:var(--warn-bg);color:var(--warn)}
+  .pterm .tstat.done{background:var(--ok-bg);color:var(--ok-ink)} .pterm .tstat.now{background:var(--plan-bg);color:var(--plan-ink)} .pterm .tstat.soon{background:var(--warn-bg);color:var(--warn-ink)}
   .segrow{margin:2px 0 14px} .segrow .seg{margin-bottom:6px} .segnote{font-size:11.5px;color:var(--ink-3);line-height:1.45;max-width:60ch}
-  .crow.waivernote .grow{font-size:11.5px;color:var(--warn);font-weight:600}
+  .crow.waivernote .grow{font-size:11.5px;color:var(--warn-ink);font-weight:600}
   .crow.termhdr{padding:11px 0 3px;border-bottom:0;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3)}
   .crow.termhdr:first-child{padding-top:3px}
   .add-in{display:flex;align-items:center;gap:7px;padding:9px 0 3px;color:var(--accent);font-weight:700;font-size:12px}
@@ -262,7 +262,7 @@
   .trow .co{font-weight:700;white-space:nowrap} .trow .co.nonas{color:var(--accent)} .trow .ti{color:var(--ink-2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .trow .ds{font-size:10.5px;color:var(--ink-3);text-align:left;font-weight:700}
   .trow .cc{font-size:11.5px;color:var(--ink-3);text-align:center;font-variant-numeric:tabular-nums} .trow .gr{font-weight:800;text-align:center}
-  .gr.a{color:var(--ok)} .gr.s{color:var(--ink-3)}
+  .gr.a{color:var(--ok-ink)} .gr.s{color:var(--ink-3)}
 
   /* ---- modal ---- */
   .modal{position:fixed;inset:0;background:rgba(20,12,10,.45);display:none;place-items:center;padding:16px;z-index:80} .modal.on{display:grid}
@@ -291,7 +291,7 @@
   .confirm-sheet .cbody{padding:20px 20px 6px} .confirm-sheet h3{font-size:16px;font-weight:800;margin-bottom:6px} .confirm-sheet p{font-size:13px;color:var(--ink-2);line-height:1.5}
   .hint{font-size:11px;color:var(--ink-3)}
   /* app-styled dropdowns everywhere */
-  select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239C9188' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 11px center;padding-right:32px}
+  select{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23786D64' stroke-width='2.5'><path d='M6 9l6 6 6-6'/></svg>");background-repeat:no-repeat;background-position:right 11px center;padding-right:32px}
   .chips{display:flex;flex-wrap:wrap;gap:6px} .chips:empty{display:none}
   .chip-x{display:inline-flex;align-items:center;gap:5px;background:var(--accent-soft);border:1px solid var(--accent-line);color:var(--accent);border-radius:99px;padding:4px 5px 4px 11px;font-size:11.5px;font-weight:800}
   .chip-x button{color:var(--accent);font-size:15px;line-height:1;width:18px;height:18px;border-radius:99px} .chip-x button:hover{background:#0001}
@@ -375,7 +375,7 @@
   .sched-col.today{background-color:color-mix(in srgb,var(--accent) 8%,transparent)}
   .ev{position:absolute;border-radius:8px;padding:6px 7px;overflow:hidden;cursor:pointer;text-align:center;
     background:color-mix(in srgb,var(--h) var(--ev-strength),var(--ev-mixc));
-    border:1px solid color-mix(in srgb,var(--h),var(--ev-bd-mix));border-left:4px solid color-mix(in srgb,var(--h),var(--ev-bl-mix));box-shadow:var(--ev-shadow);color:var(--ev-ink)}
+    border:1px solid color-mix(in srgb,var(--h),var(--ev-bd-mix));box-shadow:var(--ev-shadow);color:var(--ev-ink)}
   .ev:hover{filter:brightness(1.05)}
   .ev .c{font-weight:800;font-size:11.5px;line-height:1.25;color:var(--ev-title);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev .et{font-size:10px;font-weight:700;color:var(--ev-ink2);line-height:1.3;margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -535,17 +535,18 @@
   /* read-only course info pane */
   /* read-only course info pane — compact: code lives in the slim header, no dead space */
   #infoModal .sheet{max-width:392px}
-  #infoModal .sh{padding:13px 16px;gap:12px}
+  /* the course colour OWNS the header (no thin left rule); code / credits / close sit on it in white */
+  #infoModal .sh{padding:15px 18px;gap:12px;align-items:center;background:var(--h,var(--accent));border-bottom:0}
   #infoModal .sh .ci-cr{margin-left:auto}          /* credits sit hard-right, next to the × */
-  #infoModal .sh .x{margin-left:0}                  /* not auto — else credits float mid-header */
-  #infoModal .sb{padding:14px 16px 4px;gap:9px}
+  #infoModal .sh .x{margin-left:0;color:#fff;opacity:.92}
+  #infoModal .sb{padding:16px 18px 4px;gap:10px}
   #infoModal .sf{padding:12px 16px 16px;border-top:0}
   #infoModal .sf .btn{width:100%;justify-content:center;padding:11px 20px}
-  .ci-code{font-weight:800;font-size:16px;color:var(--ink);border-left:4px solid var(--h,var(--accent));padding-left:10px;line-height:1.1}
-  .ci-cr{font-weight:800;font-size:13px;color:var(--ink-3)}
-  .ci-title{font-size:14.5px;font-weight:700;color:var(--ink)}
+  .ci-code{font-weight:800;font-size:18px;color:#fff;line-height:1.1;letter-spacing:.005em}
+  .ci-cr{font-weight:700;font-size:12.5px;color:rgba(255,255,255,.82)}
+  .ci-title{font-size:15.5px;font-weight:800;color:var(--ink);line-height:1.3;font-family:var(--font-display)}
   .ci-term{font-size:12.5px;color:var(--ink-3);font-weight:700}
-  .ci-meets{display:grid;gap:8px;margin-top:2px}
+  .ci-meets{display:grid;gap:8px;margin-top:4px}
   .ci-meet{border:1px solid var(--line);border-radius:10px;padding:11px 13px;background:var(--surface-2)}
   .ci-when{font-weight:800;font-size:13.5px;color:var(--ink);margin-bottom:5px}
   .ci-line{font-size:12.5px;color:var(--ink-2);line-height:1.55}
@@ -607,11 +608,11 @@
     .main.fit .schead{flex:0 0 auto;margin-bottom:9px;gap:5px 12px}
     .main.fit .sched{flex:1 1 0;min-height:0}
     .sched-days .d{font-size:10px;padding:7px 2px}
-    .ev{padding:3px 3px;border-radius:6px;border-left-width:3px}
+    .ev{padding:3px 3px;border-radius:6px}
     .ev .c{font-size:10px;letter-spacing:-.02em;white-space:normal;line-height:1.1}
     .ev .et{font-size:9px;letter-spacing:-.04em;white-space:normal;line-height:1.05;margin-top:1px}
     .ev .loc{display:block;font-size:8px;letter-spacing:-.01em;margin-top:1px}
-    .ev.narrow{padding-left:2px;padding-right:1px}
+    .ev.narrow{padding-left:2px;padding-right:2px}
     .ev.narrow .c{white-space:normal;line-height:1.05;font-size:8.5px;letter-spacing:-.03em}
     .ev.narrow .et,.ev.narrow .loc{display:none}
     /* Short blocks (≤55 min): shrink + tighten the code and time so the full code (wrapped) and the
@@ -628,7 +629,7 @@
   .shbtn:active{transform:translateY(.5px)}
   .shbtn .ico{width:17px;height:17px;flex:0 0 auto;opacity:.9}
   .shbtn:hover{background:var(--surface-2);color:var(--ink)}
-  .shbtn.on{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok)}
+  .shbtn.on{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok-ink)}
   .shbtn.on .ico{opacity:1}
   .gc-status{display:flex;align-items:center;gap:8px;font-weight:700;font-size:13.5px;margin:2px 0 6px}
   .gc-dot{width:9px;height:9px;border-radius:99px;background:var(--ink-3);flex:0 0 auto} .gc-dot.on{background:var(--ok)}
@@ -641,7 +642,7 @@
   .gc-lname{font-size:13.5px;font-weight:800;color:var(--ink)}
   .gc-lsub{font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:2px}
   .gc-lsub b{color:var(--ink-2);font-weight:700}
-  .gc-on{flex:0 0 auto;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ok,#2e7d5b);border:1px solid color-mix(in srgb,var(--ok,#2e7d5b) 40%,transparent);border-radius:99px;padding:3px 9px}
+  .gc-on{flex:0 0 auto;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ok-ink);border:1px solid color-mix(in srgb,var(--ok) 40%,transparent);border-radius:99px;padding:3px 9px}
   .gc-soon{flex:0 0 auto;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--ink-3);border:1px solid var(--line-strong);border-radius:99px;padding:3px 9px}
   .gc-sw{flex:0 0 auto;width:42px;height:25px;border-radius:99px;background:var(--line-strong);border:0;padding:0;position:relative;cursor:pointer;transition:background .15s}
   .gc-sw.on{background:var(--accent)}
@@ -665,7 +666,7 @@
   .acal-title{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.4}
   .acal-time{font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:2px}
   .acal-row.past{opacity:.44}
-  .acal-row.next{border-color:var(--accent-line);background:var(--accent-soft);box-shadow:inset 3px 0 0 var(--accent)}
+  .acal-row.next{border-color:var(--accent-line);background:var(--accent-soft)}
   .acal-row.next .acal-date{color:var(--accent)}
   .acal-pill{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 7px;margin-left:8px;vertical-align:middle}
 </style>
@@ -904,6 +905,7 @@ const $ = (s,r=document)=>r.querySelector(s);
 const num = v => v==null||v===""? 0 : (typeof v==="number"?v:parseFloat(v));
 const esc = s => String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const nf = n => Number.isInteger(n)?n:(Math.round(n*10)/10);
+const crd = n => nf(n)+" credit"+(Number(n)===1?"":"s");   // spelled-out credit unit; never the casual "cr"
 const ICO={
   share:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11"/><path d="m8 7.5 4-4 4 4"/><path d="M6 12.5v6a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5v-6"/></svg>',
   cal:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 9.5h17M8 3v4M16 3v4"/></svg>',
@@ -1094,7 +1096,7 @@ function cappedCredits(req){
 }
 // Credits pushed out of capped / over-filled requirements surface here for the overflow target. `splits`
 // carries the single courses that were partially spilled (with the source requirement's name) so the
-// target can show e.g. "REAL 5950 · 1.5 cr · over Construction… minimum" without duplicating the whole course.
+// target can show e.g. "REAL 5950 · 1.5 credits · over Construction… minimum" without duplicating the whole course.
 function overflowInto(reqId){ let done=0,cur=0,fut=0,courses=[],splits=[]; const r1=n=>Math.round(n*10)/10;
   for(const r of DB.requirements){ if(r.spec&&r.spec.overflowTo===reqId){ const cc=cappedCredits(r); done+=cc.ovDone; cur+=cc.ovCur; fut+=cc.ovFut; courses=courses.concat(cc.overflowed);
     for(const s of cc.splitOut) splits.push({e:s.e, amount:s.amount, from:(r.spec&&r.spec.short)||r.name}); } }
@@ -1161,7 +1163,7 @@ function outstanding(){ // every unmet leaf requirement across all programs
     for(const r of tops){ const pr=reqProgress(r); if(pr.met) continue;
       if(pr.gatedOnly) continue; // coupled gate (e.g. A&S credits) carries the actionable shortfall — don't double-list
       let amt="", detail="";
-      if(pr.kind==="credits"){ amt=nf(pr.need-pr.done)+" cr"; }
+      if(pr.kind==="credits"){ amt=crd(pr.need-pr.done); }
       else if(pr.kind==="coverage"){ amt=(pr.need-pr.done)+" left"; detail=(pr.kids||[]).filter(k=>matchedFor(k).length===0).map(k=>k.name).join(", "); }
       else if(pr.kind==="flag"){ amt="to do"; }
       else { amt=(pr.need-pr.done)+" course"+((pr.need-pr.done)===1?"":"s"); detail=(pr.kids||[]).filter(k=>matchedFor(k).length===0).map(k=>k.name).join(", "); }
@@ -1237,7 +1239,7 @@ function renderDashboard(){
   let left;
   if(!out.length) left=`<div class="todo"><div class="done-note">✓ Everything on record is complete.</div></div>`;
   else left=`<div class="todo">${out.map(o=>`<button class="titem" data-goto="${o.prog.id}">
-      <span class="ic">!</span><span class="grow"><div class="nm">${esc(o.req.name)}</div><div class="sub">${esc(progById(o.prog.id).name)}${o.detail?' · '+esc(o.detail):''}</div></span>
+      <span class="grow"><div class="nm">${esc(o.req.name)}</div><div class="sub">${esc(progById(o.prog.id).name)}${o.detail?' · '+esc(o.detail):''}</div></span>
       <span class="amt">${esc(o.amt)}</span></button>`).join("")}</div>`;
 
   $("#dashboard").innerHTML=`<div class="phead"><h1>Overview</h1></div>${stat}
@@ -1251,7 +1253,7 @@ function renderDashboard(){
 }
 function leftLabel(pp){ if(pp.met) return "complete"; const n=pp.rows.filter(r=>!r.met).length; return n+" item"+(n===1?"":"s")+" left"; }
 function reqLeft(r){ if(r.met) return "complete"; const plan=r.planned||0;
-  if(r.kind==="credits") return nf(r.need-r.done)+" cr left"+(plan>0?` · ${nf(plan)} planned`:"");
+  if(r.kind==="credits") return crd(r.need-r.done)+" left"+(plan>0?` · ${nf(plan)} planned`:"");
   if(r.kind==="flag") return "to do"; return (r.need-r.done)+" left"+(plan>0?` · ${plan} planned`:""); }
 function drow(name,pct,met,sub,onclick,goto,ppct){
   const cls=met?"ok":((pct>0||(ppct||0)>0)?"warn":"none");
@@ -1287,12 +1289,12 @@ function renderRequirements(){
 // Render a requirement's course list grouped by term (chronological) and sorted by
 // course code within each term. Used when a requirement's spec sets groupByTerm.
 // `counted` (optional) = credits this course actually contributes to THIS requirement; when it's less
-// than the course's full credits (a big course over-filling a small bucket), show "1.5 of 3 cr".
+// than the course's full credits (a big course over-filling a small bucket), show "1.5 of 3 credits".
 function courseRowHTML(e, counted){ const full=num(e.credits);
-  const cr=(counted!=null&&counted<full)?`${nf(counted)} <span class="muted">of ${nf(full)}</span> cr`:`${nf(full)} cr`;
+  const cr=(counted!=null&&counted<full)?`${nf(counted)} <span class="muted">of ${nf(full)}</span> credits`:crd(full);
   return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${cr}</span></div>`; }
 // A single course's overflow into this bucket (e.g. the 1.5 cr of REAL 5950 beyond the 1.5-cr CST minimum).
-function splitRowHTML(s){ return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(s.e)]}"></span><span class="grow"><span class="co code" data-cid="${s.e.id}">${esc(s.e.code)}</span> <span class="ti muted">over ${esc(s.from)} minimum</span></span><span class="cc num">${nf(s.amount)} cr</span></div>`; }
+function splitRowHTML(s){ return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(s.e)]}"></span><span class="grow"><span class="co code" data-cid="${s.e.id}">${esc(s.e.code)}</span> <span class="ti muted">over ${esc(s.from)} minimum</span></span><span class="cc num">${crd(s.amount)}</span></div>`; }
 function coursesByTermHTML(courses){
   const groups=new Map();
   for(const e of courses){ const k=e.term_id||'~none'; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(e); }
@@ -1310,7 +1312,7 @@ function reqBlocks(prog){
     if(r.kind==="coverage"||(r.kids&&r.kids.length&&r.kind!=="credits")){
       inner=r.kids.map(k=>{const kc=matchedFor(k);const met=kc.some(isEarned);const cur=!met&&kc.some(e=>displayStatus(e)==="in_progress");
         return `<div class="crow"><span class="cdot dot ${met?'ok':(cur?'plan':(kc.length?'warn':'none'))}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join("");
-      if(r.kind!=="coverage" && r.done<r.need) inner+=`<div class="crow"><span class="cdot dot none"></span><span class="grow muted">${nf(r.need-r.done)} more needed</span></div>`;
+      // no "N more needed" row here — the open categories above + the done/need count in the header already say it
     } else if(r.kind==="flag"){
       inner=`<div class="crow"><span class="cdot dot ${r.met?'ok':'none'}"></span><span class="grow">${r.met?'Recorded as done':'Not recorded yet'}</span></div>`;
     } else if(r.kind==="credits"){
@@ -1386,7 +1388,7 @@ function renderPlanner(){
     const rows=es.map(prowHTML).join("");
     return `<div class="pterm ${isOpen?'open':''}${isNow?' now':''}${past?' past':''}" data-term="${term.id}">
       <div class="ph" data-toggle="${term.id}"><span class="chev">›</span><span class="nm">${esc(term.name)}</span>${isNow?'<span class="nowtag">now</span>':''}
-        <span class="meta">${nf(cr)}<small> cr · ${nf(cum[car])} total</small></span></div>
+        <span class="meta">${nf(cr)}<small> credit${cr===1?'':'s'} · ${nf(cum[car])} total</small></span></div>
       <div class="body">${rows||'<p class="muted" style="padding:6px 0">Nothing here yet.</p>'}
         <div class="add-in" data-add="${term.id}">＋ add a course</div></div></div>`;
   }).join("");
@@ -1402,7 +1404,7 @@ function renderPlanner(){
     const meets=meetInfoHTML(meetingsOf(e)); const p=profInfo(e); const showProf=p.name&&!savedInstructor(e);
     const prof=showProf?`<div class="wc-prof${p.likely?' likely':''}">${esc(p.name)}</div>`:'';
     return `<div class="wcard${RCHECK_FLAG.has(String(e.id))?' flagged':''}" data-cid="${e.id}"><div class="co code">${esc(codeLabel(e))}</div><div class="ti">${esc(e.title||'')}</div>
-    <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${nf(num(e.credits))} cr</span></div>
+    <div class="meta">${(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("")}<span class="muted num">${crd(num(e.credits))}</span></div>
     ${prof}${meets?`<div class="ci-meets wc-meets">${meets}</div>`:''}</div>`;
   }).join("");
   const wishCard=`<div class="pterm aux open"><div class="ph" data-toggle="__wish"><span class="chev">›</span><span class="nm">Wishlist</span><span class="meta acount">${wish.length}</span></div>
@@ -1875,10 +1877,10 @@ function renderSchedule(){
     return `<div class="sched-col ${d===showToday?'today':''}">${blocks}${ablocks}</div>`;
   }).join("");
   const unschedHtml=unsched.length?`<div class="sched-unsched"><div class="h">No set meeting time</div>${
-    unsched.map(e=>`<span class="uchip" data-cid="${e.id}"><span class="dot" style="background:${SCHED_COLORS[cidxOf(e)]}"></span>${esc(codeLabel(e))}<small>${nf(num(e.credits))} cr</small></span>`).join("")
+    unsched.map(e=>`<span class="uchip" data-cid="${e.id}"><span class="dot" style="background:${SCHED_COLORS[cidxOf(e)]}"></span>${esc(codeLabel(e))}<small>${crd(num(e.credits))}</small></span>`).join("")
   }</div>`:"";
   const termOpts=termList.map(t=>`<option value="${t.id}" ${t.id===SCHED_TERM?'selected':''}>${esc(t.name)}</option>`).join("")||`<option>No terms</option>`;
-  const scount=`<span class="scount">${es.length} course${es.length===1?'':'s'} · ${nf(credits)} cr</span>`;
+  const scount=`<span class="scount">${es.length} course${es.length===1?'':'s'} · ${crd(credits)}</span>`;
   const conflictNote=conflictAny?`<small class="cf">⚠ conflict</small>`:'';
   const nowEls = SCHED_NOW ? `<div class="now-time" style="display:none"></div><div class="now-line" style="display:none"></div>` : '';
   // academic-calendar overlay strip for the visible week — compact clickable chips; tapping a day
@@ -1966,8 +1968,9 @@ function openCourseInfo(id){
   const meetsHtml = mtgs.length ? meetInfoHTML(mtgs) : `<div class="ci-none">No meeting times set.</div>`;
   const tags=(e.tags||[]).map(t=>`<span class="pill t">${esc(t)}</span>`).join("");
   const ci=SCHED_CIDX[e.code||('#'+e.id)]!=null?SCHED_CIDX[e.code||('#'+e.id)]:courseColorIdx(e.code);
-  const cc=$("#infoCode"); cc.textContent=codeLabel(e); cc.style.setProperty("--h",SCHED_COLORS[ci]);
-  $("#infoCr").textContent=nf(num(e.credits))+" cr";
+  const cc=$("#infoCode"); cc.textContent=codeLabel(e);
+  $("#infoModal").querySelector(".sheet").style.setProperty("--h",SCHED_COLORS[ci]);   // course colour → header band
+  $("#infoCr").textContent=crd(num(e.credits));
   $("#infoBody").innerHTML=`
     ${e.title?`<div class="ci-title">${esc(e.title)}</div>`:""}
     <div class="ci-term">${esc(term?term.name:"No term")}</div>
@@ -2015,7 +2018,7 @@ function renderTranscript(){
   let body="";
   for(const {t,es,cross} of groups){
     const tg=termGpa(es), cr=es.reduce((s,e)=>s+num(e.credits),0);
-    body+=`<div class="tterm"><div class="th"><span class="nm">${esc(t.name)}${cross?' <span class="xapp">counts toward Baker</span>':''}</span><span class="meta">${nf(cr)} cr${tg!=null?' · '+tg.toFixed(2):''}</span></div>`+
+    body+=`<div class="tterm"><div class="th"><span class="nm">${esc(t.name)}${cross?' <span class="xapp">counts toward Baker</span>':''}</span><span class="meta">${crd(cr)}${tg!=null?' · '+tg.toFixed(2):''}</span></div>`+
       es.map(e=>{const p=GRADE_POINTS[e.grade];const dist=(e.tags||[])[0]||'';const ti=(e.title||'')+(roleOf(e)==='ta_credit'?' (Teaching Experience)':'');return `<div class="trow"><span class="co code ${e.in_as?'':'nonas'}">${esc(codeLabel(e))}</span><span class="ti">${esc(ti)}</span><span class="ds">${esc(dist)}</span><span class="cc num">${nf(num(e.credits))}</span><span class="gr ${p!=null?'a':'s'}">${esc(e.grade||(displayStatus(e)==='in_progress'?'···':'—'))}</span></div>`;}).join("")+`</div>`;
   }
   $("#transcript").innerHTML=`<button class="pback" id="tBack" type="button">‹ Overview</button><div class="phead"><h1>Transcript</h1><div class="ph-note">Read-only record · edit courses in the Planner</div></div>${seg}${legend}${summary}${body||'<p class="muted">No courses in this career yet.</p>'}`;
@@ -2081,8 +2084,8 @@ function renderAssignments(){
   const XICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   const row=it=>{ const c=colorOf(it.en); const code=esc(codeLabel(it.en)); const title=esc(asgTitle(it.a));
     const meta=(it.tm?esc(asgTimeShort(it.tm)):'')+(it.pending?(it.tm?' · ':'')+'from Canvas':'');
-    if(it.pending) return `<div class="ag-row pending${it.over?' over':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code" style="color:${c}">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-ic acc" data-approve="${it.a.id}" aria-label="Accept">${ICO.check}</button><button class="ag-ic rej" data-reject="${it.a.id}" aria-label="Reject">${XICO}</button></div></div>`;
-    return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code" style="color:${c}">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button></div>`; };
+    if(it.pending) return `<div class="ag-row pending${it.over?' over':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-ic acc" data-approve="${it.a.id}" aria-label="Accept">${ICO.check}</button><button class="ag-ic rej" data-reject="${it.a.id}" aria-label="Reject">${XICO}</button></div></div>`;
+    return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button></div>`; };
   let html=`<div class="agenda"><div class="ag-head"><h1>Assignments</h1><button class="ag-sync" id="agSync"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Sync</button></div>`;
   html+=`<div class="ag-count">${nPend?`${nPend} from Canvas to review · `:''}${nUp} upcoming</div>`;
   if(!items.length){ html+=`<div class="ag-empty">No assignments this term. Add them per course in the Planner, or use Sync to pull from Canvas.</div></div>`; el.innerHTML=html; wireAgenda(el); return; }
@@ -2517,7 +2520,7 @@ async function runSearch(){
     let ms=classes.filter(c=>!rest||(c.catalogNbr||"").startsWith(rest)||((c.catalogNbr+" "+(c.titleLong||"")).toUpperCase().includes(rest))).slice(0,40);
     MRESULTS=ms;
     if(!ms.length){ res.classList.remove("on"); return; }
-    res.innerHTML=ms.map((c,i)=>{const eg=(c.enrollGroups||[])[0]||{};return `<div class="result" data-ri="${i}"><span class="rc">${esc(sub)} ${esc(c.catalogNbr)}</span><span class="rt">${esc(c.titleLong||'')}</span><span class="rr">${eg.unitsMaximum!=null?esc(String(eg.unitsMaximum))+' cr':''}</span></div>`;}).join("");
+    res.innerHTML=ms.map((c,i)=>{const eg=(c.enrollGroups||[])[0]||{};return `<div class="result" data-ri="${i}"><span class="rc">${esc(sub)} ${esc(c.catalogNbr)}</span><span class="rt">${esc(c.titleLong||'')}</span><span class="rr">${eg.unitsMaximum!=null?crd(eg.unitsMaximum):''}</span></div>`;}).join("");
     res.querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>pickResult(MRESULTS[+b.dataset.ri],sub));
     res.classList.add("on");
     return;
@@ -2541,7 +2544,7 @@ async function runSearch(){
   const ms=scored.slice(0,40).map(x=>x.e);
   MRESULTS=ms;
   if(!ms.length){ res.innerHTML=""; res.classList.remove("on"); msg.textContent="No matching course titles."; return; }
-  res.innerHTML=ms.map((e,i)=>`<div class="result" data-ri="${i}"><span class="rc">${esc(e.s)} ${esc(e.n)}</span><span class="rt">${esc(e.t||'')}</span><span class="rr">${e.u!=null?esc(String(e.u))+' cr':''}</span></div>`).join("");
+  res.innerHTML=ms.map((e,i)=>`<div class="result" data-ri="${i}"><span class="rc">${esc(e.s)} ${esc(e.n)}</span><span class="rt">${esc(e.t||'')}</span><span class="rr">${e.u!=null?crd(e.u):''}</span></div>`).join("");
   res.querySelectorAll("[data-ri]").forEach(b=>b.onclick=()=>pickTitleResult(MRESULTS[+b.dataset.ri]));
   res.classList.add("on");
 }
