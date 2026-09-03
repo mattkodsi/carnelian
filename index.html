@@ -78,7 +78,7 @@
   .brand .wm{font-weight:800; letter-spacing:-.02em; font-size:17px; font-family:var(--font-display)}
   .gpas{display:grid; grid-template-columns:1fr 1fr; gap:8px}
   .gpa{border:1px solid var(--line); border-radius:var(--r-sm); padding:9px 10px; background:var(--surface)}
-  .gpa .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--ink-3)}
+  .gpa .k{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--ink-3)}
   .gpa .v{font-size:20px;font-weight:800;letter-spacing:-.02em} .gpa .v small{font-size:11px;color:var(--ink-3);font-weight:600}
   .nav{display:flex;flex-direction:column;gap:2px}
   .navitem{display:flex;align-items:center;gap:11px;padding:9px 11px;border-radius:var(--r-sm);font-size:13.5px;font-weight:600;color:var(--ink-2);text-align:left;width:100%}
@@ -148,7 +148,7 @@
   .drow .mini i{display:block;height:100%}
   .drow .rt{font-weight:800;font-size:12px;flex:0 0 auto;width:52px;text-align:right}
   .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)} .dot.plan{background:var(--plan)} .dot.none{background:var(--surface-3);border:1.5px solid var(--line-strong)}
-  .fill.ok{background:var(--ok)} .fill.warn{background:var(--warn)} .fill.plan{background:var(--plan)} .fill.planned{background:var(--warn);opacity:.32}
+  .fill.ok{background:var(--ok)} .fill.warn{background:var(--warn)} .fill.plan{background:var(--plan)}
   .c-ok{color:var(--ok-ink)} .c-warn{color:var(--warn-ink)} .c-ink3{color:var(--ink-3)}
 
   /* ---- "what's left" ---- */
@@ -250,7 +250,7 @@
   .legend b{font-weight:800} .legend .na{color:var(--accent);font-weight:800}
   .tsum{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px}
   .tsum .box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);padding:9px 13px;box-shadow:var(--shadow);min-width:92px}
-  .tsum .box .k{font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:var(--ink-3)}
+  .tsum .box .k{font-size:10px;text-transform:uppercase;letter-spacing:.07em;font-weight:800;color:var(--ink-3)}
   .tsum .box .v{font-size:17px;font-weight:800;letter-spacing:-.02em;margin-top:1px}
   .tsum .box .v small{font-size:11px;color:var(--ink-3);font-weight:700}
   .tsum .box.na .v{color:var(--accent)}
@@ -446,7 +446,7 @@
   .ag-sync .ico{width:15px;height:15px}
   .ag-sync.spin .ico{animation:acal-spin .8s linear infinite}
   .ag-count{font-size:12.5px;color:var(--ink-3);margin:0 2px 14px}
-  .ag-sec{font-size:12px;font-weight:700;color:var(--ink-3);letter-spacing:.02em;margin:16px 2px 6px;display:flex;align-items:center;gap:6px}
+  .ag-sec{font-size:12px;font-weight:800;text-transform:uppercase;color:var(--ink-3);letter-spacing:.06em;margin:16px 2px 6px;display:flex;align-items:center;gap:6px}
   .ag-sec.overdue{color:#c2405b}
   .ag-sec .ag-sec-d{color:var(--ink-3);font-weight:600}
   .ag-row{display:flex;gap:10px;align-items:center;padding:9px 8px;border-top:.5px solid var(--line);border-left:3px solid var(--line);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:opacity .12s ease}
@@ -659,7 +659,7 @@
   #acal-refresh.spin svg{animation:acal-spin .8s linear infinite}
   @keyframes acal-spin{to{transform:rotate(360deg)}}
   .acal-month{margin-bottom:18px}
-  .acal-mh{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--ink-3);padding:0 2px 8px;position:sticky;top:0;background:var(--bg);z-index:2}
+  .acal-mh{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);padding:0 2px 8px;position:sticky;top:0;background:var(--bg);z-index:2}
   .acal-row{display:flex;gap:13px;align-items:baseline;padding:10px 12px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);margin-bottom:7px}
   .acal-date{flex:0 0 76px;font-size:12.5px;font-weight:800;color:var(--ink);letter-spacing:-.01em;line-height:1.35}
   .acal-main{flex:1;min-width:0}
@@ -1136,13 +1136,14 @@ function reqProgress(req){
 }
 // progress is CREDIT-WEIGHTED: a 27.5-cr Core moves the ring far more than a 1.5-cr bucket
 const reqRatio=pr=>pr.need?Math.min(1,pr.done/pr.need):(pr.met?1:0);
+const reqRatioC=pr=>pr.need?Math.min(1,(pr.done+(pr.cur||0))/pr.need):(pr.met?1:0);   // earned + in-progress
 const reqRatioP=pr=>pr.need?Math.min(1,(pr.done+(pr.planned||0))/pr.need):(pr.met?1:0);
 const reqWeight=pr=>pr.kind==="flag"?1:(pr.need||1);
-function weightedOver(rows){ let w=0,a=0,ap=0; for(const pr of rows){ const ww=reqWeight(pr); w+=ww; a+=ww*reqRatio(pr); ap+=ww*reqRatioP(pr); }
+function weightedOver(rows){ let w=0,a=0,ac=0,ap=0; for(const pr of rows){ const ww=reqWeight(pr); w+=ww; a+=ww*reqRatio(pr); ac+=ww*reqRatioC(pr); ap+=ww*reqRatioP(pr); }
   const met=rows.length?rows.every(r=>r.met):true;
-  let pct=w?Math.round(100*a/w):0, ppct=w?Math.round(100*ap/w):0;
-  if(met) pct=100; else if(pct>=100) pct=99; if(ppct>=100&&!met) ppct=99;
-  return {pct,ppct,met}; }
+  let pct=w?Math.round(100*a/w):0, cpct=w?Math.round(100*ac/w):0, ppct=w?Math.round(100*ap/w):0;
+  if(met) pct=100; else if(pct>=100) pct=99; if(cpct>=100&&!met) cpct=99; if(ppct>=100&&!met) ppct=99;
+  return {pct,cpct,ppct,met}; }
 function programProgress(prog){
   const top=DB.requirements.filter(r=>r.program_id===prog.id&&!r.parent_id).sort((a,b)=>a.sort-b.sort);
   const rows=top.map(r=>({req:r,...reqProgress(r)}));
@@ -1172,14 +1173,17 @@ function outstanding(){ // every unmet leaf requirement across all programs
   }
   return out;
 }
-function ring(pct,size,met,ppct){ const col=met?"var(--ok)":"var(--accent)";
-  const planned=(ppct!=null&&ppct>pct)?`<circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--warn)" opacity=".35" stroke-width="4" stroke-linecap="round" stroke-dasharray="${ppct*0.973} 100" transform="rotate(-90 18 18)"/>`:"";
-  return `<svg width="${size}" height="${size}" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" stroke-width="4"/>${planned}<circle cx="18" cy="18" r="15.5" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${pct*0.973} 100" transform="rotate(-90 18 18)"/></svg>`; }
-const barFill=(pct,met)=>`<i class="fill ${met?'ok':'warn'}" style="width:${Math.max(pct,3)}%"></i>`;
-// two-tone: solid earned + lighter planned
-function bar2(donePct,plannedPct,met){ const d=Math.max(0,Math.min(100,donePct)); const p=Math.max(0,Math.min(100,plannedPct||0)-d);
-  return `<i class="fill ${met?'ok':'warn'}" style="width:${d}%"></i>`+(p>0.5?`<i class="fill planned" style="width:${p}%"></i>`:""); }
+// earned / in-progress / planned = green / blue / amber, same system as the requirement bars.
+// Arcs are drawn largest-first (amber, then blue, then green) so each shorter segment sits on top.
+function ring(pct,size,met,ppct,cpct){ ppct=(ppct==null)?pct:ppct; cpct=(cpct==null)?pct:cpct;
+  const arc=(v,col)=> v>0.5?`<circle cx="18" cy="18" r="15.5" fill="none" stroke="${col}" stroke-width="4" stroke-linecap="round" stroke-dasharray="${v*0.973} 100" transform="rotate(-90 18 18)"/>`:"";
+  return `<svg width="${size}" height="${size}" viewBox="0 0 36 36"><circle cx="18" cy="18" r="15.5" fill="none" stroke="var(--surface-3)" stroke-width="4"/>${arc(ppct,'var(--warn)')}${arc(cpct,'var(--plan)')}${arc(pct,'var(--ok)')}</svg>`; }
+// three-tone aggregate bar (dashboard) — earned green / in-progress blue / planned amber, same system as bar3
+function barAgg(pct,cpct,ppct){ const d=Math.max(0,Math.min(100,pct)); const c=Math.max(0,Math.min(100-d,(cpct==null?pct:cpct)-d)); const f=Math.max(0,Math.min(100-d-c,(ppct==null?pct:ppct)-(cpct==null?pct:cpct)));
+  const px=(cls,w)=> w>0.5?`<i class="fill ${cls}" style="width:${w}%"></i>`:"";
+  return px('ok',d)+px('plan',c)+px('warn',f); }
 const pctPlan=pr=>pr.need?Math.round(100*Math.min(1,(pr.done+(pr.planned||0))/pr.need)):(pr.met?100:0);
+const pctCur=pr=>pr.need?Math.round(100*Math.min(1,(pr.done+(pr.cur||0))/pr.need)):(pr.met?100:0);
 // three-tone requirement bar: earned (green) → in-progress (blue) → planned (amber), rest = empty track.
 // Segments stack and are clamped so the total never exceeds the bar; unfilled width = credits not yet planned.
 function bar3(pr){ const need=pr.need||0; const seg=v=> need?Math.max(0,Math.min(100,100*v/need)):(v>0?100:0);
@@ -1223,13 +1227,13 @@ function renderDashboard(){
     const gcar=(p.id==="baker-mps")?"grad":"undergrad"; const dg=(gcar==="grad")?gr:ug;
     const dgStr=dg.gpa?dg.gpa.toFixed(2):"—";
     if(dp.kids.length){
-      rows+=drow("College requirements", dp.self.pct, dp.self.met, leftLabel(dp.self), ()=>goToReqs(p.id), p.id, dp.self.ppct);
-      for(const k of dp.kids) rows+=drow(k.prog.name, k.pct, k.met, leftLabel(k), null, k.prog.id, k.ppct);
+      rows+=drow("College requirements", dp.self.pct, dp.self.met, leftLabel(dp.self), ()=>goToReqs(p.id), p.id, dp.self.ppct, dp.self.cpct);
+      for(const k of dp.kids) rows+=drow(k.prog.name, k.pct, k.met, leftLabel(k), null, k.prog.id, k.ppct, k.cpct);
     } else {
-      for(const r of dp.self.rows) rows+=drow(r.req.name, r.need?Math.min(100,Math.round(100*r.done/r.need)):0, r.met, reqLeft(r), null, p.id, pctPlan(r));
+      for(const r of dp.self.rows) rows+=drow(r.req.name, r.need?Math.min(100,Math.round(100*r.done/r.need)):0, r.met, reqLeft(r), null, p.id, pctPlan(r), pctCur(r));
     }
     return `<div class="degree">
-      <div class="dh"><div class="ring">${ring(dp.pct,52,dp.met,dp.ppct)}<b>${dp.pct}%</b></div>
+      <div class="dh"><div class="ring">${ring(dp.pct,52,dp.met,dp.ppct,dp.cpct)}<b>${dp.pct}%</b></div>
         <div class="dt"><div class="nm">${esc(p.name)}</div><div class="mt">${dp.met?'Complete':dp.pct+'% complete'}</div></div>
         <button class="dgpa" data-tc-open="${gcar}" aria-label="GPA, open transcript"><span class="k">GPA</span><span class="v">${dgStr}</span></button></div>
       <div class="rows" data-prog="${p.id}">${rows}</div></div>`;
@@ -1255,11 +1259,13 @@ function leftLabel(pp){ if(pp.met) return "complete"; const n=pp.rows.filter(r=>
 function reqLeft(r){ if(r.met) return "complete"; const plan=r.planned||0;
   if(r.kind==="credits") return crd(r.need-r.done)+" left"+(plan>0?` · ${nf(plan)} planned`:"");
   if(r.kind==="flag") return "to do"; return (r.need-r.done)+" left"+(plan>0?` · ${plan} planned`:""); }
-function drow(name,pct,met,sub,onclick,goto,ppct){
-  const cls=met?"ok":((pct>0||(ppct||0)>0)?"warn":"none");
+function drow(name,pct,met,sub,onclick,goto,ppct,cpct){
+  // same state->colour rule as the requirement tree: met=green, in-progress=blue, started/planned=amber, none=grey
+  const inProg=(cpct!=null?cpct:pct)>pct;
+  const cls=met?"ok":(inProg?"plan":((pct>0||(ppct||0)>0)?"warn":"none"));
   return `<button class="drow" ${goto?`data-goto="${goto}"`:""}><span class="dot ${cls}"></span>
     <span class="grow"><div class="nm">${esc(name)}</div><div class="sub">${esc(sub)}</div></span>
-    <span class="mini">${bar2(pct,ppct!=null?ppct:pct,met)}</span><span class="rt ${met?'c-ok':'c-ink3'}">${met?'✓':pct+'%'}</span></button>`;
+    <span class="mini">${barAgg(pct,cpct,ppct)}</span><span class="rt ${met?'c-ok':'c-ink3'}">${met?'✓':pct+'%'}</span></button>`;
 }
 
 function courseChip(e){ const ds=displayStatus(e); return `<span class="pill ${STATUS_CLASS[ds]}"><span class="code">${esc(e.code)}</span></span>`; }
@@ -1276,7 +1282,8 @@ function renderRequirements(){
     html+=reqBlocks(top);
     for(const k of childrenOf(top.id)){
       const kp=programProgress(k);
-      html+=`<div class="subhead" id="pg-${k.id}"><span class="dot ${kp.met?'ok':'warn'}" style="background:${kp.met?'var(--ok)':'var(--warn)'}"></span>${esc(k.name)} — ${kp.met?'complete':kp.pct+'%'}</div><div class="indent">${reqBlocks(k)}</div>`;
+      const kpCls=kp.met?'ok':(kp.cpct>kp.pct?'plan':((kp.pct>0||kp.ppct>0)?'warn':'none'));   // green/blue/amber/grey, same rule everywhere
+      html+=`<div class="subhead" id="pg-${k.id}"><span class="dot ${kpCls}"></span>${esc(k.name)} — ${kp.met?'complete':kp.pct+'%'}</div><div class="indent">${reqBlocks(k)}</div>`;
     }
     html+=`</div>`;
   }
