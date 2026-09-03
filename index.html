@@ -255,7 +255,7 @@
   .tsum .box .v small{font-size:11px;color:var(--ink-3);font-weight:700}
   .tsum .box.na .v{color:var(--accent)}
   .tterm{border:1px solid var(--line);border-radius:var(--r);margin-bottom:9px;overflow:hidden;background:var(--surface);box-shadow:var(--shadow)}
-  .tterm .th{display:flex;align-items:center;gap:10px;padding:10px 15px;background:var(--surface-2)}
+  .tterm .th{display:flex;align-items:center;gap:10px;padding:13px 15px;background:var(--surface-2)}
   .tterm .th .nm{font-weight:800;font-size:13px} .tterm .th .meta{margin-left:auto;font-size:11.5px;color:var(--ink-2);font-weight:700}
   .tterm .th .xapp{display:inline-block;margin-left:7px;padding:2px 7px;border-radius:999px;background:var(--accent-soft);color:var(--accent);font-size:9.5px;font-weight:800;letter-spacing:.02em;text-transform:uppercase;vertical-align:middle}
   .trow{display:grid;grid-template-columns:auto 1fr 58px 34px 38px;gap:11px;align-items:center;padding:9px 15px;border-top:1px solid var(--line);font-size:12.5px}
@@ -471,7 +471,7 @@
   .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* academic-calendar day detail sheet */
   #acDayBody{display:flex;flex-direction:column;gap:8px}
-  .acd-item{padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+  .acd-item{padding:11px 13px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2)}
   .acd-item.noclass{border-color:var(--accent-line);background:var(--accent-soft)}
   .acd-item.asg{border-left-width:3px;border-left-style:solid}
   .acd-item.asg.done{opacity:.6}
@@ -490,7 +490,7 @@
   .asg-sec{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--accent);margin:2px 0 6px}
   .asg-review{border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
   .asg-active{display:flex;flex-direction:column;gap:7px}
-  .asg-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+  .asg-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2)}
   .asg-row.pending{background:var(--surface);border-color:var(--accent-line);flex-direction:column;align-items:stretch;gap:9px}
   .asg-acts{display:flex;gap:7px;justify-content:flex-end}
   .asg-acts .asg-mini{flex:0 0 auto}
@@ -553,7 +553,7 @@
   .ci-none{color:var(--ink-3);font-size:13px}
   .ci-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
   /* ---- meeting-times editor (course modal) ---- */
-  .meetbox{border:1px solid var(--line);border-radius:11px;padding:10px;background:var(--surface)}
+  .meetbox{border:1px solid var(--line);border-radius:var(--r-sm);padding:10px;background:var(--surface)}
   /* component pickers (Lecture / Discussion) above the meeting rows */
   .secpick{display:grid;gap:9px;margin:0 0 11px;padding:11px 12px;border:1px solid var(--accent-line);border-radius:10px;background:var(--accent-soft)}
   .secpick .mfw label{color:var(--accent)}
@@ -636,7 +636,7 @@
   .gc-btns{display:flex;gap:9px;margin-top:16px} .gc-btns .btn{flex:1;justify-content:center}
   /* Google sync layers (each = a separate, independently toggle-able calendar) */
   .gc-layers{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-  .gc-layer{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:11px;background:var(--surface-2)}
+  .gc-layer{display:flex;align-items:center;gap:12px;padding:11px 13px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2)}
   .gc-layer.soon{opacity:.6}
   .gc-lmain{flex:1;min-width:0}
   .gc-lname{font-size:13.5px;font-weight:800;color:var(--ink)}
@@ -1218,7 +1218,7 @@ function renderDashboard(){
   // header (see below), so this strip is just the two credit tallies.
   const stat=`<div class="statgrid">
     <div class="stat"><div class="k">Undergrad Credits</div><div class="v">${nf(allC)}<small> / ${nf(ugNeed)}</small></div><div class="sub ${asShort?'warnsub':''}">${nf(asC)} / ${nf(asNeed)} in A&amp;S${asShort?'':' ✓'}</div></div>
-    <div class="stat"><div class="k">Baker Credits</div><div class="v">${nf(bakerEarned)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerEarned>=bakerNeed?'All requirements earned ✓':`${nf(bakerPlan)} planned · ${nf(bakerFind)} remaining`}</div></div>
+    <div class="stat"><div class="k">Baker Credits</div><div class="v">${nf(bakerEarned)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerEarned>=bakerNeed?'All requirements earned ✓':`${nf(bakerPlan)} planned · ${nf(bakerFind)} unplanned`}</div></div>
   </div>`;
 
   const degrees=topPrograms().map(p=>{
@@ -2007,7 +2007,7 @@ function renderTranscript(){
       <div class="box"><div class="k">Baker GPA</div><div class="v">${g.gpa?g.gpa.toFixed(3):'—'}</div></div>
       <div class="box"><div class="k">Earned</div><div class="v">${nf(bc.earned)}<small> / ${nf(bc.need)}</small></div></div>
       <div class="box"><div class="k">Planned</div><div class="v">${nf(bc.planned)}</div></div>
-      <div class="box"><div class="k">Remaining</div><div class="v">${nf(bc.remaining)}</div></div></div>`;
+      <div class="box"><div class="k">Unplanned</div><div class="v">${nf(bc.remaining)}</div></div></div>`;
   }
   // The Baker transcript also surfaces courses cross-applied from undergrad terms (e.g. 6000-level
   // courses taken early that count toward Baker) so they appear in the record, not just the GPA.
