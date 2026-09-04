@@ -1028,7 +1028,10 @@ function gpa(career){ let q=0,c=0;
 function creditsScope(scope){ let c=0; for(const e of DB.enrollments){ const ds=displayStatus(e); if(!["completed","in_progress","transferred"].includes(ds)) continue;
   if(roleOf(e)==="ta_paid") continue;   // paid TA work isn't academic credit (audit is already 0 cr)
   const t=termById(e.term_id), car=t?t.career:"undergrad";
-  if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
+  // in_as is the authoritative "counts as A&S" marker: an A&S course counts toward the A&S floor
+  // and the undergrad total even when it sits in a grad-career term (e.g. an undergrad A&S course
+  // taken during a Baker term). Only genuine grad courses (in_as=false, grad term) are excluded.
+  if(scope==="as"){ if(!e.in_as) continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad"&&!e.in_as) continue; }
   c+=num(e.credits);} return Math.round(c*10)/10; }
 // Baker credits toward the 62-credit MPS, computed once so the dashboard card and the
 // transcript summary can never disagree. Counts every distinct course mapped to any Baker
@@ -1109,8 +1112,16 @@ function reqProgress(req){
     let doneCr=0, curCr=0, futCr=0, courses=[], contrib=null, splits=[];
     if(scope){ for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist") continue;
         const car=(termById(e.term_id)||{}).career||"undergrad";
-        if(scope==="as"){ if(!e.in_as||car==="grad") continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad") continue; }
-        const st=progState(e), cr=num(e.credits); if(st==="done")doneCr+=cr; else if(st==="cur")curCr+=cr; else futCr+=cr; } }
+        // in_as courses count toward A&S / the undergrad total regardless of their term's career (see creditsScope).
+        if(scope==="as"){ if(!e.in_as) continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad"&&!e.in_as) continue; }
+        const st=progState(e), cr=num(e.credits); if(st==="done")doneCr+=cr; else if(st==="cur")curCr+=cr; else futCr+=cr; }
+      // spec.creditFloor: this bucket counts only the credits BEYOND the floor (e.g. the 20 "additional"
+      // credits past the first 100). Subtract the floor cumulatively — earned first, then in-progress, then
+      // planned — and cap each segment at need.n, so the done/cur/fut split (and bar3) stays honest.
+      const floor=(req.spec&&req.spec.creditFloor)||0;
+      if(floor){ const cap=need.n, bynd=v=>Math.max(0,v-floor);
+        const dB=Math.min(cap,bynd(doneCr)), cB=Math.min(cap-dB,bynd(doneCr+curCr)-bynd(doneCr)), fB=Math.min(cap-dB-cB,bynd(doneCr+curCr+futCr)-bynd(doneCr+curCr));
+        doneCr=dB; curCr=cB; futCr=fB; } }
     else { const cc=cappedCredits(req); doneCr=cc.done; curCr=cc.cur; futCr=cc.fut; courses=cc.kept; contrib=cc.contrib;
       const ov=overflowInto(req.id); doneCr=r1(doneCr+ov.done); curCr=r1(curCr+ov.cur); futCr=r1(futCr+ov.fut); courses=courses.concat(ov.courses); splits=ov.splits; }
     const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
@@ -1208,16 +1219,19 @@ function renderDashboard(){
   const ug=gpa("undergrad"), gr=gpa("grad"), cur=currentTerm();
   const asC=creditsScope("as"), allC=creditsScope("all");
   const asReq=DB.requirements.find(r=>r.id==="as-ascred"); const asNeed=asReq?asReq.spec.need.n:100;
-  const ugTotReq=DB.requirements.find(r=>r.id==="as-total"); const ugNeed=ugTotReq?ugTotReq.spec.need.n:120;
+  const asPr=asReq?reqProgress(asReq):null; const asEarned=asPr?asPr.done:asC;
+  // total target = the 100 A&S floor + the 20 additional (the two credit requirements sum to 120)
+  const ugAddlReq=DB.requirements.find(r=>r.id==="as-total"); const ugNeed=asNeed+(ugAddlReq?ugAddlReq.spec.need.n:20);
   // Baker: sum the program's credit buckets for the target, and the distinct courses mapped to any Baker bucket for progress
   const bc=bakerCredits(), bakerNeed=bc.need, bakerEarned=bc.earned, bakerPlan=bc.planned, bakerFind=bc.remaining;
-  const asShort=asC<asNeed;
+  // ✓ only once the A&S floor is genuinely earned — in-progress credits show progress, not completion
+  const asShort=asPr?!asPr.met:asC<asNeed;
   const gradTerms=DB.terms.filter(t=>t.career==="grad").sort((a,b)=>a.sort-b.sort); const firstGrad=gradTerms[0];
   const bakerNote=gr.gpa?nf(gr.credits)+" graded credits":(firstGrad?(termTiming(firstGrad)==="planned"?"Starts "+esc(firstGrad.name.replace(/ · Baker$/,"")):"In progress"):"Not started");
   // GPAs used to sit in their own two boxes here; they now live large inside each degree card
   // header (see below), so this strip is just the two credit tallies.
   const stat=`<div class="statgrid">
-    <div class="stat"><div class="k">Undergrad Credits</div><div class="v">${nf(allC)}<small> / ${nf(ugNeed)}</small></div><div class="sub ${asShort?'warnsub':''}">${nf(asC)} / ${nf(asNeed)} in A&amp;S${asShort?'':' ✓'}</div></div>
+    <div class="stat"><div class="k">Undergrad Credits</div><div class="v">${nf(allC)}<small> / ${nf(ugNeed)}</small></div><div class="sub ${asShort?'warnsub':''}">${nf(asEarned)} / ${nf(asNeed)} in A&amp;S${asShort?'':' ✓'}</div></div>
     <div class="stat"><div class="k">Baker Credits</div><div class="v">${nf(bakerEarned)}<small> / ${nf(bakerNeed)}</small></div><div class="sub">${bakerEarned>=bakerNeed?'All requirements earned ✓':`${nf(bakerPlan)} planned · ${nf(bakerFind)} unplanned`}</div></div>
   </div>`;
 
