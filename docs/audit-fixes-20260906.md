@@ -22,8 +22,8 @@ Rollback frontend/functions independently; keep the additive table/triggers so p
 
 ## Verification
 
-`node --test tests/audit.test.mjs supabase/functions/carnelian-canvas/ical.test.ts`
+Run `npm ci` then `npm test` with Node 24 or later. All 38 tests pass, including the 11 existing iCal tests, full-app synthetic DOM boot, disconnect/reconnect and shared mutation-queue regressions, and the actual Canvas migration with PGlite. Both Edge Functions pass Deno 2.9.6 checks. `git diff --check` passes.
 
-The regression suite runs real source code in a VM with synthetic database/network boundaries and performs a whole frontend-script parse. The original revision fails 17 behavioral assertions. Fixed code passes all 30 tests, including 11 existing iCal tests. Node 24 emits its expected experimental type-stripping warning. `git diff --check` also passes.
+The regression tests execute source code with synthetic database/network boundaries. The original revision failed 17 of the initial behavioral assertions. Disconnect failure preserves connection state and exposes reconnection; manual, automatic, OAuth-return, layer-toggle, and disconnect requests share the frontend mutation queue.
 
-No local PostgreSQL server was available, so migration execution, permissions, and concurrent transaction behavior require the isolated database verification above. No live Google/Canvas requests or browser smoke test were performed by this task.
+The migration passes against disposable PGlite PostgreSQL, including private access and rejection/reimport behavior. PGlite does not replace a multi-connection PostgreSQL concurrency check. The full-app smoke test uses jsdom, not a real browser. No live Google/Canvas writes were performed; authenticated staging flows remain required before release.
