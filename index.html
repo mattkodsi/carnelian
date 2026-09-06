@@ -977,7 +977,7 @@ function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="g
 $("#logoutBtn").addEventListener("click",()=>{ localStorage.removeItem("carn_token"); location.reload(); });
 
 /* ---- helpers ---- */
-const today=()=>new Date().toISOString().slice(0,10);
+const today=()=>new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date());
 const termById=id=>DB.terms.find(t=>t.id===id);
 function currentTerm(){ const t=today(); return DB.terms.find(x=>x.starts_on&&x.ends_on&&x.starts_on<=t&&t<=x.ends_on); }
 function displayStatus(e){
@@ -1013,7 +1013,7 @@ const progById=id=>DB.programs.find(p=>p.id===id);
 
 // ids of every graded course applied to the Baker program (incl. 6000-level courses taken as an undergrad)
 function bakerAppliedIds(){ const s=new Set();
-  for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r)) s.add(String(e.id));
+  for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r,true)) s.add(String(e.id));
   return s; }
 function gpa(career){ let q=0,c=0;
   const bset = career==="grad" ? bakerAppliedIds() : null;
@@ -1025,8 +1025,9 @@ function gpa(career){ let q=0,c=0;
     const inCareer = career==="grad" ? (car==="grad"||bset.has(String(e.id))) : (car==="undergrad");
     if(!inCareer) continue; q+=p*num(e.credits); c+=num(e.credits); }
   return c?{gpa:q/c,credits:c}:{gpa:null,credits:0}; }
+const earnsCredit=e=>e.grade!=="F" && !["ta_paid","audit"].includes(roleOf(e));
 function creditsScope(scope){ let c=0; for(const e of DB.enrollments){ const ds=displayStatus(e); if(!["completed","in_progress","transferred"].includes(ds)) continue;
-  if(roleOf(e)==="ta_paid") continue;   // paid TA work isn't academic credit (audit is already 0 cr)
+  if(!earnsCredit(e)) continue;
   const t=termById(e.term_id), car=t?t.career:"undergrad";
   // in_as is the authoritative "counts as A&S" marker: an A&S course counts toward the A&S floor
   // and the undergrad total even when it sits in a grad-career term (e.g. an undergrad A&S course
@@ -1057,9 +1058,9 @@ function autoMatch(req){ const spec=req.spec||{}, m=spec.match||{}; if(m.manual|
       if(spec.exclude&&spec.exclude.x9xx&&isX9xx(e)) return false; return true; }
     if(m.codes) return m.codes.includes(e.code); return false; }); }
 const childReqIds=id=>DB.requirements.filter(r=>r.parent_id===id).map(r=>r.id);
-function matchedFor(req){ const map=new Map(); for(const rid of [req.id,...childReqIds(req.id)]) for(const e of satisfiers(rid)) map.set(String(e.id),e); for(const e of autoMatch(req)) map.set(String(e.id),e); return [...map.values()]; }
+function matchedFor(req,includeFailed=false){ const map=new Map(); for(const rid of [req.id,...childReqIds(req.id)]) for(const e of satisfiers(rid)) map.set(String(e.id),e); for(const e of autoMatch(req)) map.set(String(e.id),e); return [...map.values()].filter(e=>includeFailed||earnsCredit(e)); }
 // a course only counts as "done" toward a requirement when it's actually finished
-const isEarned=e=>{ const ds=displayStatus(e); return ds==="completed"||ds==="transferred"; };
+const isEarned=e=>{ const ds=displayStatus(e); return earnsCredit(e)&&(ds==="completed"||ds==="transferred"); };
 // Some requirements cap how many credits a repeatable course (e.g. the 0.5-cr weekly
 // seminar, taken every term) may contribute — spec.caps maps course code -> max credits.
 // Credits past the cap "overflow" to the requirement in spec.overflowTo (e.g. Free
@@ -1110,7 +1111,7 @@ function reqProgress(req){
   if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,cur:0,fut:0,planned:0,need:1,met:done>=1,kind:"flag",courses:[]}; }
   if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope;
     let doneCr=0, curCr=0, futCr=0, courses=[], contrib=null, splits=[];
-    if(scope){ for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist") continue;
+    if(scope){ for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist"||!earnsCredit(e)) continue;
         const car=(termById(e.term_id)||{}).career||"undergrad";
         // in_as courses count toward A&S / the undergrad total regardless of their term's career (see creditsScope).
         if(scope==="as"){ if(!e.in_as) continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad"&&!e.in_as) continue; }
@@ -1690,9 +1691,9 @@ function fmtAsgDate(a){ const d=asgDate(a); if(!d) return ""; const p=d.split("-
 async function saveAsg(row){ const saved=(await api("upsert",{table:"assignments",row})).row;
   const i=(DB.assignments||[]).findIndex(x=>String(x.id)===String(saved.id));
   if(i>=0) DB.assignments[i]=saved; else (DB.assignments=DB.assignments||[]).push(saved);
-  if(CUR==="schedule") renderSchedule(); return saved; }
+  if(CUR==="schedule") renderSchedule(); gcalAutoSync(); return saved; }
 async function deleteAsg(id){ await api("delete",{table:"assignments",id});
-  DB.assignments=(DB.assignments||[]).filter(x=>String(x.id)!==String(id)); if(CUR==="schedule") renderSchedule(); }
+  DB.assignments=(DB.assignments||[]).filter(x=>String(x.id)!==String(id)); if(CUR==="schedule") renderSchedule(); gcalAutoSync(); }
 async function toggleAsgDone(a){ try{ await saveAsg({id:a.id, done:!a.done}); renderAsgList(a.enrollment_id); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
 async function approveAsg(a){ try{ await saveAsg({id:a.id, status:'active'}); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
 async function rejectAsg(a){ try{ await deleteAsg(a.id); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
@@ -2939,7 +2940,7 @@ function handleGcalReturn(){
   if(q.get("gcal")==="connected"){
     history.replaceState(null,"",location.pathname);
     toast("Google Calendar connected — syncing…");
-    api("gcal_sync").then(async r=>{ await gcalRefresh(); if(r&&r.ok) toast(`Synced ${r.created||0} classes to Google Calendar`); }).catch(()=>{});
+    gcalMutation("gcal_sync").then(async r=>{ await gcalRefresh(); if(r&&r.ok) toast(`Synced ${r.created||0} classes to Google Calendar`); }).catch(()=>{});
   }
 }
 async function gcalConnect(){
@@ -2947,12 +2948,32 @@ async function gcalConnect(){
   catch(e){ toast(e.message||"Error"); }
 }
 let GSYNC=false;
-function gcalAutoSync(){   // fire-and-forget re-sync after any course change
-  if(!GCAL.connected||GSYNC) return; GSYNC=true;
-  api("gcal_sync").then(r=>{ GSYNC=false;
-    if(r&&r.reconnect){ GCAL.connected=false; if(CUR==="schedule")renderSchedule(); toast("Reconnect Google Calendar to keep syncing"); }
-    else gcalRefresh();
-  }).catch(()=>{ GSYNC=false; });
+let GCAL_MUTATION=Promise.resolve();
+// One queue for automatic sync, manual sync, OAuth return, toggles, and disconnect.
+// A failed request releases the queue so a later retry can proceed.
+function gcalMutation(action,body={}){
+  const result=GCAL_MUTATION.then(()=>api(action,body));
+  GCAL_MUTATION=result.catch(()=>{});
+  return result;
+}
+let GSYNC_PENDING=false;
+function gcalAutoSync(){   // serialize edits and coalesce changes made during a request
+  if(!GCAL.connected) return;
+  GSYNC_PENDING=true;
+  if(GSYNC) return;
+  GSYNC=true;
+  (async()=>{
+    try{
+      while(GSYNC_PENDING && GCAL.connected){
+        GSYNC_PENDING=false;
+        try{
+          const r=await gcalMutation("gcal_sync");
+          if(r&&r.reconnect){ GCAL.connected=false; GSYNC_PENDING=false; if(CUR==="schedule")renderSchedule(); toast("Reconnect Google Calendar to keep syncing"); }
+          else await gcalRefresh();
+        }catch(e){ /* a queued edit still gets its own attempt; no unbounded retry */ }
+      }
+    }finally{ GSYNC=false; }
+  })();
 }
 /* ---- Canvas deadline sync (client side; feed URL + secret live in Supabase) ---- */
 async function canvasRefresh(){
@@ -3000,25 +3021,37 @@ function renderGcalModal(){
     const dlLayer=`<div class="gc-layer"><div class="gc-lmain"><div class="gc-lname">Class deadlines</div><div class="gc-lsub">${GCAL.syncDeadlines?`${GCAL.deadlineCount} event${GCAL.deadlineCount===1?'':'s'} · <b>Carnelian – Deadlines</b>`:'Assignment due dates (timed on the grid)'}</div></div><button class="gc-sw${GCAL.syncDeadlines?' on':''}" id="gcDead" role="switch" aria-checked="${GCAL.syncDeadlines?'true':'false'}" aria-label="Sync class deadlines"><span class="gc-knob"></span></button></div>`;
     b.innerHTML=`<p class="gc-status"><span class="gc-dot on"></span> Connected${GCAL.email?` · <b>${esc(GCAL.email)}</b>`:''}</p>
       <div class="gc-layers">${clsLayer}${acadLayer}${dlLayer}</div>
-      <div class="gc-btns"><button class="btn" id="gcSync">Sync now</button><button class="btn del" id="gcDisc">Disconnect</button></div>`;
+      <div class="gc-btns">${GCAL.reconnectRequired?'<button class="btn primary" id="gcReconnect">Reconnect Google Calendar</button>':''}<button class="btn" id="gcSync">Sync now</button><button class="btn del" id="gcDisc">Disconnect</button></div>`;
+    const reconnect=$("#gcReconnect"); if(reconnect) reconnect.onclick=gcalConnect;
     const acad=$("#gcAcad"); if(acad) acad.onclick=async()=>{ const on=!GCAL.syncAcademic; acad.disabled=true; acad.classList.toggle("on",on);
-      try{ const r=await api("gcal_academic_toggle",{enabled:on});
+      try{ const r=await gcalMutation("gcal_academic_toggle",{enabled:on});
         if(r&&r.reconnect){ GCAL.connected=false; toast("Reconnect needed"); if(CUR==="schedule")renderSchedule(); closeModal($("#gcalModal")); return; }
         await gcalRefresh(); toast(on?`Added ${GCAL.academicCount} academic date${GCAL.academicCount===1?'':'s'}`:"Academic calendar removed"); renderGcalModal();
       }catch(e){ toast(e.message||"Error"); renderGcalModal(); } };
     const dead=$("#gcDead"); if(dead) dead.onclick=async()=>{ const on=!GCAL.syncDeadlines; dead.disabled=true; dead.classList.toggle("on",on);
-      try{ const r=await api("gcal_deadlines_toggle",{enabled:on});
+      try{ const r=await gcalMutation("gcal_deadlines_toggle",{enabled:on});
         if(r&&r.reconnect){ GCAL.connected=false; toast("Reconnect needed"); if(CUR==="schedule")renderSchedule(); closeModal($("#gcalModal")); return; }
         await gcalRefresh(); toast(on?`Added ${GCAL.deadlineCount} deadline${GCAL.deadlineCount===1?'':'s'} to Google`:"Deadlines calendar removed"); renderGcalModal();
       }catch(e){ toast(e.message||"Error"); renderGcalModal(); } };
     $("#gcSync").onclick=async()=>{ const btn=$("#gcSync"); btn.textContent="Syncing…"; btn.disabled=true;
-      try{ const r=await api("gcal_sync");
+      try{ const r=await gcalMutation("gcal_sync");
         if(r&&r.reconnect){ GCAL.connected=false; toast("Reconnect needed"); if(CUR==="schedule")renderSchedule(); closeModal($("#gcalModal")); return; }
         const a=r&&r.academic; const dl=r&&r.deadlines;
         const extra=(a?` · academic +${a.created||0} ~${a.updated||0} −${a.deleted||0}`:'')+(dl?` · deadlines +${dl.created||0} ~${dl.updated||0} −${dl.deleted||0}`:'');
         toast(`Synced · classes +${r.created||0} ~${r.updated||0} −${r.deleted||0}${extra}`); await gcalRefresh(); renderGcalModal();
       }catch(e){ toast(e.message||"Error"); btn.textContent="Sync now"; btn.disabled=false; } };
-    $("#gcDisc").onclick=()=>armDel($("#gcDisc"),async()=>{ try{ await api("gcal_disconnect"); GCAL={connected:false,email:null,count:0,syncAcademic:false,academicCount:0,syncDeadlines:false,deadlineCount:0}; toast("Disconnected"); if(CUR==="schedule")renderSchedule(); renderGcalModal(); }catch(e){ toast(e.message||"Error"); } });
+    $("#gcDisc").onclick=()=>armDel($("#gcDisc"),async()=>{
+      try{
+        const r=await gcalMutation("gcal_disconnect");
+        if(!r||!r.ok){
+          if(r&&r.reconnect){ GCAL.reconnectRequired=true; renderGcalModal(); }
+          toast(r&&r.reconnect?"Reconnect Google Calendar before disconnecting so its calendars can be removed":((r&&r.error)||"Could not disconnect Google Calendar"));
+          return;
+        }
+        GCAL={connected:false,email:null,count:0,syncAcademic:false,academicCount:0,syncDeadlines:false,deadlineCount:0};
+        toast("Disconnected"); if(CUR==="schedule")renderSchedule(); renderGcalModal();
+      }catch(e){ toast(e.message||"Error"); }
+    });
   } else {
     b.innerHTML=`<p class="hint" style="margin-top:2px">Add your classes to a dedicated <b>Carnelian</b> calendar in Google — recurring weekly through each term's end. Edits here keep it in sync.</p>
       <div class="gc-btns"><button class="btn primary" id="gcConn">Connect Google Calendar</button></div>`;

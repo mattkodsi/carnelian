@@ -61,8 +61,9 @@ async function canvasSync() {
   for (const e of enrolls as any[]) { const k = normCode(e.code); if (k && !codeToEnr.has(k)) codeToEnr.set(k, e.id); }
   const enrIds = (enrolls as any[]).map((e) => e.id);
   const existing = enrIds.length
-    ? await sql`select id, enrollment_id, name, due_on::text as due_on, ext_uid, source from carnelian.assignments where enrollment_id in ${sql(enrIds)}`
+    ? await sql`select id, enrollment_id, name, due_on::text as due_on, due_time::text as due_time, ext_uid, source from carnelian.assignments where enrollment_id in ${sql(enrIds)}`
     : [];
+  const rejected = new Set((await sql`select ext_uid from carnelian.canvas_rejections`).map((r: any) => r.ext_uid));
   const byUid = new Map<string, any>();
   const scrapeByKey = new Map<string, any>(); // adopt a prior scrape (no ext_uid) instead of duplicating
   const nkey = (enr: number, due: string, name: string) => `${enr}|${due}|${normTitle(name)}`;
@@ -77,6 +78,7 @@ async function canvasSync() {
   let added = 0, updated = 0, adopted = 0, unmapped = 0, skipped = 0, total = 0;
   for (const ev of events) {
     if (!ev.uid) continue;
+    if (rejected.has(ev.uid)) { skipped++; continue; }
     // Only Canvas *assignments* are deadlines. The feed also carries calendar events
     // (office hours, career fairs) as event-calendar-event-* — skip those.
     if (!/assignment/i.test(ev.uid)) { skipped++; continue; }
@@ -86,7 +88,7 @@ async function canvasSync() {
     // 1) already ours (by uid): only refresh the date/time, never user edits
     const own = byUid.get(ev.uid);
     if (own) {
-      if (own.due_on !== due_on) { await sql`update carnelian.assignments set due_on = ${due_on}, due_time = ${due_time} where id = ${own.id}`; updated++; }
+      if (own.due_on !== due_on || (own.due_time ? String(own.due_time).slice(0, 5) : null) !== due_time) { await sql`update carnelian.assignments set due_on = ${due_on}, due_time = ${due_time} where id = ${own.id}`; updated++; }
       continue;
     }
     // map to a course — try every code in the (possibly cross-listed) tag, pick the

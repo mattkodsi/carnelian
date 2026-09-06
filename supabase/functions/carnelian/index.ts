@@ -46,7 +46,7 @@ const unb64 = (s: string) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 
 async function pbkdf2(passcode: string, salt: Uint8Array, iterations: number) {
   const key = await crypto.subtle.importKey("raw", enc.encode(passcode), "PBKDF2", false, ["deriveBits"]);
-  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt, iterations, hash: "SHA-256" }, key, 256);
+  const bits = await crypto.subtle.deriveBits({ name: "PBKDF2", salt: new Uint8Array(salt), iterations, hash: "SHA-256" }, key, 256);
   return new Uint8Array(bits);
 }
 async function hashPasscode(passcode: string) {
@@ -199,6 +199,10 @@ async function gapi(access: string, method: string, path: string, body?: unknown
   if (r.status === 401) throw { reauth: true };
   const t = await r.text();
   let j: any = {}; try { j = t ? JSON.parse(t) : {}; } catch { /* ignore */ }
+  // Missing events can be recreated (PATCH) or already deleted (DELETE).
+  // Every other failure must leave the persisted signature/event map untouched.
+  const missing = (method === "PATCH" || method === "DELETE") && (r.status === 404 || r.status === 410);
+  if (!r.ok && !missing) throw new Error(`Google Calendar ${method} failed (${r.status})`);
   return { status: r.status, j };
 }
 
@@ -382,7 +386,7 @@ async function syncAll(access: string, calId: string) {
   }
   for (const [key, r] of exMap) {
     if (desired.has(key)) continue;
-    try { await gapi(access, "DELETE", ev(r.event_id)); } catch { /* ignore */ }
+    await gapi(access, "DELETE", ev(r.event_id));
     await sql`delete from carnelian.gcal_events where enrollment_id = ${r.enrollment_id} and mkey = ${r.mkey}`;
     deleted++;
   }
@@ -432,7 +436,7 @@ async function syncAcademic(access: string, calId: string) {
   }
   for (const [akey, r] of exMap) {
     if (desired.has(akey)) continue;
-    try { await gapi(access, "DELETE", ev(r.event_id)); } catch { /* ignore */ }
+    await gapi(access, "DELETE", ev(r.event_id));
     await sql`delete from carnelian.gcal_academic where akey = ${akey}`;
     deleted++;
   }
@@ -534,7 +538,7 @@ async function syncDeadlines(access: string, calId: string) {
   }
   for (const [dkey, r] of exMap) {
     if (desired.has(dkey)) continue;
-    try { await gapi(access, "DELETE", ev(r.event_id)); } catch { /* ignore */ }
+    await gapi(access, "DELETE", ev(r.event_id));
     await sql`delete from carnelian.gcal_deadlines where dkey = ${dkey}`;
     deleted++;
   }
@@ -773,8 +777,8 @@ Deno.serve(async (req) => {
     if (action === "gcal_academic_toggle") {
       try {
         const on = !!body.enabled;
-        await sql`update carnelian.gcal_config set sync_academic = ${on} where id = 1`;
         if (on) {
+          await sql`update carnelian.gcal_config set sync_academic = true where id = 1`;
           const access = await accessToken();
           const acId = await ensureAcademicCalendar(access);
           const res = await syncAcademic(access, acId);
@@ -782,11 +786,11 @@ Deno.serve(async (req) => {
         }
         const cfg = await gcalCfg();
         if (cfg.calendar_academic) {
-          const access = await accessToken().catch(() => null);
-          if (access) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_academic)}`); } catch { /* ignore */ } }
+          const access = await accessToken();
+          await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_academic)}`);
         }
         await sql`delete from carnelian.gcal_academic`;
-        await sql`update carnelian.gcal_config set calendar_academic = null where id = 1`;
+        await sql`update carnelian.gcal_config set calendar_academic = null, sync_academic = false where id = 1`;
         return json({ ok: true, sync_academic: false });
       } catch (e) {
         if (e && (e as any).reauth) return json({ ok: false, reconnect: true, error: "reauth" });
@@ -797,8 +801,8 @@ Deno.serve(async (req) => {
     if (action === "gcal_deadlines_toggle") {
       try {
         const on = !!body.enabled;
-        await sql`update carnelian.gcal_config set sync_deadlines = ${on} where id = 1`;
         if (on) {
+          await sql`update carnelian.gcal_config set sync_deadlines = true where id = 1`;
           const access = await accessToken();
           const dlId = await ensureDeadlinesCalendar(access);
           const res = await syncDeadlines(access, dlId);
@@ -806,11 +810,11 @@ Deno.serve(async (req) => {
         }
         const cfg = await gcalCfg();
         if (cfg.calendar_deadlines) {
-          const access = await accessToken().catch(() => null);
-          if (access) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_deadlines)}`); } catch { /* ignore */ } }
+          const access = await accessToken();
+          await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_deadlines)}`);
         }
         await sql`delete from carnelian.gcal_deadlines`;
-        await sql`update carnelian.gcal_config set calendar_deadlines = null where id = 1`;
+        await sql`update carnelian.gcal_config set calendar_deadlines = null, sync_deadlines = false where id = 1`;
         return json({ ok: true, sync_deadlines: false });
       } catch (e) {
         if (e && (e as any).reauth) return json({ ok: false, reconnect: true, error: "reauth" });
@@ -819,15 +823,16 @@ Deno.serve(async (req) => {
     }
     if (action === "gcal_disconnect") {
       const cfg = await gcalCfg();
-      try {
-        if (cfg.refresh_token) {
-          const access = await accessToken().catch(() => null);
-          if (access && cfg.calendar_id) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_id)}`); } catch { /* ignore */ } }
-          if (access && cfg.calendar_academic) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_academic)}`); } catch { /* ignore */ } }
-          if (access && cfg.calendar_deadlines) { try { await gapi(access, "DELETE", `/calendars/${encodeURIComponent(cfg.calendar_deadlines)}`); } catch { /* ignore */ } }
-          await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(cfg.refresh_token), { method: "POST" }).catch(() => {});
+      // Do not lose the only record of calendars that still need deletion.
+      if (cfg.calendar_id || cfg.calendar_academic || cfg.calendar_deadlines) {
+        const access = await accessToken();
+        for (const id of [cfg.calendar_id, cfg.calendar_academic, cfg.calendar_deadlines]) {
+          if (id) await gapi(access, "DELETE", `/calendars/${encodeURIComponent(id)}`);
         }
-      } catch { /* ignore */ }
+      }
+      if (cfg.refresh_token) {
+        await fetch("https://oauth2.googleapis.com/revoke?token=" + encodeURIComponent(cfg.refresh_token), { method: "POST" }).catch(() => {});
+      }
       await sql`delete from carnelian.gcal_events`;
       await sql`delete from carnelian.gcal_academic`;
       await sql`delete from carnelian.gcal_deadlines`;
@@ -837,6 +842,7 @@ Deno.serve(async (req) => {
 
     return json({ error: "unknown action" }, 400);
   } catch (err) {
+    if (err && (err as any).reauth) return json({ ok: false, reconnect: true, error: "reauth" });
     return json({ error: String((err as Error)?.message ?? err) }, 500);
   }
 });
