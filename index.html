@@ -62,14 +62,28 @@
   .code{font-weight:700; letter-spacing:.005em}
 
   /* ---- gate ---- */
-  .gate{position:fixed; inset:0; display:grid; place-items:center; padding:24px; background:var(--bg); z-index:100}
-  .gatecard{width:100%; max-width:340px; text-align:center}
+  /* touch-action:none + gesturestart guard (JS) disable double-tap and pinch zoom on the PIN screen */
+  .gate{position:fixed; inset:0; display:grid; place-items:center; padding:24px; background:var(--bg); z-index:100;
+        touch-action:none; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none}
+  .gatecard{width:100%; max-width:300px; text-align:center}
   .gatecard .mark{width:52px;height:52px;border-radius:15px;background:var(--accent);display:grid;place-items:center;color:#fff;font-weight:800;font-size:26px;margin:0 auto 16px}
   .gatecard h1{font-size:22px; font-weight:800}
-  .gatecard p{color:var(--ink-2); font-size:13px; margin:8px 0 20px}
-  .gatecard input{width:100%; padding:13px 14px; border:1px solid var(--line-strong); border-radius:11px; background:var(--surface); color:var(--ink); text-align:center; letter-spacing:.35em; font-size:20px; margin-bottom:10px}
-  .gatecard button{width:100%; padding:13px; border-radius:11px; background:var(--accent); color:#fff; font-weight:700}
-  .gatecard .msg{font-size:12.5px; margin-top:12px; min-height:18px} .gatecard .msg.err{color:var(--accent)}
+  .gatecard p{color:var(--ink-2); font-size:13px; margin:8px 0 22px; min-height:16px}
+  .gatecard .msg{font-size:12.5px; margin-top:14px; min-height:18px; color:var(--ink-2)} .gatecard .msg.err{color:var(--accent)}
+  /* PIN entry: filled dots above an in-app numeric keypad — no native keyboard is summoned */
+  .pin-dots{display:flex; gap:15px; justify-content:center; margin:0 0 26px; min-height:14px}
+  .pin-dots i{width:13px; height:13px; border-radius:50%; border:1.6px solid var(--line-strong); transition:transform .12s ease, background .12s, border-color .12s}
+  .pin-dots i.on{background:var(--accent); border-color:var(--accent); transform:scale(1.06)}
+  .pin-dots.shake{animation:pinshake .38s cubic-bezier(.36,.07,.19,.97)}
+  @keyframes pinshake{10%,90%{transform:translateX(-2px)}30%,70%{transform:translateX(4px)}50%{transform:translateX(-7px)}}
+  .keypad{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; max-width:264px; margin:0 auto}
+  .keypad .key{height:62px; border-radius:16px; background:var(--surface); border:1px solid var(--line); color:var(--ink);
+        font-size:25px; font-weight:600; font-variant-numeric:tabular-nums; display:grid; place-items:center;
+        touch-action:none; -webkit-user-select:none; user-select:none; -webkit-tap-highlight-color:transparent; cursor:pointer;
+        transition:transform .06s ease, background .12s}
+  .keypad .key:active{background:var(--surface-2); transform:scale(.95)}
+  .keypad .key-blank{background:transparent; border:0; box-shadow:none; pointer-events:none; cursor:default}
+  .keypad .key-del{font-size:23px; color:var(--ink-2)}
 
   /* ---- shell ---- */
   .app{display:grid; grid-template-columns:232px 1fr; min-height:100vh}
@@ -680,11 +694,23 @@
     <div class="mark">C</div>
     <h1 id="gateTitle">Carnelian</h1>
     <p id="gateSub">Checking…</p>
-    <form id="gateForm" style="display:none">
-      <input id="gateInput" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="PIN" aria-label="PIN">
-      <input id="gateInput2" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="confirm PIN" aria-label="confirm PIN" style="display:none">
-      <button id="gateBtn" type="submit">Enter</button>
-    </form>
+    <div id="gatePad" style="display:none">
+      <div class="pin-dots" id="pinDots" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+      <div class="keypad" id="keypad" role="group" aria-label="PIN keypad">
+        <button type="button" class="key" data-k="1">1</button>
+        <button type="button" class="key" data-k="2">2</button>
+        <button type="button" class="key" data-k="3">3</button>
+        <button type="button" class="key" data-k="4">4</button>
+        <button type="button" class="key" data-k="5">5</button>
+        <button type="button" class="key" data-k="6">6</button>
+        <button type="button" class="key" data-k="7">7</button>
+        <button type="button" class="key" data-k="8">8</button>
+        <button type="button" class="key" data-k="9">9</button>
+        <span class="key key-blank" aria-hidden="true"></span>
+        <button type="button" class="key" data-k="0">0</button>
+        <button type="button" class="key key-del" data-k="del" aria-label="Delete">⌫</button>
+      </div>
+    </div>
     <div class="msg" id="gateMsg"></div>
   </div>
 </div>
@@ -957,23 +983,48 @@ async function boot(){
     showGate("login");
   }catch(e){ $("#gateSub").textContent="Can't reach the server. Refresh to retry."; }
 }
+// PIN gate: an in-app numeric keypad (no native keyboard). Digits fill the dots; four digits
+// auto-submits (login) or advances the create → confirm flow. State lives in JS — no text inputs.
+let PINMODE="login", PINFIRST=null, PINBUF="", PINBUSY=false;
+const CREATE_SUB="Choose a 4-digit PIN. Stored only as a hash.";
+function pinDots(){ const d=$("#pinDots").children; for(let i=0;i<d.length;i++) d[i].classList.toggle("on", i<PINBUF.length); }
+function pinShake(){ const d=$("#pinDots"); d.classList.remove("shake"); void d.offsetWidth; d.classList.add("shake"); }
+function pinClearMsg(){ const m=$("#gateMsg"); m.textContent=""; m.className="msg"; }
+function pinErr(t){ const m=$("#gateMsg"); m.textContent=t; m.className="msg err"; }
 function showGate(mode){
-  $("#gate").style.display="grid"; $("#app").style.display="none"; $(".mobar").style.display="none"; $("#gateForm").style.display="block";
-  const c=$("#gateInput2");
-  if(mode==="create"){ $("#gateTitle").textContent="Set your PIN"; $("#gateSub").textContent="Choose a 4-digit PIN. Stored only as a hash."; c.style.display="block"; $("#gateBtn").textContent="Create"; $("#gateForm").dataset.mode="create"; }
-  else { $("#gateTitle").textContent="Carnelian"; $("#gateSub").textContent="Enter your PIN."; c.style.display="none"; $("#gateBtn").textContent="Enter"; $("#gateForm").dataset.mode="login"; }
-  $("#gateInput").focus();
+  PINMODE=mode; PINFIRST=null; PINBUF=""; PINBUSY=false;
+  $("#gate").style.display="grid"; $("#app").style.display="none"; $(".mobar").style.display="none"; $("#gatePad").style.display="block";
+  pinClearMsg();
+  if(mode==="create"){ $("#gateTitle").textContent="Set your PIN"; $("#gateSub").textContent=CREATE_SUB; }
+  else { $("#gateTitle").textContent="Carnelian"; $("#gateSub").textContent="Enter your PIN."; }
+  pinDots();
 }
-$("#gateForm").addEventListener("submit", async e=>{
-  e.preventDefault(); const mode=$("#gateForm").dataset.mode, pc=$("#gateInput").value, msg=$("#gateMsg"); msg.className="msg";
+async function pinAuth(passcode){
+  PINBUSY=true;
   try{
-    if(mode==="create"){ if(pc.length<4){msg.textContent="Enter a 4-digit PIN.";msg.classList.add("err");return;}
-      if(pc!==$("#gateInput2").value){msg.textContent="PINs don't match.";msg.classList.add("err");return;}
-      TOKEN=(await api("setup",{passcode:pc})).token; }
-    else TOKEN=(await api("login",{passcode:pc})).token;
+    TOKEN=(await api(PINMODE==="create"?"setup":"login",{passcode})).token;
     localStorage.setItem("carn_token",TOKEN); DB=(await api("load")).data; enterApp();
-  }catch(err){ msg.textContent=err.status===401?"Wrong PIN.":(err.message||"Error"); msg.classList.add("err"); }
-});
+  }catch(err){
+    pinErr(err.status===401?"Wrong PIN.":(err.message||"Error"));
+    PINFIRST=null; PINBUF=""; PINBUSY=false; pinDots(); pinShake();
+    if(PINMODE==="create") $("#gateSub").textContent=CREATE_SUB;
+  }
+}
+function pinPush(d){
+  if(PINBUSY||PINBUF.length>=4) return;
+  pinClearMsg(); PINBUF+=d; pinDots();
+  if(PINBUF.length<4) return;
+  if(PINMODE==="login"){ pinAuth(PINBUF); return; }
+  // create: capture first entry, then confirm
+  if(PINFIRST===null){ PINFIRST=PINBUF; PINBUF=""; $("#gateSub").textContent="Re-enter to confirm."; pinDots(); }
+  else if(PINBUF===PINFIRST){ pinAuth(PINFIRST); }
+  else { pinErr("PINs don't match."); PINFIRST=null; PINBUF=""; pinDots(); pinShake(); $("#gateSub").textContent=CREATE_SUB; }
+}
+function pinDel(){ if(PINBUSY||!PINBUF.length) return; PINBUF=PINBUF.slice(0,-1); pinDots(); }
+$("#keypad").addEventListener("click", e=>{ const b=e.target.closest("[data-k]"); if(!b) return; const k=b.dataset.k; if(k==="del") pinDel(); else pinPush(k); });
+// physical keyboard (desktop) drives the same keypad
+document.addEventListener("keydown", e=>{ if($("#gate").style.display==="none") return;
+  if(e.key>="0"&&e.key<="9") pinPush(e.key); else if(e.key==="Backspace"){ e.preventDefault(); pinDel(); } });
 function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="grid"; if(innerWidth<=760)$(".mobar").style.display="flex";
   ["mTerm","mStatus","mGrade","mDist","mRole","rProg","rParent","rKind","rMatchType","rScope"].forEach(id=>enhanceDD(document.getElementById(id)));
   renderAll(); gcalRefresh(); handleGcalReturn(); }
@@ -2928,8 +2979,6 @@ document.querySelectorAll(".js-theme").forEach(b=>b.addEventListener("click",()=
 window.openCourse=openCourse;
 
 ["gesturestart","gesturechange","gestureend"].forEach(t=>document.addEventListener(t,e=>e.preventDefault(),{passive:false}));
-$("#gateInput").addEventListener("input",()=>{ if($("#gateForm").dataset.mode==="login" && $("#gateInput").value.length===4) $("#gateForm").requestSubmit(); });
-$("#gateInput2").addEventListener("input",()=>{ if($("#gateInput").value.length===4 && $("#gateInput2").value.length===4) $("#gateForm").requestSubmit(); });
 
 /* ============ Google Calendar sync (client side; secrets live in Supabase) ============ */
 async function gcalRefresh(){
