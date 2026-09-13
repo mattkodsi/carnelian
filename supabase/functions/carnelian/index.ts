@@ -509,7 +509,7 @@ async function syncDeadlines(access: string, calId: string) {
     from carnelian.assignments a
     join carnelian.enrollments e on e.id = a.enrollment_id
     left join carnelian.terms t on t.id = e.term_id
-    where coalesce(a.status, '') <> 'pending' and coalesce(e.status, '') <> 'wishlist'
+    where coalesce(a.status, '') <> 'pending' and a.canvas_removed_at is null and coalesce(e.status, '') <> 'wishlist'
       and (t.ends_on is null or t.ends_on >= current_date)
     order by a.id`;
   const desired = new Map<string, { body: any; sig: string }>();

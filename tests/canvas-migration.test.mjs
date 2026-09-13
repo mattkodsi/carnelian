@@ -49,3 +49,52 @@ test('Canvas migration preserves rejections, blocks reimports/adoption, and prot
     await db.close();
   }
 });
+
+test('Canvas source-state migration adds durable provenance without changing custom assignment fields', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec(`
+      create schema carnelian;
+      create table carnelian.assignments (
+        id integer primary key, name text, override_title text, due_on date,
+        due_time time, target_on date, target_time time, source text, ext_uid text
+      );
+      insert into carnelian.assignments values
+        (1, 'My title', 'My override', '2026-09-15', '08:00', '2026-09-14', '23:59', 'canvas', 'assignment-1');
+    `);
+    const migration = readFileSync(new URL('../supabase/migrations/20260913182946_canvas_source_state.sql', import.meta.url), 'utf8');
+    await db.exec(migration);
+    await db.exec(migration);
+
+    const { rows: [row] } = await db.query(`select name, override_title, due_on::text, due_time::text,
+      target_on::text, target_time::text, canvas_title, canvas_removed_at,
+      canvas_missing_count, canvas_changes from carnelian.assignments where id=1`);
+    assert.deepEqual(row, {
+      name: 'My title', override_title: 'My override', due_on: '2026-09-15', due_time: '08:00:00',
+      target_on: '2026-09-14', target_time: '23:59:00', canvas_title: null,
+      canvas_removed_at: null, canvas_missing_count: 0, canvas_changes: {},
+    });
+  } finally {
+    await db.close();
+  }
+});
+
+test('unassigned Canvas inbox is private, idempotent, and preserves source lifecycle state', async () => {
+  const db = new PGlite();
+  try {
+    await db.exec('create role anon; create role authenticated; create schema carnelian;');
+    const migration = readFileSync(new URL('../supabase/migrations/20260913184959_canvas_unassigned_inbox.sql', import.meta.url), 'utf8');
+    await db.exec(migration); await db.exec(migration);
+    await db.exec(`insert into carnelian.canvas_unassigned (ext_uid, canvas_title, canvas_due_on)
+      values ('assignment-u1', 'Program survey', '2026-09-20')`);
+    const { rows: [row] } = await db.query(`select ext_uid, canvas_title, canvas_due_on::text,
+      canvas_missing_count, canvas_changes from carnelian.canvas_unassigned`);
+    assert.deepEqual(row, {ext_uid:'assignment-u1', canvas_title:'Program survey', canvas_due_on:'2026-09-20', canvas_missing_count:0, canvas_changes:{}});
+    for (const role of ['anon','authenticated']) {
+      const { rows: [rights] } = await db.query(`select
+        has_table_privilege($1, 'carnelian.canvas_unassigned', 'SELECT') as can_read,
+        has_table_privilege($1, 'carnelian.canvas_unassigned', 'INSERT') as can_insert`, [role]);
+      assert.deepEqual(rights, {can_read:false, can_insert:false});
+    }
+  } finally { await db.close(); }
+});

@@ -9,6 +9,7 @@ export type RawEvent = {
   dtend: string;
   url: string;
   description: string;
+  status: string;
 };
 
 // iCal folds long lines by inserting CRLF + a single space/tab. Normalize line
@@ -34,7 +35,7 @@ export function parseVEvents(text: string): RawEvent[] {
   const blocks = s.split(/BEGIN:VEVENT/).slice(1);
   for (const b of blocks) {
     const body = b.split(/END:VEVENT/)[0];
-    const ev: RawEvent = { uid: "", summary: "", dtstart: "", dtend: "", url: "", description: "" };
+    const ev: RawEvent = { uid: "", summary: "", dtstart: "", dtend: "", url: "", description: "", status: "" };
     for (const line of body.split("\n")) {
       const t = line.trim();
       const m = /^([A-Za-z-]+)([;:])([\s\S]*)$/.exec(t);
@@ -49,6 +50,7 @@ export function parseVEvents(text: string): RawEvent[] {
       else if (name === "DTEND") ev.dtend = rhs;
       else if (name === "URL") ev.url = value;
       else if (name === "DESCRIPTION") ev.description = value;
+      else if (name === "STATUS") ev.status = value.toUpperCase();
     }
     if (ev.uid || ev.summary) out.push(ev);
   }

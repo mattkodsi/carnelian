@@ -56,6 +56,11 @@ test("parseVEvents returns each event with its uid + summary", () => {
   assert.equal(evs[1].dtstart, ";VALUE=DATE:20260905");
 });
 
+test("parseVEvents preserves cancellation state for lifecycle reconciliation", () => {
+  const [ev] = parseVEvents("BEGIN:VEVENT\nUID:event-assignment-9\nSUMMARY:Quiz 2\nSTATUS:CANCELLED\nEND:VEVENT");
+  assert.equal(ev.status, "CANCELLED");
+});
+
 test("courseKey extracts SUBJECT+NUMBER, ignoring term tokens", () => {
   assert.equal(courseKey("Quiz 3 [FA26-REAL-6640-001]"), "REAL6640");
   assert.equal(courseKey("HADM 6205 midterm"), "HADM6205");

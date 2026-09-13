@@ -4,9 +4,10 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 import {stripTypeScriptTypes} from 'node:module';
 import * as ical from '../supabase/functions/carnelian-canvas/ical.ts';
+import * as reconcile from '../supabase/functions/carnelian-canvas/reconcile.ts';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 function run(code,ctx={}) { const c=vm.createContext({console,Date,Intl,TextEncoder,Response,URL,URLSearchParams,AbortController,setTimeout,clearTimeout,crypto,...ctx});vm.runInContext(code,c);return c; }
-function backend(name,sql,ctx={}) {let s=readFileSync(new URL(`../supabase/functions/${name}/index.ts`,import.meta.url),'utf8').replace(/^import .*;\n/gm,'');return run(stripTypeScriptTypes(s),{postgres:()=>sql,Deno:{env:{get:()=>''},serve:()=>{}},...ical,...ctx});}
+function backend(name,sql,ctx={}) {let s=readFileSync(new URL(`../supabase/functions/${name}/index.ts`,import.meta.url),'utf8').replace(/^import .*;\n/gm,'');return run(stripTypeScriptTypes(s),{postgres:()=>sql,Deno:{env:{get:()=>''},serve:()=>{}},...ical,...reconcile,...ctx});}
 const slice=(a,b)=>html.slice(html.indexOf(a),html.indexOf(b,html.indexOf(a)));
 for(const status of [429,500,403])test(`Google ${status} rejects PATCH`,async()=>{const c=backend('carnelian',()=>[],{fetch:async()=>new Response('{}',{status})});await assert.rejects(c.gapi('x','PATCH','/events/a'));});
 for(const layer of ['syncAll','syncAcademic','syncDeadlines'])test(`${layer} retains failed DELETE tracking`,async()=>{

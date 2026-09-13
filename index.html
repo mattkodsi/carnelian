@@ -471,6 +471,8 @@
   .ag-row.pending{background:color-mix(in srgb,var(--accent) 5%,transparent)}
   .ag-row.over{background:color-mix(in srgb,#c2405b 7%,transparent)}
   .ag-row.done{opacity:.5}
+  .ag-row.source-removed{opacity:.65}
+  .ag-row.unassigned{border-left-color:var(--ink-3);background:var(--surface-2)}
   .ag-main{flex:1;min-width:0}
   .ag-code{font-size:11px;font-weight:800;line-height:1.2}
   .ag-t{font-size:14px;color:var(--ink);line-height:1.3}
@@ -485,6 +487,7 @@
   .ag-check svg,.ag-check .ico{width:14px;height:14px}
   .ag-check.on{background:var(--accent-soft);border-color:var(--accent)}
   .ag-empty{color:var(--ink-3);font-size:14px;text-align:center;padding:40px 16px}
+  .canvas-file-source{font-size:14px;font-weight:700;line-height:1.4;margin-bottom:14px}
   .sched-noweek{flex:1 1 0;min-height:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px 22px;color:var(--ink-3);font-size:13px;line-height:1.6}
   /* academic-calendar day detail sheet */
   #acDayBody{display:flex;flex-direction:column;gap:8px}
@@ -513,6 +516,7 @@
   .asg-acts .asg-mini{flex:0 0 auto}
   .asg-row.done{opacity:.55}
   .asg-row.done .asg-t{text-decoration:line-through}
+  .asg-row.source-removed{border-color:var(--warn-line);background:var(--warn-bg)}
   .asg-main{flex:1 1 auto;min-width:0}
   .asg-t{font-size:13.5px;font-weight:700;color:var(--ink);line-height:1.35}
   .asg-meta{font-size:11.5px;font-weight:600;color:var(--ink-3);margin-top:2px}
@@ -523,6 +527,10 @@
   .asg-mini.ok{color:#fff;background:var(--accent);border-color:var(--accent)}
   .asg-mini.no{color:var(--ink-3)}
   .asg-empty{font-size:13px;color:var(--ink-3);padding:8px 2px}
+  .canvas-source{font-size:12px;line-height:1.45;color:var(--ink-2);background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:var(--r-sm);padding:9px 11px}
+  .canvas-source strong{color:var(--warn-ink)}
+  .canvas-source-actions{display:flex;align-items:center;gap:12px;margin-top:7px}
+  .canvas-source-actions button,.canvas-source-actions a{font:inherit;font-size:11.5px;font-weight:800;color:var(--ink-2);background:transparent;border:0;padding:0;text-decoration:underline;text-underline-offset:2px}
   .asg-add{width:100%;justify-content:center;margin-top:2px}
   /* assignments: editor form */
   .asg-form{display:flex;flex-direction:column;gap:11px}
@@ -910,6 +918,17 @@
   <div class="sheet" style="max-width:400px">
     <div class="sh"><h3 id="asgEditTitle">Add assignment</h3><button class="x" id="asgEditClose" aria-label="Close">×</button></div>
     <div class="sb" id="asgEditBody"></div>
+  </div>
+</div>
+<!-- Canvas assignment without a matching Planner course -->
+<div class="modal" id="canvasFileModal">
+  <div class="sheet" style="max-width:400px">
+    <div class="sh"><h3>File Canvas assignment</h3><button class="x" id="canvasFileClose" aria-label="Close">×</button></div>
+    <div class="sb">
+      <div class="canvas-file-source" id="canvasFileSource"></div>
+      <div class="fld"><label>Course</label><select id="canvasFileCourse"></select></div>
+      <div class="actions"><button class="btn" id="canvasFileCancel">Cancel</button><button class="btn primary" id="canvasFileSave">File</button></div>
+    </div>
   </div>
 </div>
 <!-- Google Calendar modal -->
@@ -1581,7 +1600,7 @@ function updateNowLine(){
   lab.textContent=min2label(Math.floor(nm));   // floor to match the wall clock (no rounding up)
 }
 let GCAL={connected:false,email:null,count:0,syncAcademic:false,academicCount:0,syncDeadlines:false,deadlineCount:0};   // Google Calendar sync status (from gcal_status)
-let CANVAS={configured:false,last_sync_at:null,pending:0,loaded:false};   // Canvas deadline sync status (from canvas_status)
+let CANVAS={configured:false,last_sync_at:null,pending:0,unassigned:[],loaded:false};   // Canvas deadline sync status (from canvas_status)
 // Terms selectable in the Schedule tab: any term with meeting data, PLUS any term that has real
 // courses and whose Cornell roster is now published (so a future term becomes viewable the moment
 // its roster drops — its courses just show as "no meeting time" chips until you fill them).
@@ -1684,7 +1703,7 @@ function asgWeek(mon){ const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1)
   const s=iso(start), e=iso(end);
   const byId=Object.fromEntries((DB.enrollments||[]).map(en=>[String(en.id),en]));
   const chips=[], blocks=[];
-  for(const a of (DB.assignments||[])){ if(a.status==='pending') continue;
+  for(const a of (DB.assignments||[])){ if(a.status==='pending'||a.canvas_removed_at) continue;
     const en=byId[String(a.enrollment_id)]; if(!en) continue;
     const base={a, eid:a.enrollment_id, code:en.code, en, color:courseColor(en)};
     if(KIND_TIMED(a.kind) && a.due_time){ const d=asgDate(a); if(d&&d>=s&&d<=e) blocks.push({...base, iso:d}); }
@@ -1741,6 +1760,15 @@ function asgTimeLabel(t){ const m=/^(\d{1,2}):(\d{2})/.exec(String(t||"")); if(!
 // Compact time for the Due-strip chips: "8:40a", "2p", "11:59p" (on-the-hour drops the minutes).
 function asgTimeShort(t){ const m=/^(\d{1,2}):(\d{2})/.exec(String(t||"")); if(!m) return ""; let h=+m[1]; const ap=h>=12?"p":"a"; h=h%12||12; return m[2]==="00"?`${h}${ap}`:`${h}:${m[2]}${ap}`; }
 function fmtAsgDate(a){ const d=asgDate(a); if(!d) return ""; const p=d.split("-"); let s=`${ACAL_MONTHS[(+p[1])-1]} ${+p[2]}`; if(a.due_time) s+=" · "+asgTimeLabel(a.due_time); return s; }
+function canvasMark(a){ if(!a||a.source!=='canvas') return ""; if(a.canvas_removed_at) return "Removed from Canvas";
+  return a.canvas_changed_at?"Canvas changed":""; }
+function canvasChangeText(a){ if(!a) return ""; if(a.canvas_removed_at) return "This assignment was removed or unpublished in Canvas.";
+  const ch=a.canvas_changes||{}, fields=[]; if(ch.title)fields.push("title"); if(ch.due_on||ch.due_time)fields.push("deadline");
+  if(ch.removed&&ch.removed.to===false)fields.push("availability");
+  return fields.length?`Canvas changed the ${fields.join(" and ")}.`:"Canvas changed this assignment."; }
+function replaceAsg(row){ const i=(DB.assignments||[]).findIndex(x=>String(x.id)===String(row.id)); if(i>=0)DB.assignments[i]=row; return row; }
+async function canvasAck(a){ const r=await api("canvas_ack",{id:a.id},FN_CANVAS); return replaceAsg(r.row); }
+async function canvasKeep(a){ const r=await api("canvas_keep",{id:a.id},FN_CANVAS); return replaceAsg(r.row); }
 
 async function saveAsg(row){ const saved=(await api("upsert",{table:"assignments",row})).row;
   const i=(DB.assignments||[]).findIndex(x=>String(x.id)===String(saved.id));
@@ -1757,11 +1785,11 @@ function openCourseAssignments(eid){ ASG_EID=eid; const en=(DB.enrollments||[]).
 function renderAsgList(eid){ const body=$("#asgListBody"); if(!body) return;
   const all=asgFor(eid); const pending=all.filter(a=>a.status==='pending');
   const active=all.filter(a=>a.status!=='pending').sort((x,y)=> (x.done?1:0)-(y.done?1:0) || (asgDate(x)||"~").localeCompare(asgDate(y)||"~"));
-  const prow=a=>`<div class="asg-row pending"><div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${a.source==='canvas'?' · Canvas':''}</div></div>
-    <div class="asg-acts"><button class="asg-mini" data-edit="${a.id}">Edit</button><button class="asg-mini ok" data-approve="${a.id}">Approve</button><button class="asg-mini no" data-reject="${a.id}">Reject</button></div></div>`;
-  const arow=a=>`<div class="asg-row${a.done?' done':''}"><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Toggle done">${a.done?ICO.check:''}</button>
-    <div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}</div></div>
-    <button class="asg-edit" data-edit="${a.id}">Edit</button></div>`;
+  const prow=a=>{ const cm=canvasMark(a); return `<div class="asg-row pending${a.canvas_removed_at?' source-removed':''}"><div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${a.source==='canvas'?' · Canvas':''}${cm?` · ${esc(cm)}`:''}</div></div>
+    <div class="asg-acts"><button class="asg-mini" data-edit="${a.id}">Edit</button><button class="asg-mini ok" data-approve="${a.id}">Approve</button><button class="asg-mini no" data-reject="${a.id}">Reject</button></div></div>`; };
+  const arow=a=>{ const cm=canvasMark(a); return `<div class="asg-row${a.done?' done':''}${a.canvas_removed_at?' source-removed':''}"><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Toggle done">${a.done?ICO.check:''}</button>
+    <div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${cm?` · ${esc(cm)}`:''}</div></div>
+    <button class="asg-edit" data-edit="${a.id}">Edit</button></div>`; };
   const en=(DB.enrollments||[]).find(x=>String(x.id)===String(eid)); const pi=en?profInfo(en):null;
   let html=`<div class="asg-course"><div class="asg-course-main"><div class="asg-course-t">${esc((en&&en.title)||'')}</div>${pi&&pi.name?`<div class="asg-course-p">${esc(pi.name)}</div>`:''}</div><button class="asg-editcourse" id="asgEditCourse" type="button">Edit course</button></div>`;
   if(pending.length) html+=`<div class="asg-review"><div class="asg-sec">${pending.length} to review</div>${pending.map(prow).join("")}</div>`;
@@ -1782,7 +1810,8 @@ function openAsgEditor(eid, a){ const cur=a||{kind:'homework'};
   const seriesOpts=seriesUsed.map(s=>`<option value="${esc(s)}">`).join("");
   const ovOn=!!(cur.override_title), wbOn=!!(cur.target_on);
   const body=$("#asgEditBody");
-  body.innerHTML=`<form id="asgForm" class="asg-form" autocomplete="off">
+  const cm=canvasMark(cur), sourceBanner=cm?`<div class="canvas-source"><strong>${esc(cm)}</strong><div>${esc(canvasChangeText(cur))}</div>${cur.canvas_title&&cur.canvas_changes&&cur.canvas_changes.title?`<div>Canvas title: ${esc(cur.canvas_title)}</div>`:''}<div class="canvas-source-actions">${cur.canvas_removed_at?`<button type="button" id="af_canvas_keep">Keep as manual</button>`:`<button type="button" id="af_canvas_ack">Reviewed</button>`}${cur.canvas_url?`<a href="${esc(cur.canvas_url)}" target="_blank" rel="noopener">Open in Canvas</a>`:''}</div></div>`:'';
+  body.innerHTML=`<form id="asgForm" class="asg-form" autocomplete="off">${sourceBanner}
     <label class="asg-f"><span>Kind</span>
       <select id="af_kind">${ASG_KINDS.map(k=>`<option value="${k.v}"${k.v===(cur.kind||'homework')?' selected':''}>${k.label}</option>`).join("")}</select></label>
     <div class="asg-f2">
@@ -1825,6 +1854,8 @@ function openAsgEditor(eid, a){ const cur=a||{kind:'homework'};
     if(!meet){ toast("No class meeting that day"); return; }
     $("#af_time").value=String(meet.start).slice(0,5); };
   $("#af_cancel").onclick=()=>closeModal($("#asgEditModal"));
+  const ack=$("#af_canvas_ack"); if(ack)ack.onclick=async()=>{ try{ const n=await canvasAck(cur); openAsgEditor(eid,n); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } };
+  const keep=$("#af_canvas_keep"); if(keep)keep.onclick=async()=>{ try{ const n=await canvasKeep(cur); openAsgEditor(eid,n); renderAsgList(eid); if(CUR==='academic')renderAssignments(); gcalAutoSync(); }catch(e){ toast(e.message||"Error"); } };
   if(a){ $("#af_delete").onclick=()=>{ deleteAsg(a.id).then(()=>{ closeModal($("#asgEditModal")); renderAsgList(eid); if(CUR==='planner')renderPlanner(); }).catch(e=>toast(e.message||"Error")); }; }
   $("#asgForm").onsubmit=ev=>{ ev.preventDefault(); submitAsg(eid,a); };
   upd(); openModal($("#asgEditModal"));
@@ -2156,15 +2187,17 @@ function renderAssignments(){
   const upcoming=items.filter(it=>!it.over);
   const byDay={}; upcoming.forEach(it=>{ (byDay[it.on]=byDay[it.on]||[]).push(it); });
   const days=Object.keys(byDay).sort();
-  const nPend=items.filter(it=>it.pending).length, nUp=upcoming.filter(it=>!it.pending&&!it.a.done).length;
+  const inbox=CANVAS.unassigned||[];
+  const nPend=items.filter(it=>it.pending).length, nUp=upcoming.filter(it=>!it.pending&&!it.a.done&&!it.a.canvas_removed_at).length;
   const XICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   const row=it=>{ const c=colorOf(it.en); const code=esc(codeLabel(it.en)); const title=esc(asgTitle(it.a));
-    const meta=(it.tm?esc(asgTimeShort(it.tm)):'')+(it.pending?(it.tm?' · ':'')+'from Canvas':'');
-    if(it.pending) return `<div class="ag-row pending${it.over?' over':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-ic acc" data-approve="${it.a.id}" aria-label="Accept">${ICO.check}</button><button class="ag-ic rej" data-reject="${it.a.id}" aria-label="Reject">${XICO}</button></div></div>`;
-    return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button></div>`; };
+    const cm=canvasMark(it.a); const meta=(it.tm?esc(asgTimeShort(it.tm)):'')+(it.pending?(it.tm?' · ':'')+'from Canvas':'')+(cm?((it.tm||it.pending)?' · ':'')+esc(cm):'');
+    if(it.pending) return `<div class="ag-row pending${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-ic acc" data-approve="${it.a.id}" aria-label="Accept">${ICO.check}</button><button class="ag-ic rej" data-reject="${it.a.id}" aria-label="Reject">${XICO}</button></div></div>`;
+    return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div>${it.a.canvas_removed_at?'':`<button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button>`}</div>`; };
   let html=`<div class="agenda"><div class="ag-head"><h1>Assignments</h1><button class="ag-sync" id="agSync"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Sync</button></div>`;
-  html+=`<div class="ag-count">${nPend?`${nPend} from Canvas to review · `:''}${nUp} upcoming</div>`;
-  if(!items.length){ html+=`<div class="ag-empty">No assignments this term. Add them per course in the Planner, or use Sync to pull from Canvas.</div></div>`; el.innerHTML=html; wireAgenda(el); return; }
+  html+=`<div class="ag-count">${inbox.length?`${inbox.length} unassigned · `:''}${nPend?`${nPend} from Canvas to review · `:''}${nUp} upcoming</div>`;
+  if(inbox.length){ html+=`<div class="ag-sec">Unassigned from Canvas</div>`+inbox.map(a=>{ const keys=(a.canvas_course_keys||[]).join(' / ')||'Course not matched'; const due=a.canvas_due_on?fmtAsgDate({due_on:a.canvas_due_on,due_time:a.canvas_due_time}):''; const meta=[keys,due,a.canvas_removed_at?'Removed from Canvas':''].filter(Boolean).join(' · '); return `<div class="ag-row unassigned${a.canvas_removed_at?' source-removed':''}"><div class="ag-main"><div class="ag-code">Canvas</div><div class="ag-t">${esc(a.canvas_title||'Untitled')}</div><div class="ag-meta">${esc(meta)}</div></div><div class="ag-acts"><button class="ag-ic" data-canvas-file="${esc(a.ext_uid)}" aria-label="File assignment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5h6l2 2h8v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/></svg></button><button class="ag-ic rej" data-canvas-reject="${esc(a.ext_uid)}" aria-label="Reject">${XICO}</button></div></div>`; }).join(''); }
+  if(!items.length&&!inbox.length){ html+=`<div class="ag-empty">No assignments this term. Add them per course in the Planner, or use Sync to pull from Canvas.</div></div>`; el.innerHTML=html; wireAgenda(el); return; }
   if(overdue.length){ html+=`<div class="ag-sec overdue"><svg class="ico" style="width:13px;height:13px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.01"/><path d="M10.3 3.9 2.5 18a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Overdue</div>`+overdue.map(row).join(""); }
   days.forEach(d=>{ html+=`<div class="ag-sec">${agFmtSec(d,t)}</div>`+byDay[d].sort((x,y)=> cidxOf(x.en)-cidxOf(y.en) || String(x.tm||'~').localeCompare(String(y.tm||'~'))).map(row).join(""); });
   html+=`</div>`;
@@ -2177,6 +2210,8 @@ function wireAgenda(el){
     finally{ sb.classList.remove('spin'); sb.disabled=false; if(CUR==='academic') renderAssignments(); } };
   el.querySelectorAll("[data-approve]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const a=asgById(b.dataset.approve); if(a) approveAsg(a); });
   el.querySelectorAll("[data-reject]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const a=asgById(b.dataset.reject); if(a) rejectAsg(a); });
+  el.querySelectorAll("[data-canvas-file]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openCanvasFile(b.dataset.canvasFile); });
+  el.querySelectorAll("[data-canvas-reject]").forEach(b=>b.onclick=async e=>{ e.stopPropagation(); try{ await api('canvas_reject_unassigned',{ext_uid:b.dataset.canvasReject},FN_CANVAS); CANVAS.unassigned=CANVAS.unassigned.filter(a=>a.ext_uid!==b.dataset.canvasReject); renderAssignments(); }catch(err){ toast(err.message||'Error'); } });
   el.querySelectorAll("[data-done]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
     const a=asgById(b.dataset.done); if(!a) return;
     // Optimistic: flip the visual state instantly, persist in the background, revert on error.
@@ -2185,6 +2220,15 @@ function wireAgenda(el){
     saveAsg({id:a.id, done:nv}).catch(err=>{ paint(!nv); toast(err.message||"Error"); }); });
   el.querySelectorAll("[data-open]").forEach(r=>r.onclick=()=>{ const a=asgById(r.dataset.open); if(a) openAsgEditor(a.enrollment_id,a); });
 }
+let CANVAS_FILE_UID=null;
+function openCanvasFile(uid){ const item=(CANVAS.unassigned||[]).find(a=>a.ext_uid===uid); if(!item)return; CANVAS_FILE_UID=uid;
+  $('#canvasFileSource').textContent=item.canvas_title||'Untitled';
+  const terms=Object.fromEntries((DB.terms||[]).map(t=>[String(t.id),t])); const now=today();
+  const rows=(DB.enrollments||[]).filter(e=>displayStatus(e)!=='wishlist'&&(!terms[String(e.term_id)]||!terms[String(e.term_id)].ends_on||terms[String(e.term_id)].ends_on>=now));
+  $('#canvasFileCourse').innerHTML=rows.map(e=>`<option value="${e.id}">${esc(codeLabel(e))} — ${esc(e.title||'')}</option>`).join('');
+  $('#canvasFileSave').disabled=!rows.length; openModal($('#canvasFileModal')); }
+async function fileCanvasAssignment(){ const enrollmentId=Number($('#canvasFileCourse').value); if(!CANVAS_FILE_UID||!Number.isFinite(enrollmentId))return;
+  const b=$('#canvasFileSave'); b.disabled=true; try{ const r=await api('canvas_file',{ext_uid:CANVAS_FILE_UID,enrollment_id:enrollmentId},FN_CANVAS); if(r.row)(DB.assignments||[]).push(r.row); CANVAS.unassigned=CANVAS.unassigned.filter(a=>a.ext_uid!==CANVAS_FILE_UID); closeModal($('#canvasFileModal')); renderAssignments(); toast('Filed for review'); }catch(e){ toast(e.message||'Error'); }finally{ b.disabled=false; } }
 // Cornell academic calendar — opened from the Schedule header (its own sheet).
 function openAcalSheet(){ const m=$("#acalModal"); if(!m) return;
   const rb=$("#acal-refresh"); if(rb) rb.onclick=()=>loadAcademic(true);
@@ -3030,7 +3074,7 @@ function gcalAutoSync(){   // serialize edits and coalesce changes made during a
 /* ---- Canvas deadline sync (client side; feed URL + secret live in Supabase) ---- */
 async function canvasRefresh(){
   try{ const r=await api("canvas_status",{},FN_CANVAS);
-    CANVAS={configured:!!r.configured,last_sync_at:r.last_sync_at||null,pending:r.pending_canvas||0,loaded:true};
+    CANVAS={configured:!!r.configured,last_sync_at:r.last_sync_at||null,pending:r.pending_canvas||0,unassigned:r.unassigned_canvas||[],loaded:true};
   }catch(e){ CANVAS.loaded=true; }
 }
 let CSYNC=false;
@@ -3043,9 +3087,10 @@ async function canvasSyncNow(opts={}){
     const r=await api("canvas_sync",{},FN_CANVAS);
     if(r&&r.ok===false){ msg=r.error||"Sync failed"; }
     else{
-      const p=[]; if(r.added)p.push(`${r.added} new`); if(r.updated)p.push(`${r.updated} updated`); if(r.adopted)p.push(`${r.adopted} linked`); if(r.unmapped)p.push(`${r.unmapped} unmatched`);
+      const p=[]; if(r.added)p.push(`${r.added} new`); if(r.updated)p.push(`${r.updated} updated`); if(r.removed)p.push(`${r.removed} removed`); if(r.adopted)p.push(`${r.adopted} linked`); if(r.filed)p.push(`${r.filed} filed`); if(r.unassigned)p.push(`${r.unassigned} unassigned`); if(r.unmapped)p.push(`${r.unmapped} unmatched`);
       msg=p.length?`Canvas: ${p.join(", ")}`:"Canvas: nothing new";
       try{ DB=(await api("load")).data; }catch(e){}   // reload so new pending items show in the review queues
+      if(r.updated||r.removed) gcalAutoSync();
     }
   }catch(e){ msg=e.message||"Sync failed"; }
   await canvasRefresh();
@@ -3118,6 +3163,9 @@ $("#asgListClose").onclick=()=>closeModal($("#asgListModal"));
 $("#asgListModal").addEventListener("click",e=>{ if(e.target===$("#asgListModal")) closeModal($("#asgListModal")); });
 $("#asgEditClose").onclick=()=>closeModal($("#asgEditModal"));
 $("#asgEditModal").addEventListener("click",e=>{ if(e.target===$("#asgEditModal")) closeModal($("#asgEditModal")); });
+$("#canvasFileClose").onclick=$("#canvasFileCancel").onclick=()=>closeModal($("#canvasFileModal"));
+$("#canvasFileSave").onclick=fileCanvasAssignment;
+$("#canvasFileModal").addEventListener("click",e=>{ if(e.target===$("#canvasFileModal")) closeModal($("#canvasFileModal")); });
 $("#shareClose").onclick=()=>closeModal($("#shareModal"));
 $("#shareModal").addEventListener("click",e=>{ if(e.target===$("#shareModal")) closeModal($("#shareModal")); });
 $("#shareWeek").onclick=()=>shareSchedule(SCHED_WEEK||defaultWeekMon(termById(SCHED_TERM)));
