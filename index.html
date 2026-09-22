@@ -493,8 +493,10 @@
   #acDayBody{display:flex;flex-direction:column;gap:8px}
   .acd-item{padding:11px 13px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2)}
   .acd-item.noclass{border-color:var(--accent-line);background:var(--accent-soft)}
-  .acd-item.asg{border-left-width:3px;border-left-style:solid}
+  .acd-item.asg{border-left-width:3px;border-left-style:solid;display:flex;align-items:flex-start;gap:11px}
+  .acd-item.asg .acd-main{flex:1 1 auto;min-width:0}
   .acd-item.asg.done{opacity:.6}
+  .acd-item.asg.done .acd-t{text-decoration:line-through}
   .acd-code{font-weight:800}
   .acd-t{font-size:14px;font-weight:700;color:var(--ink);line-height:1.4}
   .acd-no{display:inline-block;font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:var(--accent);border:1px solid var(--accent-line);border-radius:99px;padding:1px 7px;margin-left:6px;vertical-align:middle}
@@ -1747,9 +1749,16 @@ function openAcadDay(day){
   let html=(day.events||[]).map(o=>{ const tm=acalTime(o.time);
     return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalFull(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
   }).join("");
-  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${a.done?' done':''}" data-asgcourse="${a.enrollment_id}" style="border-left-color:${r.color}"><div class="acd-t"><span class="acd-code" style="color:${r.color}">${esc(r.code)}</span> ${esc(asgTitle(a))}${a.done?' <span class="acd-no">done</span>':''}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div>`; }).join("");
+  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${a.done?' done':''}" style="border-left-color:${r.color}"><div class="acd-main" data-asgcourse="${a.enrollment_id}"><div class="acd-t"><span class="acd-code" style="color:${r.color}">${esc(r.code)}</span> ${esc(asgTitle(a))}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Mark done">${a.done?ICO.check:''}</button></div>`; }).join("");
   b.innerHTML=html;
   b.querySelectorAll("[data-asgcourse]").forEach(el=>el.onclick=()=>{ closeModal($("#acDayModal")); openCourseAssignments(el.dataset.asgcourse); });
+  // Mark done straight from the day popup — optimistic flip, persist in the background, revert on error.
+  b.querySelectorAll("[data-done]").forEach(btn=>btn.onclick=(e)=>{ e.stopPropagation();
+    const a=asgById(btn.dataset.done); if(!a) return;
+    const nv=!a.done, item=btn.closest(".acd-item");
+    const paint=v=>{ a.done=v; if(item) item.classList.toggle("done",v); btn.classList.toggle("on",v); btn.innerHTML=v?ICO.check:''; };
+    paint(nv);
+    saveAsg({id:a.id, done:nv}).then(()=>{ if(CUR==='schedule')renderSchedule(); if(CUR==='academic')renderAssignments(); }).catch(err=>{ paint(!nv); toast(err.message||"Error"); }); });
   openModal($("#acDayModal"));
 }
 // ============ assignments UI (Planner course list + editor + review queue) ============
