@@ -5,6 +5,7 @@
 // carnelian.assignments as pending review items. Idempotent via ext_uid; Canvas
 // owns source state + the real deadline while Carnelian customizations remain.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
+import webpush from "npm:web-push@3.6.7";
 import { parseVEvents, icalDateToET, normCode, courseKeys, guessKind, cleanSummary } from "./ical.ts";
 import { reconcileCanvasSource, markCanvasMissing } from "./reconcile.ts";
 
@@ -37,6 +38,72 @@ async function authed(token: string | undefined) {
 const canvasCfg = async () => (await sql`select * from carnelian.canvas_config where id = 1`)[0] ?? {};
 const normTitle = (s: string) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 
+// ---- Web Push: notify the phone when a sync changes assignments ----
+const plainDate = (v: unknown) => (v ? String(v).slice(0, 10) : null);
+const minute = (v: unknown) => (v ? String(v).slice(0, 5) : null);
+type Chg = { kind: "new" | "moved" | "renamed" | "removed"; code: string; title: string; date?: string | null };
+
+// Human month/day for a plain "YYYY-MM-DD" (push copy stays readable without a TZ dance).
+const MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function niceDate(d: string | null | undefined) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(d || ""));
+  return m ? `${MON[+m[2] - 1]} ${+m[3]}` : "";
+}
+
+// Send one payload to every stored subscription. Dead endpoints (404/410) are pruned;
+// other errors bump fail_count. Never throws — a push failure must not break its caller.
+async function pushToAll(payloadObj: Record<string, unknown>): Promise<{ sent: number; failed: number; subs: number }> {
+  try {
+    const vp = (await sql`select settings->'push' as push from carnelian.app_config where id = 1`)[0]?.push;
+    if (!vp?.public || !vp?.private) return { sent: 0, failed: 0, subs: 0 };
+    const subs = await sql`select id, endpoint, p256dh, auth from carnelian.push_subscriptions`;
+    if (!subs.length) return { sent: 0, failed: 0, subs: 0 };
+    webpush.setVapidDetails(vp.subject || "mailto:admin@example.com", vp.public, vp.private);
+    const payload = JSON.stringify(payloadObj);
+    let sent = 0, failed = 0;
+    await Promise.all((subs as any[]).map(async (s) => {
+      try {
+        await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+        sent++;
+        await sql`update carnelian.push_subscriptions set last_ok_at = now(), fail_count = 0 where id = ${s.id}`;
+      } catch (e: any) {
+        failed++;
+        const code = e?.statusCode;
+        if (code === 404 || code === 410) await sql`delete from carnelian.push_subscriptions where id = ${s.id}`;
+        else await sql`update carnelian.push_subscriptions set fail_count = fail_count + 1 where id = ${s.id}`;
+      }
+    }));
+    return { sent, failed, subs: (subs as any[]).length };
+  } catch (_e) { return { sent: 0, failed: 0, subs: 0 }; }
+}
+
+// Turn the change list into one grouped notification. Runs for both the nightly cron and
+// manual syncs, so any assignment change reaches the installed home-screen app.
+async function sendChangePush(changes: Chg[]) {
+  if (!changes.length) return;
+  const cut = (t: string) => (t.length > 64 ? t.slice(0, 61) + "…" : t);
+  const line = (c: Chg) => {
+    const t = `${c.code} ${cut(c.title)}`;
+    if (c.kind === "new") return `New: ${t}`;
+    if (c.kind === "moved") return `Deadline${c.date ? ` → ${niceDate(c.date)}` : ""}: ${t}`;
+    if (c.kind === "renamed") return `Renamed: ${t}`;
+    return `Removed: ${t}`;
+  };
+  let title: string, body: string;
+  if (changes.length === 1) {
+    const c = changes[0];
+    title = c.kind === "new" ? "New assignment" : c.kind === "moved" ? "Deadline changed"
+      : c.kind === "renamed" ? "Assignment renamed" : "Assignment removed";
+    body = `${c.code} — ${cut(c.title)}${c.kind === "moved" && c.date ? ` (now ${niceDate(c.date)})` : ""}`;
+  } else {
+    title = `${changes.length} assignment updates`;
+    const lines = changes.slice(0, 4).map(line);
+    if (changes.length > 4) lines.push(`+${changes.length - 4} more`);
+    body = lines.join("\n");
+  }
+  await pushToAll({ title, body, tag: "carnelian-assignments", url: "./?open=academic" });
+}
+
 async function canvasSync() {
   const cfg = await canvasCfg();
   if (!cfg.feed_url) return { ok: false, error: "no feed configured" };
@@ -59,6 +126,8 @@ async function canvasSync() {
     where coalesce(e.status,'') <> 'wishlist' and (t.ends_on is null or t.ends_on >= current_date)`;
   const codeToEnr = new Map<string, number>();
   for (const e of enrolls as any[]) { const k = normCode(e.code); if (k && !codeToEnr.has(k)) codeToEnr.set(k, e.id); }
+  const enrIdToCode = new Map<number, string>((enrolls as any[]).map((e) => [e.id, e.code]));
+  const codeOf = (id: number | null | undefined) => (id != null ? (enrIdToCode.get(id) || "") : "");
   const enrIds = (enrolls as any[]).map((e) => e.id);
   const existing = enrIds.length
     ? await sql`select id, enrollment_id, name, override_title, due_on::text as due_on, due_time::text as due_time,
@@ -90,6 +159,7 @@ async function canvasSync() {
   if (!feedAssignments.length && (linkedInScope.length || unassignedRows.length)) return { ok: false, error: "assignment feed was unexpectedly empty; existing links were preserved" };
 
   let added = 0, updated = 0, adopted = 0, filed = 0, unassigned = 0, skipped = 0, total = 0, missing = 0, removed = 0;
+  const notify: Chg[] = [];   // meaningful changes this run → one push at the end
   for (const ev of events) {
     if (!ev.uid) continue;
     if (rejected.has(ev.uid)) { skipped++; continue; }
@@ -110,6 +180,11 @@ async function canvasSync() {
     // 1) already ours (by uid): refresh Canvas-owned source state + real deadline.
     const own = byUid.get(ev.uid);
     if (own) {
+      // classify the user-visible change vs the OLD snapshot, before we overwrite it
+      const hadSnap = !!(own.canvas_title || own.canvas_due_on || own.canvas_due_time || own.canvas_url);
+      const dateMoved = hadSnap && (plainDate(own.canvas_due_on) !== plainDate(due_on) || minute(own.canvas_due_time) !== minute(due_time));
+      const renamed = hadSnap && (own.canvas_title || null) !== title;
+      const wasRemoved = !!own.canvas_removed_at;
       const patch = reconcileCanvasSource(own, {
         uid: ev.uid, enrollment_id: mappedEnrId ?? own.enrollment_id,
         title, due_on, due_time, url: ev.url || null,
@@ -122,6 +197,10 @@ async function canvasSync() {
         canvas_changes = ${sql.json(patch.canvas_changes)}, canvas_changed_at = ${patch.canvas_changed_at}
         where id = ${own.id}`;
       if (patch.source_changed) updated++;
+      const code = codeOf(patch.enrollment_id);
+      if (wasRemoved) notify.push({ kind: "new", code, title });          // reappeared in the feed
+      else if (dateMoved) notify.push({ kind: "moved", code, title, date: plainDate(due_on) });
+      else if (renamed) notify.push({ kind: "renamed", code, title });
       continue;
     }
     const inbox = unassignedByUid.get(ev.uid);
@@ -134,7 +213,7 @@ async function canvasSync() {
           on conflict (ext_uid) do nothing`;
         await tx`delete from carnelian.canvas_unassigned where ext_uid = ${ev.uid}`;
       });
-      filed++; continue;
+      filed++; notify.push({ kind: "new", code: codeOf(mappedEnrId), title }); continue;
     }
     // map to a course — try every code in the (possibly cross-listed) tag, pick the
     // one the user is enrolled in; unmapped items are skipped + counted.
@@ -167,7 +246,7 @@ async function canvasSync() {
       canvas_title, canvas_due_on, canvas_due_time, canvas_url, canvas_last_seen_at, canvas_missing_count, canvas_changes)
       values (${enrId}, ${title}, ${title}, ${guessKind(ev.summary)}, ${due_on}, ${due_time}, 'pending', 'canvas', ${ev.uid}, false,
         ${title}, ${due_on}, ${due_time}, ${ev.url || null}, ${now}, 0, '{}'::jsonb)`;
-    added++;
+    added++; notify.push({ kind: "new", code: codeOf(enrId), title });
   }
 
   // Reconcile existence only after a complete, healthy parse. Missing once is
@@ -176,7 +255,7 @@ async function canvasSync() {
   for (const own of linkedInScope) {
     if (feedAssignmentUids.has(own.ext_uid)) continue;
     const patch = markCanvasMissing(own, now, cancelledUids.has(own.ext_uid)); missing++;
-    if (!own.canvas_removed_at && patch.canvas_removed_at) removed++;
+    if (!own.canvas_removed_at && patch.canvas_removed_at) { removed++; notify.push({ kind: "removed", code: codeOf(own.enrollment_id), title: own.override_title || own.canvas_title || own.name || "" }); }
     await sql`update carnelian.assignments set canvas_missing_count = ${patch.canvas_missing_count},
       canvas_removed_at = ${patch.canvas_removed_at}, canvas_changes = ${sql.json(patch.canvas_changes)},
       canvas_changed_at = ${patch.canvas_changed_at} where id = ${own.id}`;
@@ -193,6 +272,7 @@ async function canvasSync() {
 
   const result = { added, updated, adopted, filed, unassigned, unmapped: 0, skipped, total, missing, removed };
   await sql`update carnelian.canvas_config set last_sync_at = now(), last_result = ${sql.json(result)}, updated_at = now() where id = 1`;
+  await sendChangePush(notify);   // notify the phone of new / moved / renamed / removed assignments
   return { ok: true, ...result };
 }
 
@@ -226,6 +306,10 @@ Deno.serve(async (req) => {
         unassigned_canvas: inbox });
     }
     if (action === "canvas_sync") return json(await canvasSync());
+    if (action === "push_test") {
+      const r = await pushToAll({ title: "Carnelian", body: "Notifications are on — you'll get assignment changes here.", tag: "carnelian-test", url: "./?open=academic" });
+      return json({ ok: true, ...r });
+    }
     if (action === "canvas_ack") {
       const id = Number(body.id); if (!Number.isFinite(id)) return json({ error: "bad assignment" }, 400);
       const row = (await sql`update carnelian.assignments set canvas_changes = '{}'::jsonb, canvas_changed_at = null

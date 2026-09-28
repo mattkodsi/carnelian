@@ -720,6 +720,24 @@ Deno.serve(async (req) => {
       return json({ ok: true });
     }
 
+    // ---- Web Push subscription registry (assignment-change notifications) ----
+    if (action === "push_subscribe") {
+      const s = body.sub || {};
+      const endpoint = String(s.endpoint || "");
+      const p256dh = s.keys?.p256dh, auth = s.keys?.auth;
+      if (!endpoint || !p256dh || !auth) return json({ error: "bad subscription" }, 400);
+      await sql`insert into carnelian.push_subscriptions (endpoint, p256dh, auth, ua)
+        values (${endpoint}, ${p256dh}, ${auth}, ${String(body.ua || "").slice(0, 300)})
+        on conflict (endpoint) do update set p256dh = excluded.p256dh, auth = excluded.auth,
+          ua = excluded.ua, fail_count = 0, last_ok_at = null`;
+      return json({ ok: true });
+    }
+    if (action === "push_unsubscribe") {
+      const endpoint = String(body.endpoint || "");
+      if (endpoint) await sql`delete from carnelian.push_subscriptions where endpoint = ${endpoint}`;
+      return json({ ok: true });
+    }
+
     // ---- Cornell academic calendar (server-side scrape; registrar has no CORS) ----
     if (action === "academic_calendar") {
       try {

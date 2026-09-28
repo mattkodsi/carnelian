@@ -3,5 +3,5 @@
 .DS_Store
 *.log
 node_modules/
-
-node_modules/
+.firecrawl/
+supabase/.temp/

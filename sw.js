@@ -23,3 +23,31 @@ self.addEventListener('fetch', (e) => {
       .catch(() => caches.match(req).then((m) => m || caches.match('./index.html')))
   );
 });
+
+// ---- Web Push: assignment-change notifications ----
+// The server sends {title, body, tag, url}. iOS delivers these only to the
+// installed (Add to Home Screen) app; a Safari tab gets nothing.
+self.addEventListener('push', (e) => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (_) { d = { body: e.data ? e.data.text() : '' }; }
+  const title = d.title || 'Carnelian';
+  const opts = {
+    body: d.body || '',
+    icon: 'apple-touch-icon.png',
+    badge: 'apple-touch-icon.png',
+    tag: d.tag || 'carnelian-assignments',
+    renotify: true,
+    data: { url: d.url || './' },
+  };
+  e.waitUntil(self.registration.showNotification(title, opts));
+});
+
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || './';
+  e.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const c of wins) { if ('focus' in c) { try { await c.focus(); } catch (_) {} return; } }
+    if (self.clients.openWindow) return self.clients.openWindow(url);
+  })());
+});

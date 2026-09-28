@@ -462,6 +462,8 @@
   .ag-sync{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:6px 11px}
   .ag-sync .ico{width:15px;height:15px}
   .ag-sync.spin .ico{animation:acal-spin .8s linear infinite}
+  .ag-head .ag-actions{display:flex;align-items:center;gap:8px}
+  #agNotify.on{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft)}
   .ag-count{font-size:12.5px;color:var(--ink-3);margin:0 2px 14px}
   .ag-sec{font-size:12px;font-weight:800;text-transform:uppercase;color:var(--ink-3);letter-spacing:.06em;margin:16px 2px 6px;display:flex;align-items:center;gap:6px}
   .ag-sec.overdue{color:#c2405b}
@@ -966,6 +968,41 @@ async function api(action, payload={}, base=FN){
   const r = await fetch(base,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({action,token:TOKEN,...payload})});
   const j = await r.json(); if(!r.ok) throw Object.assign(new Error(j.error||"error"),{status:r.status}); return j;
 }
+
+/* ---- push notifications: assignment changes (new / deadline / removed / renamed) ----
+   iOS delivers Web Push only to the installed (Add to Home Screen) app, so on an iOS
+   Safari tab PushManager is absent and the toggle stays hidden. */
+const VAPID_PUBLIC = "BChxC2rKlJK4MrWWQpodDkyOmE6jqkxAAZ0Mm_iUQXvLDOoLr5xPPexRiCgfsWOb546ZesbGW5RzD5OOQCPOsqc";
+const pushSupported = ()=> "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+function urlB64ToU8(s){ const pad="=".repeat((4-s.length%4)%4); const b=(s+pad).replace(/-/g,"+").replace(/_/g,"/"); const raw=atob(b); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0))); }
+async function currentPushSub(){ try{ const reg=await navigator.serviceWorker.ready; return await reg.pushManager.getSubscription(); }catch(_){ return null; } }
+async function refreshNotifyBtn(){
+  const b=$("#agNotify"); if(!b) return;
+  if(!pushSupported()){ b.hidden=true; return; }
+  b.hidden=false;
+  const on = Notification.permission==="granted" && !!(await currentPushSub());
+  b.classList.toggle("on",on); b.setAttribute("aria-pressed", on?"true":"false");
+  const lbl=b.querySelector(".nlbl"); if(lbl) lbl.textContent = on ? "Notifications on" : "Notify me";
+}
+async function enablePush(){
+  if(!pushSupported()){ toast("Not supported on this device"); return; }
+  if(Notification.permission==="denied"){ toast("Notifications are blocked — enable them in Settings"); return; }
+  try{
+    if(Notification.permission!=="granted"){ const p=await Notification.requestPermission(); if(p!=="granted"){ toast("Notifications not enabled"); return; } }
+    const reg=await navigator.serviceWorker.ready;
+    let sub=await reg.pushManager.getSubscription();
+    if(!sub) sub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToU8(VAPID_PUBLIC) });
+    await api("push_subscribe",{ sub: sub.toJSON(), ua: navigator.userAgent });
+    api("push_test",{},FN_CANVAS).catch(()=>{});   // immediate confirmation push so you can see it works
+    toast("Notifications on");
+  }catch(e){ toast(e.message||"Could not enable notifications"); }
+  refreshNotifyBtn();
+}
+async function disablePush(){
+  try{ const sub=await currentPushSub(); if(sub){ try{ await api("push_unsubscribe",{ endpoint: sub.endpoint }); }catch(_){} await sub.unsubscribe(); } toast("Notifications off"); }
+  catch(e){ toast(e.message||"Error"); }
+  refreshNotifyBtn();
+}
 function relTime(iso){ if(!iso) return ""; const s=(Date.now()-new Date(iso).getTime())/1000; if(s<90) return "just now"; const m=Math.round(s/60); if(m<60) return m+"m ago"; const h=Math.round(m/60); if(h<24) return h+"h ago"; return Math.round(h/24)+"d ago"; }
 function toast(m){ const t=$("#toast"); t.textContent=m; t.classList.add("on"); clearTimeout(t._h); t._h=setTimeout(()=>t.classList.remove("on"),1800); }
 
@@ -1048,7 +1085,10 @@ document.addEventListener("keydown", e=>{ if($("#gate").style.display==="none") 
   if(e.key>="0"&&e.key<="9") pinPush(e.key); else if(e.key==="Backspace"){ e.preventDefault(); pinDel(); } });
 function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="grid"; if(innerWidth<=760)$(".mobar").style.display="flex";
   ["mTerm","mStatus","mGrade","mDist","mRole","rProg","rParent","rKind","rMatchType","rScope"].forEach(id=>enhanceDD(document.getElementById(id)));
-  renderAll(); gcalRefresh(); handleGcalReturn(); }
+  renderAll(); gcalRefresh(); handleGcalReturn();
+  // Deep-link from a tapped push notification (sw opens ./?open=academic).
+  try{ const op=new URLSearchParams(location.search).get("open"); if(op){ showPage(op==="academic"?"academic":op); history.replaceState(null,"",location.pathname); } }catch(_){}
+}
 $("#logoutBtn").addEventListener("click",()=>{ localStorage.removeItem("carn_token"); location.reload(); });
 
 /* ---- helpers ---- */
@@ -2203,7 +2243,7 @@ function renderAssignments(){
     const cm=canvasMark(it.a); const meta=(it.tm?esc(asgTimeShort(it.tm)):'')+(it.pending?(it.tm?' · ':'')+'from Canvas':'')+(cm?((it.tm||it.pending)?' · ':'')+esc(cm):'');
     if(it.pending) return `<div class="ag-row pending${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-ic acc" data-approve="${it.a.id}" aria-label="Accept">${ICO.check}</button><button class="ag-ic rej" data-reject="${it.a.id}" aria-label="Reject">${XICO}</button></div></div>`;
     return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div>${it.a.canvas_removed_at?'':`<button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button>`}</div>`; };
-  let html=`<div class="agenda"><div class="ag-head"><h1>Assignments</h1><button class="ag-sync" id="agSync"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Sync</button></div>`;
+  let html=`<div class="agenda"><div class="ag-head"><h1>Assignments</h1><div class="ag-actions"><button class="ag-sync" id="agNotify" hidden aria-pressed="false" aria-label="Notify me of assignment changes"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="nlbl">Notify me</span></button><button class="ag-sync" id="agSync"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Sync</button></div></div>`;
   html+=`<div class="ag-count">${inbox.length?`${inbox.length} unassigned · `:''}${nPend?`${nPend} from Canvas to review · `:''}${nUp} upcoming</div>`;
   if(inbox.length){ html+=`<div class="ag-sec">Unassigned from Canvas</div>`+inbox.map(a=>{ const keys=(a.canvas_course_keys||[]).join(' / ')||'Course not matched'; const due=a.canvas_due_on?fmtAsgDate({due_on:a.canvas_due_on,due_time:a.canvas_due_time}):''; const meta=[keys,due,a.canvas_removed_at?'Removed from Canvas':''].filter(Boolean).join(' · '); return `<div class="ag-row unassigned${a.canvas_removed_at?' source-removed':''}"><div class="ag-main"><div class="ag-code">Canvas</div><div class="ag-t">${esc(a.canvas_title||'Untitled')}</div><div class="ag-meta">${esc(meta)}</div></div><div class="ag-acts"><button class="ag-ic" data-canvas-file="${esc(a.ext_uid)}" aria-label="File assignment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5h6l2 2h8v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/></svg></button><button class="ag-ic rej" data-canvas-reject="${esc(a.ext_uid)}" aria-label="Reject">${XICO}</button></div></div>`; }).join(''); }
   if(!items.length&&!inbox.length){ html+=`<div class="ag-empty">No assignments this term. Add them per course in the Planner, or use Sync to pull from Canvas.</div></div>`; el.innerHTML=html; wireAgenda(el); return; }
@@ -2217,6 +2257,7 @@ function wireAgenda(el){
     try{ const msg=await canvasSyncNow({silent:true}); if(msg) toast(msg); }
     catch(e){ toast(e.message||"Sync failed"); }
     finally{ sb.classList.remove('spin'); sb.disabled=false; if(CUR==='academic') renderAssignments(); } };
+  const nb=$("#agNotify"); if(nb){ refreshNotifyBtn(); nb.onclick=async()=>{ const on=Notification.permission==="granted" && !!(await currentPushSub()); if(on) disablePush(); else enablePush(); }; }
   el.querySelectorAll("[data-approve]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const a=asgById(b.dataset.approve); if(a) approveAsg(a); });
   el.querySelectorAll("[data-reject]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation(); const a=asgById(b.dataset.reject); if(a) rejectAsg(a); });
   el.querySelectorAll("[data-canvas-file]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openCanvasFile(b.dataset.canvasFile); });
