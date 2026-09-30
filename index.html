@@ -400,11 +400,18 @@
   .ev .loc{font-size:10px;color:var(--ev-ink3);line-height:1.3;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ev.conflict{outline:2px solid var(--accent);outline-offset:-2px}
   /* assignment timed block (exam/quiz): distinct dashed "assessment" treatment over the class slot */
-  .sched-asg{position:absolute;left:1px;width:calc(100% - 2px);border-radius:8px;padding:5px 7px;overflow:hidden;cursor:pointer;text-align:center;z-index:5;
-    background:color-mix(in srgb,var(--h) 15%,var(--surface));border:1.5px dashed var(--h);box-shadow:var(--ev-shadow)}
+  /* inset 4px inside the column so the class block underneath frames it: reads as "within the class" */
+  .sched-asg{position:absolute;left:4px;width:calc(100% - 8px);border-radius:7px;padding:4px 5px;overflow:hidden;cursor:pointer;text-align:center;z-index:5;
+    background:color-mix(in srgb,var(--h) 15%,var(--surface));border:1.5px dashed var(--h);box-shadow:var(--ev-shadow);
+    /* column-wrap: a line that doesn't fully fit the block's height wraps into a second (clipped) column,
+       so short blocks drop whole lines instead of showing a half-cut one */
+    display:flex;flex-direction:column;flex-wrap:wrap;align-content:flex-start}
+  .sched-asg>*{width:100%;flex:none}
   .sched-asg:hover{filter:brightness(1.04)}
   .sched-asg .ac{font-weight:800;font-size:9px;letter-spacing:.06em;color:var(--h);line-height:1.2;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .sched-asg .at{font-weight:800;font-size:11px;line-height:1.2;color:var(--ink);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sched-asg .acode{font-weight:800;font-size:11px;line-height:1.25;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sched-asg .asg-tm{font-weight:700;font-size:10px;color:var(--ink-2);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sched-asg .at{font-weight:600;font-size:10px;line-height:1.25;color:var(--ink-2);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .sched-asg.done{opacity:.5} .sched-asg.done .at{text-decoration:line-through}
   .now-line{position:absolute;height:0;border-top:1.5px solid var(--accent);z-index:6;pointer-events:none}
   .now-line::before{content:"";position:absolute;left:-3px;top:-3.5px;width:7px;height:7px;border-radius:50%;background:var(--accent)}
@@ -515,6 +522,10 @@
   .asg-review{border:1px solid var(--accent-line);background:var(--accent-soft);border-radius:12px;padding:10px 11px;display:flex;flex-direction:column;gap:7px}
   .asg-active{display:flex;flex-direction:column;gap:7px}
   .asg-row{display:flex;align-items:center;gap:10px;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2)}
+  /* the row that was tapped from the schedule: brief tint so it's identifiable after the list centers on it */
+  .asg-row.focus{animation:asgFocus 1.6s ease-out}
+  @keyframes asgFocus{0%,35%{background:color-mix(in srgb,var(--accent) 14%,var(--surface-2));border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}}
+  @media (prefers-reduced-motion:reduce){.asg-row.focus{animation:none}}
   .asg-row.pending{background:var(--surface);border-color:var(--accent-line);flex-direction:column;align-items:stretch;gap:9px}
   .asg-acts{display:flex;gap:7px;justify-content:flex-end}
   .asg-acts .asg-mini{flex:0 0 auto}
@@ -650,6 +661,13 @@
     .ev.short:not(.narrow) .et{font-size:8.5px;line-height:1;margin-top:1px}
     /* Only full-width short blocks drop the tag (truly no room); a stacked (narrow) block keeps it. */
     .ev.short:not(.narrow) .ev-tags{display:none}
+    /* assessment overlay on a phone column: same wrap/shrink treatment as a class block, 3px inset */
+    .sched-asg{left:3px;width:calc(100% - 6px);padding:2px 2px;border-radius:6px}
+    .sched-asg .ac{font-size:7px;letter-spacing:0}
+    .sched-asg .acode{font-size:10px;letter-spacing:-.02em;white-space:normal;line-height:1.1}
+    .sched-asg .asg-tm{font-size:9px;letter-spacing:-.04em;white-space:normal;line-height:1.05;margin-top:1px}
+    .sched-asg .at{font-size:8.5px;letter-spacing:-.02em;white-space:normal;line-height:1.1;
+      display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
     .trow{grid-template-columns:auto 1fr 34px 38px;gap:9px} .trow .ds{display:none}
   }
   /* schedule toolbar + google-calendar modal */
@@ -1607,7 +1625,7 @@ function assignCourseColors(list){
 }
 let SCHED_CIDX={};  // per-render map (from assignCourseColors): distinct colour per course
 const hm2min=s=>{const m=/^(\d{1,2}):(\d{2})$/.exec(String(s||""));return m?(+m[1])*60+(+m[2]):null;};
-function min2label(t){let h=Math.floor(t/60),m=t%60;const ap=h>=12?"pm":"am";h=h%12||12;return m?`${h}:${String(m).padStart(2,"0")}${ap}`:`${h}${ap}`;}
+function min2label(t){t=Math.round(t);let h=Math.floor(t/60),m=t%60;const ap=h>=12?"pm":"am";h=h%12||12;return m?`${h}:${String(m).padStart(2,"0")}${ap}`:`${h}${ap}`;}
 function courseColorIdx(code){let h=0;const s=String(code||"");for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;return h%SCHED_COLORS.length;}
 const meetingsOf=e=>Array.isArray(e.meetings)?e.meetings:[];
 // part-of-term: a meeting runs the 'full' term, first half ('1'), or second half ('2').
@@ -1789,9 +1807,9 @@ function openAcadDay(day){
   let html=(day.events||[]).map(o=>{ const tm=acalTime(o.time);
     return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalFull(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
   }).join("");
-  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${a.done?' done':''}" style="border-left-color:${r.color}"><div class="acd-main" data-asgcourse="${a.enrollment_id}"><div class="acd-t"><span class="acd-code" style="color:${r.color}">${esc(r.code)}</span> ${esc(asgTitle(a))}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Mark done">${a.done?ICO.check:''}</button></div>`; }).join("");
+  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${a.done?' done':''}" style="border-left-color:${r.color}"><div class="acd-main" data-asgcourse="${a.enrollment_id}" data-asgfocus="${a.id}"><div class="acd-t"><span class="acd-code" style="color:${r.color}">${esc(r.code)}</span> ${esc(asgTitle(a))}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Mark done">${a.done?ICO.check:''}</button></div>`; }).join("");
   b.innerHTML=html;
-  b.querySelectorAll("[data-asgcourse]").forEach(el=>el.onclick=()=>{ closeModal($("#acDayModal")); openCourseAssignments(el.dataset.asgcourse); });
+  b.querySelectorAll("[data-asgcourse]").forEach(el=>el.onclick=()=>{ closeModal($("#acDayModal")); openCourseAssignments(el.dataset.asgcourse, el.dataset.asgfocus); });
   // Mark done straight from the day popup — optimistic flip, persist in the background, revert on error.
   b.querySelectorAll("[data-done]").forEach(btn=>btn.onclick=(e)=>{ e.stopPropagation();
     const a=asgById(btn.dataset.done); if(!a) return;
@@ -1829,14 +1847,21 @@ async function toggleAsgDone(a){ try{ await saveAsg({id:a.id, done:!a.done}); re
 async function approveAsg(a){ try{ await saveAsg({id:a.id, status:'active'}); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
 async function rejectAsg(a){ try{ await deleteAsg(a.id); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
 
-function openCourseAssignments(eid){ ASG_EID=eid; const en=(DB.enrollments||[]).find(x=>String(x.id)===String(eid));
-  $("#asgListTitle").textContent=en?codeLabel(en):"Assignments"; renderAsgList(eid); openModal($("#asgListModal")); }
+// focusId (optional): the assignment that was tapped — scroll the list so its row sits centered in the sheet.
+function openCourseAssignments(eid, focusId){ ASG_EID=eid; const en=(DB.enrollments||[]).find(x=>String(x.id)===String(eid));
+  $("#asgListTitle").textContent=en?codeLabel(en):"Assignments"; renderAsgList(eid); openModal($("#asgListModal"));
+  const sheet=$("#asgListModal .sheet"); if(sheet) sheet.scrollTop=0;
+  if(focusId==null) return;
+  requestAnimationFrame(()=>{ const row=$("#asgListBody").querySelector(`[data-asgrow="${String(focusId)}"]`); if(!sheet||!row) return;
+    const sr=sheet.getBoundingClientRect(), rr=row.getBoundingClientRect();
+    sheet.scrollTop+=(rr.top-sr.top)-(sheet.clientHeight-rr.height)/2;
+    row.classList.add('focus'); setTimeout(()=>row.classList.remove('focus'),1600); }); }
 function renderAsgList(eid){ const body=$("#asgListBody"); if(!body) return;
   const all=asgFor(eid); const pending=all.filter(a=>a.status==='pending');
   const active=all.filter(a=>a.status!=='pending').sort((x,y)=> (x.done?1:0)-(y.done?1:0) || (asgDate(x)||"~").localeCompare(asgDate(y)||"~"));
-  const prow=a=>{ const cm=canvasMark(a); return `<div class="asg-row pending${a.canvas_removed_at?' source-removed':''}"><div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${a.source==='canvas'?' · Canvas':''}${cm?` · ${esc(cm)}`:''}</div></div>
+  const prow=a=>{ const cm=canvasMark(a); return `<div class="asg-row pending${a.canvas_removed_at?' source-removed':''}" data-asgrow="${a.id}"><div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${a.source==='canvas'?' · Canvas':''}${cm?` · ${esc(cm)}`:''}</div></div>
     <div class="asg-acts"><button class="asg-mini" data-edit="${a.id}">Edit</button><button class="asg-mini ok" data-approve="${a.id}">Approve</button><button class="asg-mini no" data-reject="${a.id}">Reject</button></div></div>`; };
-  const arow=a=>{ const cm=canvasMark(a); return `<div class="asg-row${a.done?' done':''}${a.canvas_removed_at?' source-removed':''}"><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Toggle done">${a.done?ICO.check:''}</button>
+  const arow=a=>{ const cm=canvasMark(a); return `<div class="asg-row${a.done?' done':''}${a.canvas_removed_at?' source-removed':''}" data-asgrow="${a.id}"><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Toggle done">${a.done?ICO.check:''}</button>
     <div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${cm?` · ${esc(cm)}`:''}</div></div>
     <button class="asg-edit" data-edit="${a.id}">Edit</button></div>`; };
   const en=(DB.enrollments||[]).find(x=>String(x.id)===String(eid)); const pi=en?profInfo(en):null;
@@ -2008,7 +2033,11 @@ function renderSchedule(){
     const blocks=byDay[d].map(ev=>{
       const top=((ev.s-gStart)/total)*100, h=((ev.en-ev.s)/total)*100;
       const w=100/ev.ncols, left=ev.col*w, dur=ev.en-ev.s;
-      const showLoc=dur>=50 && ev.ncols===1;
+      // An assessment overlay covering the start of this class would hide its label; when enough of
+      // the class runs past the overlay, drop the label below it so the remainder isn't anonymous.
+      const cover=(asgBlocksByDay[d]||[]).reduce((m,b)=>b.s<=ev.s&&b.en>ev.s?Math.max(m,b.en):m, ev.s);
+      const push=(cover>ev.s && ev.en-cover>=25)?((cover-ev.s)/dur)*100:0;
+      const showLoc=!push && dur>=50 && ev.ncols===1;
       const timeLbl=`${min2label(ev.s).replace(/[ap]m$/,'')}–${min2label(ev.en).replace(/[ap]m$/,'')}`;
       // A half-term meeting gets a small H1/H2 corner tag (top-right, opposite the TA/Audit tag) so
       // it's clear at a glance which 7-week half it runs. The section (LEC 001) is still dropped from
@@ -2018,17 +2047,20 @@ function renderSchedule(){
       const _p=partOf(ev.m), halfLbl=_p==='1'?'H1':_p==='2'?'H2':'';
       const tags=[halfLbl,roleWord].filter(Boolean);
       return `<div class="${cls.join(' ')}" data-cid="${ev.e.id}"${tags.length?' data-tags':''} style="--h:${SCHED_COLORS[ev.ci]};top:${top}%;height:${h}%;left:calc(${left}% + 1px);width:calc(${w}% - 2px)">
-        <div class="c">${esc(ev.e.code||'—')}</div>
+        ${push?`<div class="ev-push" style="height:${push.toFixed(1)}%"></div>`:''}<div class="c">${esc(ev.e.code||'—')}</div>
         <div class="et">${esc(timeLbl)}</div>
         ${showLoc&&ev.m.location?`<div class="loc">${esc(ev.m.location)}</div>`:''}
         ${tags.length?`<div class="ev-tags">${esc(tags.join(' · '))}</div>`:''}
       </div>`;
     }).join("");
+    // Assessment overlay: inset inside the class slot so the class frames it, and stacked like a class
+    // block (kind / course / time / title) so each line stays short enough for a phone column.
     const ablocks=(asgBlocksByDay[d]||[]).map(b=>{ const a=b.a;
       const top=((b.s-gStart)/total)*100, h=((b.en-b.s)/total)*100;
       const kindLbl=((_ASG_K[a.kind]||{}).label||'').toUpperCase();
+      const timeLbl=`${min2label(b.s).replace(/[ap]m$/,'')}–${min2label(b.en).replace(/[ap]m$/,'')}`;
       return `<div class="sched-asg${a.done?' done':''}" data-asgid="${a.id}" style="--h:${b.color};top:${top}%;height:${h}%">
-        <div class="ac">${esc(kindLbl)}</div><div class="at">${esc(asgTitle(a))}</div></div>`;
+        <div class="ac">${esc(kindLbl)}</div>${b.code?`<div class="acode">${esc(b.code)}</div>`:''}<div class="asg-tm">${esc(timeLbl)}</div><div class="at">${esc(asgTitle(a))}</div></div>`;
     }).join("");
     return `<div class="sched-col ${d===showToday?'today':''}">${blocks}${ablocks}</div>`;
   }).join("");
@@ -2078,7 +2110,7 @@ function renderSchedule(){
   const wnw=$("#wkNow"); if(wnw) wnw.onclick=()=>{ SCHED_WEEK=defaultWeekMon(term); renderSchedule(); };
   $("#schedule").querySelectorAll("[data-cid]").forEach(b=>b.onclick=()=>openCourseInfo(b.dataset.cid));
   $("#schedule").querySelectorAll("[data-adcol]").forEach(c=>{ const day=adDays[+c.dataset.adcol]; if(day&&(day.events.length||(day.asgs&&day.asgs.length))) c.onclick=()=>openAcadDay(day); });
-  $("#schedule").querySelectorAll("[data-asgid]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); const a=asgById(b.dataset.asgid); if(a) openCourseAssignments(a.enrollment_id); });
+  $("#schedule").querySelectorAll("[data-asgid]").forEach(b=>b.onclick=(ev)=>{ ev.stopPropagation(); const a=asgById(b.dataset.asgid); if(a) openCourseAssignments(a.enrollment_id, a.id); });
   clearInterval(schedNowTimer); schedNowTimer=null;
   if(SCHED_NOW){ updateNowLine(); schedNowTimer=setInterval(updateNowLine, 20000); }
   requestAnimationFrame(fitSchedule);
