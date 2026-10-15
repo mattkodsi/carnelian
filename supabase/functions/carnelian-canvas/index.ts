@@ -158,95 +158,100 @@ async function canvasSync() {
   const linkedInScope = (existing as any[]).filter((r) => r.source === "canvas" && r.ext_uid && !rejected.has(r.ext_uid));
   if (!feedAssignments.length && (linkedInScope.length || unassignedRows.length)) return { ok: false, error: "assignment feed was unexpectedly empty; existing links were preserved" };
 
-  let added = 0, updated = 0, adopted = 0, filed = 0, unassigned = 0, skipped = 0, total = 0, missing = 0, removed = 0;
+  let added = 0, updated = 0, adopted = 0, filed = 0, unassigned = 0, skipped = 0, total = 0, missing = 0, removed = 0, errors = 0;
   const notify: Chg[] = [];   // meaningful changes this run → one push at the end
   for (const ev of events) {
-    if (!ev.uid) continue;
-    if (rejected.has(ev.uid)) { skipped++; continue; }
-    // Only Canvas *assignments* are deadlines. The feed also carries calendar events
-    // (office hours, career fairs) as event-calendar-event-* — skip those.
-    if (!/assignment/i.test(ev.uid)) { skipped++; continue; }
-    if (ev.status === "CANCELLED") { skipped++; continue; }
-    const { due_on, due_time } = icalDateToET(ev.dtstart);
-    if (!due_on) continue;
-    total++;
-    const title = cleanSummary(ev.summary) || "Untitled";
-    // Map the source course when possible. An already-linked assignment remains
-    // attached even if a malformed feed title temporarily drops its course tag.
-    let mappedEnrId: number | null = null;
-    const sourceKeys = [...new Set([...courseKeys(ev.summary), ...courseKeys(ev.description)])];
-    for (const k of sourceKeys) { if (codeToEnr.has(k)) { mappedEnrId = codeToEnr.get(k)!; break; } }
+    try {
+      if (!ev.uid) continue;
+      if (rejected.has(ev.uid)) { skipped++; continue; }
+      // Only Canvas *assignments* are deadlines. The feed also carries calendar events
+      // (office hours, career fairs) as event-calendar-event-* — skip those.
+      if (!/assignment/i.test(ev.uid)) { skipped++; continue; }
+      if (ev.status === "CANCELLED") { skipped++; continue; }
+      const { due_on, due_time } = icalDateToET(ev.dtstart);
+      if (!due_on) continue;
+      total++;
+      const title = cleanSummary(ev.summary) || "Untitled";
+      // Map the source course when possible. An already-linked assignment remains
+      // attached even if a malformed feed title temporarily drops its course tag.
+      let mappedEnrId: number | null = null;
+      const sourceKeys = [...new Set([...courseKeys(ev.summary), ...courseKeys(ev.description)])];
+      for (const k of sourceKeys) { if (codeToEnr.has(k)) { mappedEnrId = codeToEnr.get(k)!; break; } }
 
-    // 1) already ours (by uid): refresh Canvas-owned source state + real deadline.
-    const own = byUid.get(ev.uid);
-    if (own) {
-      // classify the user-visible change vs the OLD snapshot, before we overwrite it
-      const hadSnap = !!(own.canvas_title || own.canvas_due_on || own.canvas_due_time || own.canvas_url);
-      const dateMoved = hadSnap && (plainDate(own.canvas_due_on) !== plainDate(due_on) || minute(own.canvas_due_time) !== minute(due_time));
-      const renamed = hadSnap && (own.canvas_title || null) !== title;
-      const wasRemoved = !!own.canvas_removed_at;
-      const patch = reconcileCanvasSource(own, {
-        uid: ev.uid, enrollment_id: mappedEnrId ?? own.enrollment_id,
-        title, due_on, due_time, url: ev.url || null,
-      }, now);
-      await sql`update carnelian.assignments set
-        enrollment_id = ${patch.enrollment_id}, due_on = ${patch.due_on}, due_time = ${patch.due_time},
-        canvas_title = ${patch.canvas_title}, canvas_due_on = ${patch.canvas_due_on}, canvas_due_time = ${patch.canvas_due_time},
-        canvas_url = ${patch.canvas_url}, canvas_last_seen_at = ${patch.canvas_last_seen_at},
-        canvas_removed_at = ${patch.canvas_removed_at}, canvas_missing_count = ${patch.canvas_missing_count},
-        canvas_changes = ${sql.json(patch.canvas_changes)}, canvas_changed_at = ${patch.canvas_changed_at}
-        where id = ${own.id}`;
-      if (patch.source_changed) updated++;
-      const code = codeOf(patch.enrollment_id);
-      if (wasRemoved) notify.push({ kind: "new", code, title });          // reappeared in the feed
-      else if (dateMoved) notify.push({ kind: "moved", code, title, date: plainDate(due_on) });
-      else if (renamed) notify.push({ kind: "renamed", code, title });
-      continue;
-    }
-    const inbox = unassignedByUid.get(ev.uid);
-    if (mappedEnrId != null && inbox) {
-      await sql.begin(async (tx) => {
-        await tx`insert into carnelian.assignments (enrollment_id, name, override_title, kind, due_on, due_time, status, source, ext_uid, done,
-          canvas_title, canvas_due_on, canvas_due_time, canvas_url, canvas_last_seen_at, canvas_missing_count, canvas_changes)
-          values (${mappedEnrId}, ${title}, ${title}, ${guessKind(ev.summary)}, ${due_on}, ${due_time}, 'pending', 'canvas', ${ev.uid}, false,
-            ${title}, ${due_on}, ${due_time}, ${ev.url || null}, ${now}, 0, '{}'::jsonb)
-          on conflict (ext_uid) do nothing`;
-        await tx`delete from carnelian.canvas_unassigned where ext_uid = ${ev.uid}`;
-      });
-      filed++; notify.push({ kind: "new", code: codeOf(mappedEnrId), title }); continue;
-    }
-    // map to a course — try every code in the (possibly cross-listed) tag, pick the
-    // one the user is enrolled in; unmapped items are skipped + counted.
-    const enrId = mappedEnrId;
-    if (enrId == null) {
-      if (inbox) {
-        const patch = reconcileCanvasSource(inbox, { uid: ev.uid, enrollment_id: 0, title, due_on, due_time, url: ev.url || null }, now);
-        await sql`update carnelian.canvas_unassigned set canvas_title = ${patch.canvas_title},
-          canvas_due_on = ${patch.canvas_due_on}, canvas_due_time = ${patch.canvas_due_time}, canvas_url = ${patch.canvas_url},
-          canvas_course_keys = ${sourceKeys}, canvas_last_seen_at = ${patch.canvas_last_seen_at},
+      // 1) already ours (by uid): refresh Canvas-owned source state + real deadline.
+      const own = byUid.get(ev.uid);
+      if (own) {
+        // classify the user-visible change vs the OLD snapshot, before we overwrite it
+        const hadSnap = !!(own.canvas_title || own.canvas_due_on || own.canvas_due_time || own.canvas_url);
+        const dateMoved = hadSnap && (plainDate(own.canvas_due_on) !== plainDate(due_on) || minute(own.canvas_due_time) !== minute(due_time));
+        const renamed = hadSnap && (own.canvas_title || null) !== title;
+        const wasRemoved = !!own.canvas_removed_at;
+        const patch = reconcileCanvasSource(own, {
+          uid: ev.uid, enrollment_id: mappedEnrId ?? own.enrollment_id,
+          title, due_on, due_time, url: ev.url || null,
+        }, now);
+        await sql`update carnelian.assignments set
+          enrollment_id = ${patch.enrollment_id}, due_on = ${patch.due_on}, due_time = ${patch.due_time},
+          canvas_title = ${patch.canvas_title}, canvas_due_on = ${patch.canvas_due_on}, canvas_due_time = ${patch.canvas_due_time},
+          canvas_url = ${patch.canvas_url}, canvas_last_seen_at = ${patch.canvas_last_seen_at},
           canvas_removed_at = ${patch.canvas_removed_at}, canvas_missing_count = ${patch.canvas_missing_count},
           canvas_changes = ${sql.json(patch.canvas_changes)}, canvas_changed_at = ${patch.canvas_changed_at}
-          where ext_uid = ${ev.uid}`;
+          where id = ${own.id}`;
         if (patch.source_changed) updated++;
-      } else {
-        await sql`insert into carnelian.canvas_unassigned (ext_uid, canvas_title, canvas_due_on, canvas_due_time,
-          canvas_url, canvas_course_keys, canvas_last_seen_at)
-          values (${ev.uid}, ${title}, ${due_on}, ${due_time}, ${ev.url || null}, ${sourceKeys}, ${now})`;
+        const code = codeOf(patch.enrollment_id);
+        if (wasRemoved) notify.push({ kind: "new", code, title });          // reappeared in the feed
+        else if (dateMoved) notify.push({ kind: "moved", code, title, date: plainDate(due_on) });
+        else if (renamed) notify.push({ kind: "renamed", code, title });
+        continue;
       }
-      unassigned++; continue;
+      const inbox = unassignedByUid.get(ev.uid);
+      if (mappedEnrId != null && inbox) {
+        await sql.begin(async (tx) => {
+          await tx`insert into carnelian.assignments (enrollment_id, name, override_title, kind, due_on, due_time, status, source, ext_uid, done,
+            canvas_title, canvas_due_on, canvas_due_time, canvas_url, canvas_last_seen_at, canvas_missing_count, canvas_changes)
+            values (${mappedEnrId}, ${title}, ${title}, ${guessKind(ev.summary)}, ${due_on}, ${due_time}, 'pending', 'canvas', ${ev.uid}, false,
+              ${title}, ${due_on}, ${due_time}, ${ev.url || null}, ${now}, 0, '{}'::jsonb)
+            on conflict (ext_uid) where ext_uid is not null do nothing`;   // must repeat the partial unique index's predicate
+          await tx`delete from carnelian.canvas_unassigned where ext_uid = ${ev.uid}`;
+        });
+        filed++; notify.push({ kind: "new", code: codeOf(mappedEnrId), title }); continue;
+      }
+      // map to a course — try every code in the (possibly cross-listed) tag, pick the
+      // one the user is enrolled in; unmapped items are skipped + counted.
+      const enrId = mappedEnrId;
+      if (enrId == null) {
+        if (inbox) {
+          const patch = reconcileCanvasSource(inbox, { uid: ev.uid, enrollment_id: 0, title, due_on, due_time, url: ev.url || null }, now);
+          await sql`update carnelian.canvas_unassigned set canvas_title = ${patch.canvas_title},
+            canvas_due_on = ${patch.canvas_due_on}, canvas_due_time = ${patch.canvas_due_time}, canvas_url = ${patch.canvas_url},
+            canvas_course_keys = ${sourceKeys}, canvas_last_seen_at = ${patch.canvas_last_seen_at},
+            canvas_removed_at = ${patch.canvas_removed_at}, canvas_missing_count = ${patch.canvas_missing_count},
+            canvas_changes = ${sql.json(patch.canvas_changes)}, canvas_changed_at = ${patch.canvas_changed_at}
+            where ext_uid = ${ev.uid}`;
+          if (patch.source_changed) updated++;
+        } else {
+          await sql`insert into carnelian.canvas_unassigned (ext_uid, canvas_title, canvas_due_on, canvas_due_time,
+            canvas_url, canvas_course_keys, canvas_last_seen_at)
+            values (${ev.uid}, ${title}, ${due_on}, ${due_time}, ${ev.url || null}, ${sourceKeys}, ${now})`;
+        }
+        unassigned++; continue;
+      }
+      // 2) adopt a prior scrape at the same course+date+title → stamp its ext_uid (no dup)
+      const cand = scrapeByKey.get(nkey(enrId, due_on, title));
+      if (cand) { await sql`update carnelian.assignments set ext_uid = ${ev.uid}, canvas_title = ${title},
+        canvas_due_on = ${due_on}, canvas_due_time = ${due_time}, canvas_url = ${ev.url || null},
+        canvas_last_seen_at = ${now}, canvas_missing_count = 0, canvas_changes = '{}'::jsonb
+        where id = ${cand.id}`; byUid.set(ev.uid, { ...cand, ext_uid: ev.uid }); adopted++; continue; }
+      // 3) insert a new pending item
+      await sql`insert into carnelian.assignments (enrollment_id, name, override_title, kind, due_on, due_time, status, source, ext_uid, done,
+        canvas_title, canvas_due_on, canvas_due_time, canvas_url, canvas_last_seen_at, canvas_missing_count, canvas_changes)
+        values (${enrId}, ${title}, ${title}, ${guessKind(ev.summary)}, ${due_on}, ${due_time}, 'pending', 'canvas', ${ev.uid}, false,
+          ${title}, ${due_on}, ${due_time}, ${ev.url || null}, ${now}, 0, '{}'::jsonb)`;
+      added++; notify.push({ kind: "new", code: codeOf(enrId), title });
+    } catch (err) {
+      // One bad item must not abort the sync: skip it, count it, keep going with the rest of the feed.
+      errors++; console.error("canvas_sync item failed", ev.uid, String((err as Error)?.message ?? err));
     }
-    // 2) adopt a prior scrape at the same course+date+title → stamp its ext_uid (no dup)
-    const cand = scrapeByKey.get(nkey(enrId, due_on, title));
-    if (cand) { await sql`update carnelian.assignments set ext_uid = ${ev.uid}, canvas_title = ${title},
-      canvas_due_on = ${due_on}, canvas_due_time = ${due_time}, canvas_url = ${ev.url || null},
-      canvas_last_seen_at = ${now}, canvas_missing_count = 0, canvas_changes = '{}'::jsonb
-      where id = ${cand.id}`; byUid.set(ev.uid, { ...cand, ext_uid: ev.uid }); adopted++; continue; }
-    // 3) insert a new pending item
-    await sql`insert into carnelian.assignments (enrollment_id, name, override_title, kind, due_on, due_time, status, source, ext_uid, done,
-      canvas_title, canvas_due_on, canvas_due_time, canvas_url, canvas_last_seen_at, canvas_missing_count, canvas_changes)
-      values (${enrId}, ${title}, ${title}, ${guessKind(ev.summary)}, ${due_on}, ${due_time}, 'pending', 'canvas', ${ev.uid}, false,
-        ${title}, ${due_on}, ${due_time}, ${ev.url || null}, ${now}, 0, '{}'::jsonb)`;
-    added++; notify.push({ kind: "new", code: codeOf(enrId), title });
   }
 
   // Reconcile existence only after a complete, healthy parse. Missing once is
@@ -270,7 +275,7 @@ async function canvasSync() {
       canvas_changed_at = ${patch.canvas_changed_at} where ext_uid = ${own.ext_uid}`;
   }
 
-  const result = { added, updated, adopted, filed, unassigned, unmapped: 0, skipped, total, missing, removed };
+  const result = { added, updated, adopted, filed, unassigned, unmapped: 0, skipped, total, missing, removed, errors };
   await sql`update carnelian.canvas_config set last_sync_at = now(), last_result = ${sql.json(result)}, updated_at = now() where id = 1`;
   await sendChangePush(notify);   // notify the phone of new / moved / renamed / removed assignments
   return { ok: true, ...result };
