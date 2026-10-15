@@ -822,6 +822,10 @@
           <button class="addmeet" id="mMeetAdd" type="button">＋ Add a meeting</button>
         </div></div>
       <div class="fld"><label>Equivalent Cornell course</label><input id="mAnalog"></div>
+      <div class="fld"><label>Counts toward</label><select id="mCounts">
+        <option value="auto">Automatic</option><option value="undergrad">Undergrad</option>
+        <option value="grad">Baker</option><option value="both">Both</option></select>
+        <div class="hint">Which degree the grade and credits count toward.</div></div>
       <label class="chkrow"><input type="checkbox" id="mInAs"><span>Counts toward A&amp;S credit</span></label>
       <button class="mapbtn" id="mSatToggle" type="button"><svg class="mi" viewBox="0 0 24 24"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg><span class="mt">Map to requirements</span><span class="cnt" id="mSatCount" style="display:none"></span><span class="chev">›</span></button>
       <div id="mSatWrap" style="display:none;margin-top:2px"><div id="mSat"></div></div>
@@ -1102,7 +1106,7 @@ $("#keypad").addEventListener("click", e=>{ const b=e.target.closest("[data-k]")
 document.addEventListener("keydown", e=>{ if($("#gate").style.display==="none") return;
   if(e.key>="0"&&e.key<="9") pinPush(e.key); else if(e.key==="Backspace"){ e.preventDefault(); pinDel(); } });
 function enterApp(){ $("#gate").style.display="none"; $("#app").style.display="grid"; if(innerWidth<=760)$(".mobar").style.display="flex";
-  ["mTerm","mStatus","mGrade","mDist","mRole","rProg","rParent","rKind","rMatchType","rScope"].forEach(id=>enhanceDD(document.getElementById(id)));
+  ["mTerm","mStatus","mGrade","mDist","mRole","mCounts","rProg","rParent","rKind","rMatchType","rScope"].forEach(id=>enhanceDD(document.getElementById(id)));
   renderAll(); gcalRefresh(); handleGcalReturn();
   // Deep-link from a tapped push notification (sw opens ./?open=academic).
   try{ const op=new URLSearchParams(location.search).get("open"); if(op){ showPage(op==="academic"?"academic":op); history.replaceState(null,"",location.pathname); } }catch(_){}
@@ -1148,24 +1152,27 @@ const progById=id=>DB.programs.find(p=>p.id===id);
 function bakerAppliedIds(){ const s=new Set();
   for(const r of DB.requirements.filter(r=>r.program_id==="baker-mps")) for(const e of matchedFor(r,true)) s.add(String(e.id));
   return s; }
+// "Counts toward" (counts_toward) decides which degree a course's grade and credits count toward.
+// null = automatic: the term's career decides, and for GPA a course applied to a Baker requirement also
+// counts toward Baker (e.g. a 6000-level course taken as an undergrad). "undergrad" | "grad" | "both" override.
+// Independent of in_as, which only marks A&S college credit.
+const termCareer=e=>(termById(e.term_id)||{}).career||"undergrad";
+const COUNTS_TOWARD=["undergrad","grad","both"];
+const countsToward=e=>COUNTS_TOWARD.includes(e.counts_toward)?e.counts_toward:null;
+const countsUG=e=>{ const ct=countsToward(e); return ct?ct!=="grad":termCareer(e)==="undergrad"; };
+const countsGrad=(e,bset)=>{ const ct=countsToward(e); return ct?ct!=="undergrad":(termCareer(e)==="grad"||!!(bset&&bset.has(String(e.id)))); };
 function gpa(career){ let q=0,c=0;
   const bset = career==="grad" ? bakerAppliedIds() : null;
   for(const e of DB.enrollments){ const p=GRADE_POINTS[e.grade]; if(p==null||!e.counts_gpa) continue;
     if(roleOf(e)==="ta_paid"||roleOf(e)==="audit") continue;   // never affect GPA
-    const car=(termById(e.term_id)||{}).career||"undergrad";
-    // grad GPA = grad-career courses PLUS any graded course applied to Baker (e.g. 6000-level taken as undergrad).
-    // undergrad GPA = undergrad-career courses (the cross-applied ones stay here too — "Both").
-    const inCareer = career==="grad" ? (car==="grad"||bset.has(String(e.id))) : (car==="undergrad");
-    if(!inCareer) continue; q+=p*num(e.credits); c+=num(e.credits); }
+    if(!(career==="grad" ? countsGrad(e,bset) : countsUG(e))) continue;
+    q+=p*num(e.credits); c+=num(e.credits); }
   return c?{gpa:q/c,credits:c}:{gpa:null,credits:0}; }
 const earnsCredit=e=>e.grade!=="F" && !["ta_paid","audit"].includes(roleOf(e));
 function creditsScope(scope){ let c=0; for(const e of DB.enrollments){ const ds=displayStatus(e); if(!["completed","in_progress","transferred"].includes(ds)) continue;
   if(!earnsCredit(e)) continue;
-  const t=termById(e.term_id), car=t?t.career:"undergrad";
-  // in_as is the authoritative "counts as A&S" marker: an A&S course counts toward the A&S floor
-  // and the undergrad total even when it sits in a grad-career term (e.g. an undergrad A&S course
-  // taken during a Baker term). Only genuine grad courses (in_as=false, grad term) are excluded.
-  if(scope==="as"){ if(!e.in_as) continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad"&&!e.in_as) continue; }
+  // "as" = A&S college credit (in_as); "grad" / all = the degree the course counts toward (see countsToward).
+  if(scope==="as"){ if(!e.in_as) continue; } else if(scope==="grad"){ if(!countsGrad(e)) continue; } else { if(!countsUG(e)) continue; }
   c+=num(e.credits);} return Math.round(c*10)/10; }
 // Baker credits toward the 62-credit MPS, computed once so the dashboard card and the
 // transcript summary can never disagree. Counts every distinct course mapped to any Baker
@@ -1245,9 +1252,8 @@ function reqProgress(req){
   if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope;
     let doneCr=0, curCr=0, futCr=0, courses=[], contrib=null, splits=[];
     if(scope){ for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist"||!earnsCredit(e)) continue;
-        const car=(termById(e.term_id)||{}).career||"undergrad";
-        // in_as courses count toward A&S / the undergrad total regardless of their term's career (see creditsScope).
-        if(scope==="as"){ if(!e.in_as) continue; } else if(scope==="grad"){ if(car!=="grad") continue; } else { if(car==="grad"&&!e.in_as) continue; }
+        // same scoping as creditsScope: A&S credit by in_as, degree totals by countsToward
+        if(scope==="as"){ if(!e.in_as) continue; } else if(scope==="grad"){ if(!countsGrad(e)) continue; } else { if(!countsUG(e)) continue; }
         const st=progState(e), cr=num(e.credits); if(st==="done")doneCr+=cr; else if(st==="cur")curCr+=cr; else futCr+=cr; }
       // spec.creditFloor: this bucket counts only the credits BEYOND the floor (e.g. the 20 "additional"
       // credits past the first 100). Subtract the floor cumulatively — earned first, then in-progress, then
@@ -2465,7 +2471,8 @@ function openCourse(id=null, preset={}){
   loadSectionsForCourse(e);   // async: surfaces the component pickers for roster courses
   $("#mAnalog").value=e.analog_of||"";
   $("#mInAs").checked = e.in_as===true;
-  ["mTerm","mStatus","mGrade","mDist","mRole"].forEach(x=>syncDD($("#"+x)));
+  $("#mCounts").value = countsToward(e)||"auto"; refreshCountsAuto();
+  ["mTerm","mStatus","mGrade","mDist","mRole","mCounts"].forEach(x=>syncDD($("#"+x)));
   SAT_CUR=new Set((DB.satisfactions||[]).filter(s=>String(s.enrollment_id)===String(id)).map(s=>s.requirement_id));
   renderSatBox();
   const n=$("#mSat").querySelectorAll("input:checked").length;
@@ -2854,6 +2861,12 @@ $("#mCode").addEventListener("blur",()=>setTimeout(()=>$("#mResults").classList.
 // clicking a result/section must not blur the Code field (which would auto-hide the dropdown before the click lands)
 $("#mResults").addEventListener("mousedown",e=>e.preventDefault());
 $("#mTerm").addEventListener("change",()=>{ if($("#mCode").value.trim().length>=2){ clearTimeout(searchTimer); searchTimer=setTimeout(runSearch,60); } });
+// "Automatic" shows what it resolves to for the selected term (and, for a saved course, its Baker mapping).
+function refreshCountsAuto(){ const sel=$("#mCounts"); if(!sel) return;
+  const probe={ term_id:$("#mTerm").value||null, id:EDIT_ID, counts_toward:null };
+  const ug=countsUG(probe), gr=countsGrad(probe, EDIT_ID!=null?bakerAppliedIds():null);
+  sel.options[0].textContent=`Automatic (${ug&&gr?"Both":gr?"Baker":"Undergrad"})`; syncDD(sel); }
+$("#mTerm").addEventListener("change",refreshCountsAuto);
 // wishlist status turns auto-matching off, and an analog code changes what a course matches —
 // both shift which requirements count automatically, so refresh the map box.
 $("#mStatus").addEventListener("change",renderSatBox);
@@ -2955,7 +2968,8 @@ $("#mSave").onclick=async()=>{
     .filter(m=>m.days.length&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
   const row={ code:$("#mCode").value.trim().toUpperCase(), title:$("#mTitleIn").value.trim(), credits,
     term_id:$("#mTerm").value||null, status:$("#mStatus").value, grade:grade||null, counts_gpa,
-    tags:MTAGS.slice(), analog_of:$("#mAnalog").value.trim()||null, in_as:$("#mInAs").checked, meetings, role:roleVal==="course"?null:roleVal };
+    tags:MTAGS.slice(), analog_of:$("#mAnalog").value.trim()||null, in_as:$("#mInAs").checked,
+    counts_toward:COUNTS_TOWARD.includes($("#mCounts").value)?$("#mCounts").value:null, meetings, role:roleVal==="course"?null:roleVal };
   if(EDIT_ID!=null) row.id=EDIT_ID;
   // Only save explicit ticks; auto-matched reqs count on their own, so writing them would be
   // redundant. Subtracting them also cleans up any stale explicit pins now covered automatically.
