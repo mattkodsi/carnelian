@@ -1610,13 +1610,14 @@ const SDAYS=["M","T","W","R","F"];
 const SDAY_LABEL={M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri"};
 // Vibrant, widely hue-spaced palette — white text sits on every one. Index 11 is a desaturated
 // blue-grey that harmonises with the blues but reads as neutral, reserved for TA/no-credit roles
-// that should recede. Specific courses are pinned below.
-const SCHED_COLORS=["#1971C2","#E8590C","#099268","#C2255C","#2B8A3E","#7048E8","#1098AD","#E03131","#9C36B5","#4263EB","#A0522D","#64748B"];
+// that should recede. Index 6 is a dark gold (was cyan): cyan could only map to Google's light-blue
+// Peacock, which the user reserves for extracurricular events. Specific courses are pinned below.
+const SCHED_COLORS=["#1971C2","#E8590C","#099268","#C2255C","#2B8A3E","#7048E8","#A88200","#E03131","#9C36B5","#4263EB","#A0522D","#64748B"];
 // Course-code → palette-index pins (user-chosen): REAL 6595 = ocean blue; REAL 6640 (Management
 // Communication) = bright red; the half-term pair REAL 5560 / 5561 = violet + grape (visibly paired);
 // HADM 6205 = the muted grey (a TA post — it should fade back, not compete); REAL 6901 = royal blue;
-// ASIAN 4377 = raspberry; GOVT 1109 = green.
-const COURSE_PIN={REAL6595:0, REAL6640:7, ASIAN4377:3, REAL5560:5, REAL5561:8, HADM6205:11, REAL6901:9, GOVT1109:4};
+// ASIAN 4377 = raspberry; GOVT 1109 = green; INDO 1100 = gold (Google Banana).
+const COURSE_PIN={REAL6595:0, REAL6640:7, ASIAN4377:3, REAL5560:5, REAL5561:8, HADM6205:11, REAL6901:9, GOVT1109:4, INDO1100:6};
 const pinKey=code=>String(code||"").toUpperCase().replace(/\s+/g,"");
 // Distinct colour per course: pinned courses take their pin; everyone else fills the remaining
 // (unpinned) colours in order, so no auto-assigned course ever collides with a pin.

@@ -202,7 +202,7 @@ async function gapi(access: string, method: string, path: string, body?: unknown
   // Missing events can be recreated (PATCH) or already deleted (DELETE).
   // Every other failure must leave the persisted signature/event map untouched.
   const missing = (method === "PATCH" || method === "DELETE") && (r.status === 404 || r.status === 410);
-  if (!r.ok && !missing) throw new Error(`Google Calendar ${method} failed (${r.status})`);
+  if (!r.ok && !missing) throw new Error(`Google Calendar ${method} failed (${r.status})${j?.error?.message ? ": " + j.error.message : ""}`);
   return { status: r.status, j };
 }
 
@@ -222,8 +222,8 @@ const BYDAY: Record<string, string> = { M: "MO", T: "TU", W: "WE", R: "TH", F: "
 // (by hue) so Google events are colour-matched to the app's weekly grid. Index 11 is the desaturated
 // blue-grey used for TA/no-credit roles → routed to Graphite. Specific courses are pinned (COURSE_PIN,
 // mirroring the app) so HADM 6205 shows grey, Management Communication shows red, etc. on Google too.
-const SCHED_COLORS = ["#1971C2", "#E8590C", "#099268", "#C2255C", "#2B8A3E", "#7048E8", "#1098AD", "#E03131", "#9C36B5", "#4263EB", "#A0522D", "#64748B"];
-const COURSE_PIN: Record<string, number> = { REAL6595: 0, REAL6640: 7, ASIAN4377: 3, REAL5560: 5, REAL5561: 8, HADM6205: 11, REAL6901: 9, GOVT1109: 4 };
+const SCHED_COLORS = ["#1971C2", "#E8590C", "#099268", "#C2255C", "#2B8A3E", "#7048E8", "#A88200", "#E03131", "#9C36B5", "#4263EB", "#A0522D", "#64748B"];
+const COURSE_PIN: Record<string, number> = { REAL6595: 0, REAL6640: 7, ASIAN4377: 3, REAL5560: 5, REAL5561: 8, HADM6205: 11, REAL6901: 9, GOVT1109: 4, INDO1100: 6 };
 const pinKey = (code: string) => String(code || "").toUpperCase().replace(/\s+/g, "");
 // Distinct colour per course, identical algorithm to the app: pinned courses take their pin; everyone
 // else fills the remaining (unpinned) palette slots in order — so no auto-assigned course hits a pin.
@@ -236,14 +236,15 @@ function assignCourseColors(list: { id: number; code?: string }[]): Record<strin
     map[k] = (p != null) ? p : (avail.length ? avail[ai++ % avail.length] : (ai++ % SCHED_COLORS.length)); }
   return map;
 }
-// Google's fixed event-colour palette (API hex). "9" Blueberry is deliberately OMITTED — the user
-// reserves that bright blue (#5484ed) for manually-entered events, so Carnelian never assigns it.
-const GCOLORS: Record<string, string> = { "1": "#a4bdfc", "2": "#7ae7bf", "3": "#dbadff", "4": "#ff887c", "5": "#fbd75b", "6": "#ffb878", "7": "#46d6db", "10": "#51b749", "11": "#dc2127" };
+// Google's fixed event-colour palette (API hex). Two are deliberately OMITTED, reserved by the user:
+// "9" Blueberry (#5484ed) for manually-entered events and "7" Peacock (light blue, #46d6db) for
+// extracurricular events — Carnelian never assigns either.
+const GCOLORS: Record<string, string> = { "1": "#a4bdfc", "2": "#7ae7bf", "3": "#dbadff", "4": "#ff887c", "5": "#fbd75b", "6": "#ffb878", "10": "#51b749", "11": "#dc2127" };
 function hexRgb(h: string) { h = h.replace("#", ""); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
 function hueOf(hex: string) { const [r, g, b] = hexRgb(hex).map((v) => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; if (d === 0) return -1; let h; if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; h *= 60; return h < 0 ? h + 360 : h; }
 function satOf(hex: string) { const [r, g, b] = hexRgb(hex).map((v) => v / 255); const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn; if (d === 0) return 0; return d / (1 - Math.abs(2 * l - 1)); }
 // Nearest Google colourId for an app palette hex. Desaturated (grey) → Graphite "8"; else nearest hue
-// among GCOLORS (Blueberry "9" excluded, reserved for the user's manual events).
+// among GCOLORS (Blueberry "9" and Peacock "7" excluded, both reserved by the user).
 function colorIdForHex(hex: string) {
   if (satOf(hex) < 0.18) return "8";
   const H = hueOf(hex); if (H < 0) return "8";
@@ -492,6 +493,10 @@ function buildDeadlineEvent(a: any, colorId: string) {
   }
   return { body, sig: JSON.stringify(sigKey) };
 }
+// PATCH merges start/end with the stored event, so a deadline switching between all-day and timed
+// would carry both `date` and `dateTime` ("Invalid start time"). Null the field it no longer uses.
+const patchSide = (s: any) => s.date ? { date: s.date, dateTime: null, timeZone: null } : { ...s, date: null };
+const patchTimes = (b: any) => ({ ...b, start: patchSide(b.start), end: patchSide(b.end) });
 async function ensureDeadlinesCalendar(access: string) {
   const cfg = await gcalCfg();
   if (cfg.calendar_deadlines) return cfg.calendar_deadlines as string;
@@ -526,7 +531,7 @@ async function syncDeadlines(access: string, calId: string) {
     const ex = exMap.get(dkey);
     if (ex) {
       if (ex.sig === d.sig) continue;
-      const { status } = await gapi(access, "PATCH", ev(ex.event_id), d.body);
+      const { status } = await gapi(access, "PATCH", ev(ex.event_id), patchTimes(d.body));
       if (status === 404 || status === 410) {
         const ins = await gapi(access, "POST", `/calendars/${encodeURIComponent(calId)}/events`, d.body);
         if (ins.j?.id) { await sql`update carnelian.gcal_deadlines set event_id = ${ins.j.id}, sig = ${d.sig} where dkey = ${dkey}`; created++; }
