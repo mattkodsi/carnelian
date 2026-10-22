@@ -33,5 +33,15 @@ export const ASSESSMENT_KINDS = new Set(["exam", "quiz", "presentation"]);
 // The app's schedule grid draws an assessment with no length as 30 minutes.
 export const DEFAULT_ASSESSMENT_MIN = 30;
 
+// The app's asgTitle: the stored name, else a title composed from its parts.
+export function assignmentTitle(a: any) {
+  const name = String(a.name || "").trim(); if (name) return name;
+  const ov = String(a.override_title || "").trim(); if (ov) return ov;
+  const lead = String(a.series || "").trim() || kindLabel(a.kind);
+  const num = a.number != null && a.number !== "" ? " " + a.number : "";
+  const desc = String(a.descriptor || "").trim() ? ": " + String(a.descriptor).trim() : "";
+  return lead + num + desc;
+}
+
 export const roleOf = (e: { role?: string | null }) => e.role || "course";
 export const isTA = (role: string) => role === "ta_paid" || role === "ta_credit";

@@ -6,7 +6,8 @@
 // refresh/access tokens live only here (env + locked carnelian tables), never
 // in the browser.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
-import { ACAL_URL, parseAcademicCalendar, acalRelevant, termAcademics } from "../_shared/acal.ts";
+import { ACAL_URL, parseAcademicCalendar, acalRelevant, termAcademics, classMeetingOn } from "../_shared/acal.ts";
+import { ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, assignmentTitle } from "../_shared/courses.ts";
 
 // Connection hygiene: this is a single-user app, so keep the per-isolate pool tiny and let idle
 // connections close quickly. Without idle_timeout, postgres.js holds up to `max` (default 10)
@@ -451,7 +452,6 @@ async function syncAcademic(access: string, calId: string) {
 // duration_min (busy); every other deadline uses the work-by target (target_on/target_time, falling
 // back to the real deadline) as a short marker ENDING at that time (free, so it never marks you busy
 // and an 11:59pm deadline stays on its own day), or an all-day event when it carries no time.
-const KIND_TIMED_SET = new Set(["exam", "quiz"]);
 const DEADLINE_MARKER_MIN = 30;
 function fmt12(t: string) { const m = /^(\d{1,2}):(\d{2})/.exec(t || ""); if (!m) return t || ""; let h = +m[1]; const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12; return `${h}:${m[2]} ${ap}`; }
 // Shift a wall-clock time (hh:mm on YYYY-MM-DD) by delta minutes, rolling the date across midnight.
@@ -462,17 +462,24 @@ function shiftClock(dstr: string, hh: number, mm: number, delta: number) {
   while (total >= 1440) { total -= 1440; day.setDate(day.getDate() + 1); }
   return { date: `${day.getFullYear()}-${p2(day.getMonth() + 1)}-${p2(day.getDate())}`, h: Math.floor(total / 60), m: total % 60 };
 }
-function buildDeadlineEvent(a: any, colorId: string) {
+// Same timing rules as the app and the TV feed: an exam, quiz, or presentation is a timed block (its own
+// time and length, or its course's class period that day; all-day "time TBA" when neither exists).
+// Every other deadline is a marker ending at its time, or at 11:59 PM when it has none.
+function buildDeadlineEvent(a: any, colorId: string, slot: any = null) {
   const dueDate = String(a.due_on || "").slice(0, 10); if (!dueDate) return null;
-  const title = a.name || "Assignment";
+  const title = assignmentTitle(a) || "Assignment";
   const summary = a.code ? `${title} (${a.code})` : title;
-  const timed = KIND_TIMED_SET.has(a.kind);
+  const timed = ASSESSMENT_KINDS.has(a.kind);
+  const dueTime = a.due_time ? String(a.due_time).slice(0, 5) : null;
+  const fromClass = timed && !dueTime && slot ? slot : null;
   const placeDate = timed ? dueDate : String((a.target_on || a.due_on) || "").slice(0, 10);
-  const placeTime = timed ? (a.due_time || null) : (a.target_on ? (a.target_time || null) : (a.due_time || null));
+  const placeTime = timed ? (dueTime || (fromClass ? fromClass.start : null))
+    : (a.target_on ? (a.target_time ? String(a.target_time).slice(0, 5) : "23:59") : (dueTime || "23:59"));
   if (!placeDate) return null;
   const desc: string[] = [];
   if (a.title_course) desc.push(a.title_course);
-  desc.push(a.due_time ? `Due ${dueDate} ${fmt12(a.due_time)}` : `Due ${dueDate}`);
+  const dueAt = timed ? (dueTime || (fromClass ? fromClass.start : null)) : (dueTime || "23:59");
+  desc.push(dueAt ? `Due ${dueDate} ${fmt12(dueAt)}` : `Due ${dueDate}, time TBA`);
   desc.push("Synced from Carnelian");
   const description = desc.join("\n");
   let body: any, sigKey: any[];
@@ -484,9 +491,11 @@ function buildDeadlineEvent(a: any, colorId: string) {
   } else {
     const [hh, mm] = placeTime.split(":").map((x: string) => +x);
     let s, e;
-    if (timed) { const dur = (a.duration_min != null && isFinite(+a.duration_min) && +a.duration_min > 0) ? +a.duration_min : 60;
-      s = { date: placeDate, h: hh, m: mm }; e = shiftClock(placeDate, hh, mm, dur); }
-    else { e = { date: placeDate, h: hh, m: mm }; s = shiftClock(placeDate, hh, mm, -DEADLINE_MARKER_MIN); }
+    if (timed) {
+      const set = (a.duration_min != null && isFinite(+a.duration_min) && +a.duration_min > 0) ? +a.duration_min : null;
+      const dur = set ?? (fromClass ? hm(fromClass.end) - hm(fromClass.start) : DEFAULT_ASSESSMENT_MIN);
+      s = { date: placeDate, h: hh, m: mm }; e = shiftClock(placeDate, hh, mm, dur);
+    } else { e = { date: placeDate, h: hh, m: mm }; s = shiftClock(placeDate, hh, mm, -DEADLINE_MARKER_MIN); }
     const startDT = `${s.date}T${p2(s.h)}:${p2(s.m)}:00`, endDT = `${e.date}T${p2(e.h)}:${p2(e.m)}:00`;
     body = { summary, description, colorId, start: { dateTime: startDT, timeZone: TZ }, end: { dateTime: endDT, timeZone: TZ } };
     if (!timed) body.transparency = "transparent"; // a deadline marker shouldn't mark you busy; an exam should
@@ -509,9 +518,11 @@ async function ensureDeadlinesCalendar(access: string) {
 async function syncDeadlines(access: string, calId: string) {
   const colorIds = await courseColorIds();
   // Reviewed (non-pending) assignments on courses in current/upcoming terms — exactly what the app's Schedule shows.
-  const rows = await sql`select a.id, a.enrollment_id, a.name, a.kind, a.due_on::text as due_on, a.due_time::text as due_time,
+  const rows = await sql`select a.id, a.enrollment_id, a.name, a.override_title, a.series, a.number, a.descriptor, a.kind,
+      a.due_on::text as due_on, a.due_time::text as due_time,
       a.duration_min, a.target_on::text as target_on, a.target_time::text as target_time,
-      e.code as code, e.title as title_course
+      e.code as code, e.title as title_course, e.meetings, e.term_id,
+      t.starts_on::text as starts_on, t.ends_on::text as ends_on
     from carnelian.assignments a
     join carnelian.enrollments e on e.id = a.enrollment_id
     left join carnelian.terms t on t.id = e.term_id
@@ -519,9 +530,18 @@ async function syncDeadlines(access: string, calId: string) {
       and (t.ends_on is null or t.ends_on >= current_date)
     order by a.id`;
   const desired = new Map<string, { body: any; sig: string }>();
+  // An untimed assessment takes its class period, so it needs the term's breaks and halves.
+  const needsSlot = (a: any) => ASSESSMENT_KINDS.has(a.kind) && !a.due_time && a.starts_on && a.ends_on;
+  const acEvents = (rows as any[]).some(needsSlot) ? await fetchAcademic() : [];
+  const acByTerm = new Map<string, any>();
   for (const a of rows as any[]) {
     const colorId = colorIds.get(a.enrollment_id) || "8";
-    const built = buildDeadlineEvent(a, colorId);
+    let slot = null;
+    if (needsSlot(a)) {
+      if (!acByTerm.has(a.term_id)) acByTerm.set(a.term_id, termAcademics(acEvents, a.starts_on.slice(0, 10), a.ends_on.slice(0, 10)));
+      slot = classMeetingOn(a.meetings, a.due_on.slice(0, 10), acByTerm.get(a.term_id));
+    }
+    const built = buildDeadlineEvent(a, colorId, slot);
     if (built) desired.set(String(a.id), built);
   }
   const existing = await sql`select dkey, event_id, sig from carnelian.gcal_deadlines`;

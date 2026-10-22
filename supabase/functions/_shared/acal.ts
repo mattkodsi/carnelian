@@ -114,6 +114,23 @@ export function noClassOn(day: string, ac: TermAcademics) {
   return ac.noClass.find((iv) => day >= iv.start && day <= iv.end) || null;
 }
 
+export const partOfMeeting = (m: any) => (m && (m.part === "1" || m.part === "2")) ? m.part : "full";
+const DOW_CODE: Record<string, number> = { U: 0, M: 1, T: 2, W: 3, R: 4, F: 5, S: 6 };
+const hmMin = (t: string) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? +m[1] * 60 + +m[2] : -1; };
+
+// The meeting a course holds on a day (the earliest, if several), honoring its
+// half of term and no-class days. An untimed exam, quiz, or presentation takes
+// this class period.
+export function classMeetingOn(meetings: any[], day: string, ac: TermAcademics | null) {
+  if (!ac || noClassOn(day, ac)) return null;
+  const [y, mo, d] = day.split("-").map(Number);
+  const dow = new Date(Date.UTC(y, mo - 1, d)).getUTCDay();
+  const ms = (meetings || []).filter((m: any) => m && Array.isArray(m.days) && m.days.some((x: string) => DOW_CODE[x] === dow)
+    && hmMin(m.start) >= 0 && hmMin(m.end) > hmMin(m.start) && meetingActiveOn(partOfMeeting(m), day, ac));
+  ms.sort((a: any, b: any) => hmMin(a.start) - hmMin(b.start));
+  return ms[0] || null;
+}
+
 // Whether a meeting of this part of term ("full", "1", "2") runs on the day,
 // before no-class days are applied. Same rule as the app's meetingActiveOn.
 export function meetingActiveOn(part: string, day: string, ac: TermAcademics) {

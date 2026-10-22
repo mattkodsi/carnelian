@@ -1758,10 +1758,24 @@ function asgDate(a){ return String(a&&a.due_on||"").slice(0,10); }
 // Where the schedule PLACES a deadline: the work-by target if one is set, else the real deadline.
 // (The real deadline always lives in the editor; the strip shows what you want to act against.)
 function asgWhenDate(a){ return String((a&&(a.target_on||a.due_on))||"").slice(0,10); }
-function asgWhenTime(a){ if(!a) return null; return ((a.target_on? a.target_time : a.due_time)||null); }
+function asgWhenTime(a){ if(!a) return null; if(a.target_on) return a.target_time?String(a.target_time).slice(0,5):"23:59"; return asgDueTime(a); }
+// Timing rules shared with the TV feed and the Google sync: a deadline with no time is due at 11:59 PM;
+// an exam, quiz, or presentation with no time takes its course's class period that day, and with no class
+// that day its time is TBA (null). Nothing is written back, so a real time from Canvas or the editor wins.
+const DAY_CODE=["U","M","T","W","R","F","S"];
+function asgClassSlot(a){ if(!a||a.due_time||!KIND_TIMED(a.kind)) return null;
+  const e=(DB.enrollments||[]).find(x=>String(x.id)===String(a.enrollment_id)), D=pdate(asgDate(a)); if(!e||!D) return null;
+  const ac=termAcademics(termById(e.term_id)); if(isNoClassDay(D,ac)) return null;
+  return meetingsOf(e).filter(m=>(m.days||[]).includes(DAY_CODE[D.getDay()])&&hm2min(m.start)!=null&&hm2min(m.end)>hm2min(m.start)&&meetingActiveOn(partOf(m),D,ac))
+    .sort((x,y)=>hm2min(x.start)-hm2min(y.start))[0]||null; }
+function asgDueTime(a){ if(!a) return null; if(a.due_time) return String(a.due_time).slice(0,5); if(KIND_TIMED(a.kind)){ const m=asgClassSlot(a); return m?m.start:null; } return "23:59"; }
+function asgTimeTBA(a){ return !!a&&!a.due_time&&KIND_TIMED(a.kind)&&!asgClassSlot(a); }
+// A timed item's span on the grid, in minutes: its own time and length, or its class period.
+function asgBlockSpan(a){ const m=asgClassSlot(a), s=hm2min(a.due_time?String(a.due_time).slice(0,5):(m?m.start:"")); if(s==null) return null;
+  const dur=num(a.duration_min); return {s, en:s+(dur>0?Math.max(dur,20):(m?hm2min(m.end)-s:30))}; }
 function asgTitle(a){ return (a&&a.name)? a.name : composeAssignment(a||{}); }
 function asgFor(eid){ return (DB.assignments||[]).filter(a=>String(a.enrollment_id)===String(eid))
-  .sort((x,y)=> (asgDate(x)||"~").localeCompare(asgDate(y)||"~") || String(x.due_time||"~").localeCompare(String(y.due_time||"~"))); }
+  .sort((x,y)=> (asgDate(x)||"~").localeCompare(asgDate(y)||"~") || (asgDueTime(x)||"~").localeCompare(asgDueTime(y)||"~")); }
 // Active+done items in the Mon–Fri week. Spans go on the grid: exams/quizzes with a time are timed
 // blocks (placed at the real due date/time). Points go in the Due strip: every other deadline is a
 // chip, placed on its work-by-or-deadline day and carrying that time for the label + sort.
@@ -1773,8 +1787,8 @@ function asgWeek(mon){ const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1)
   for(const a of (DB.assignments||[])){ if(a.status==='pending'||a.canvas_removed_at) continue;
     const en=byId[String(a.enrollment_id)]; if(!en) continue;
     const base={a, eid:a.enrollment_id, code:en.code, en, color:courseColor(en)};
-    if(KIND_TIMED(a.kind) && a.due_time){ const d=asgDate(a); if(d&&d>=s&&d<=e) blocks.push({...base, iso:d}); }
-    else { const d=asgWhenDate(a); if(d&&d>=s&&d<=e) chips.push({...base, iso:d, time:asgWhenTime(a)}); } }
+    if(KIND_TIMED(a.kind) && asgDueTime(a)){ const d=asgDate(a); if(d&&d>=s&&d<=e) blocks.push({...base, iso:d}); }
+    else { const d=asgWhenDate(a); if(d&&d>=s&&d<=e) chips.push({...base, iso:d, time:asgWhenTime(a), tba:!a.target_on&&asgTimeTBA(a)}); } }
   return {chips, blocks}; }
 // Relevance filter for the schedule overlay: hide enrollment/add-drop notices aimed at cohorts that
 // aren't the user (he's Baker = Graduate/Professional, plus senior-year). Everything universal (breaks,
@@ -1833,7 +1847,7 @@ function pendingCount(eid){ return (DB.assignments||[]).filter(a=>String(a.enrol
 function asgTimeLabel(t){ const m=/^(\d{1,2}):(\d{2})/.exec(String(t||"")); if(!m) return ""; let h=+m[1]; const ap=h>=12?"PM":"AM"; h=h%12||12; return `${h}:${m[2]} ${ap}`; }
 // Compact time for the Due-strip chips: "8:40a", "2p", "11:59p" (on-the-hour drops the minutes).
 function asgTimeShort(t){ const m=/^(\d{1,2}):(\d{2})/.exec(String(t||"")); if(!m) return ""; let h=+m[1]; const ap=h>=12?"p":"a"; h=h%12||12; return m[2]==="00"?`${h}${ap}`:`${h}:${m[2]}${ap}`; }
-function fmtAsgDate(a){ const d=asgDate(a); if(!d) return ""; const p=d.split("-"); let s=`${ACAL_MONTHS[(+p[1])-1]} ${+p[2]}`; if(a.due_time) s+=" · "+asgTimeLabel(a.due_time); return s; }
+function fmtAsgDate(a){ const d=asgDate(a); if(!d) return ""; const p=d.split("-"); let s=`${ACAL_MONTHS[(+p[1])-1]} ${+p[2]}`; const tm=asgDueTime(a); s+=" · "+(tm?asgTimeLabel(tm):"Time TBA"); return s; }
 function canvasMark(a){ if(!a||a.source!=='canvas') return ""; if(a.canvas_removed_at) return "Removed from Canvas";
   return a.canvas_changed_at?"Canvas changed":""; }
 function canvasChangeText(a){ if(!a) return ""; if(a.canvas_removed_at) return "This assignment was removed or unpublished in Canvas.";
@@ -1998,7 +2012,7 @@ function renderSchedule(){
   const asgWk=(typeof asgWeek==='function')?asgWeek(weekMon):{chips:[],blocks:[]};
   const asgBlocksByDay={}, asgChipsByDay={}; SDAYS.forEach(d=>{asgBlocksByDay[d]=[];asgChipsByDay[d]=[];});
   for(const r of asgWk.blocks){ const iso=r.iso||asgDate(r.a); const di=SDAYS.findIndex(d=>isoOf(dateOf(d))===iso); if(di<0) continue;
-    const s=hm2min(String(r.a.due_time).slice(0,5)); if(s==null) continue; const en=s+Math.max(num(r.a.duration_min)||30,20);
+    const sp=asgBlockSpan(r.a); if(!sp) continue; const {s,en}=sp;
     asgBlocksByDay[SDAYS[di]].push({...r,s,en}); }
   for(const r of asgWk.chips){ const iso=r.iso||asgDate(r.a); const di=SDAYS.findIndex(d=>isoOf(dateOf(d))===iso); if(di>=0) asgChipsByDay[SDAYS[di]].push(r); }
   let minS=Infinity,maxE=-Infinity;
@@ -2089,7 +2103,7 @@ function renderSchedule(){
     const items=[...evs.map(o=>({ac:true,o})), ...asgs.map(r=>({ac:false,r}))];
     let chips=items.slice(0,2).map(it=> it.ac
       ? `<div class="adchip${it.o.noclass?' noclass':''}">${esc(acalShort(it.o.title))}</div>`
-      : `<div class="adchip asg${it.r.a.done?' done':''}" style="border-left-color:${it.r.color};background:color-mix(in srgb,${it.r.color} 10%,var(--surface))"><span class="adchip-body"><span class="adchip-t">${esc(asgTitle(it.r.a))}</span>${it.r.time?`<span class="adchip-tm">${esc(asgTimeShort(it.r.time))}</span>`:''}</span></div>`).join("");
+      : `<div class="adchip asg${it.r.a.done?' done':''}" style="border-left-color:${it.r.color};background:color-mix(in srgb,${it.r.color} 10%,var(--surface))"><span class="adchip-body"><span class="adchip-t">${esc(asgTitle(it.r.a))}</span>${it.r.time?`<span class="adchip-tm">${esc(asgTimeShort(it.r.time))}</span>`:(it.r.tba?'<span class="adchip-tm">TBA</span>':'')}</span></div>`).join("");
     if(items.length>2) chips+=`<div class="adchip more">+${items.length-2} more</div>`;
     return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}${items.length?' has-ev':''}" data-adcol="${di}">${chips}</div>`; }).join("");
   const hasAd=adDays.some(x=>x.events.length||x.asgs.length);
@@ -2269,7 +2283,7 @@ function renderAssignments(){
   // In-scope items with a placement date; done-in-the-past drops off (done is done).
   const items=(DB.assignments||[]).filter(a=>eids.has(String(a.enrollment_id))).map(a=>{
     const en=enById[String(a.enrollment_id)]; const on=asgWhenDate(a);
-    return {a,en,on,tm:asgWhenTime(a),over:!!(on&&on<t&&!a.done),pending:a.status==='pending'}; })
+    return {a,en,on,tm:asgWhenTime(a),tba:!a.target_on&&asgTimeTBA(a),over:!!(on&&on<t&&!a.done),pending:a.status==='pending'}; })
     .filter(it=>it.en && it.on && (it.on>=t || it.over));
   const overdue=items.filter(it=>it.over).sort((x,y)=> x.on.localeCompare(y.on) || cidxOf(x.en)-cidxOf(y.en));
   const upcoming=items.filter(it=>!it.over);
@@ -2279,7 +2293,7 @@ function renderAssignments(){
   const nPend=items.filter(it=>it.pending).length, nUp=upcoming.filter(it=>!it.pending&&!it.a.done&&!it.a.canvas_removed_at).length;
   const XICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   const row=it=>{ const c=colorOf(it.en); const code=esc(codeLabel(it.en)); const title=esc(asgTitle(it.a));
-    const cm=canvasMark(it.a); const meta=(it.tm?esc(asgTimeShort(it.tm)):'')+(it.pending?(it.tm?' · ':'')+'from Canvas':'')+(cm?((it.tm||it.pending)?' · ':'')+esc(cm):'');
+    const cm=canvasMark(it.a); const meta=[it.tm?esc(asgTimeShort(it.tm)):(it.tba?'Time TBA':''), it.pending?'from Canvas':'', cm?esc(cm):''].filter(Boolean).join(' · ');
     if(it.pending) return `<div class="ag-row pending${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-ic acc" data-approve="${it.a.id}" aria-label="Accept">${ICO.check}</button><button class="ag-ic rej" data-reject="${it.a.id}" aria-label="Reject">${XICO}</button></div></div>`;
     return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div>${it.a.canvas_removed_at?'':`<button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button>`}</div>`; };
   let html=`<div class="agenda"><div class="ag-head"><h1>Assignments</h1><div class="ag-actions"><button class="ag-sync" id="agNotify" hidden aria-pressed="false" aria-label="Notify me of assignment changes"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="nlbl">Notify me</span></button><button class="ag-sync" id="agSync"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Sync</button></div></div>`;
@@ -3298,7 +3312,7 @@ function schedImageData(termId, weekMon){
   const asgWk=(weekMon&&typeof asgWeek==='function')?asgWeek(weekMon):{chips:[],blocks:[]};
   const asgBlocksByDay={}, asgChipsByDay={}; SDAYS.forEach(d=>{asgBlocksByDay[d]=[];asgChipsByDay[d]=[];});
   if(weekMon){ for(const r of asgWk.blocks){ const iso=r.iso||asgDate(r.a); const di=SDAYS.findIndex(d=>isoOf(dateOf(d))===iso); if(di<0)continue;
-      const s=hm2min(String(r.a.due_time).slice(0,5)); if(s==null)continue; const en=s+Math.max(num(r.a.duration_min)||30,20); asgBlocksByDay[SDAYS[di]].push({...r,s,en}); }
+      const sp=asgBlockSpan(r.a); if(!sp)continue; const {s,en}=sp; asgBlocksByDay[SDAYS[di]].push({...r,s,en}); }
     for(const r of asgWk.chips){ const iso=r.iso||asgDate(r.a); const di=SDAYS.findIndex(d=>isoOf(dateOf(d))===iso); if(di>=0) asgChipsByDay[SDAYS[di]].push(r); } }
   let minS=Infinity,maxE=-Infinity; events.forEach(ev=>{minS=Math.min(minS,ev.s);maxE=Math.max(maxE,ev.en);});
   for(const d of SDAYS) for(const b of asgBlocksByDay[d]){minS=Math.min(minS,b.s);maxE=Math.max(maxE,b.en);}

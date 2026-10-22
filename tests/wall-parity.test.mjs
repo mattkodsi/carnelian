@@ -12,7 +12,12 @@ const ASG=[
  asg({id:3,name:'',series:'Tarea',number:1,kind:'homework',due_on:'2026-10-27',enrollment_id:115}),
  asg({id:4,name:'Practical 2 (Section 1)',kind:'exam',due_on:'2026-10-28',due_time:'10:10',duration_min:75,enrollment_id:110}),
  asg({id:5,name:'Unknown kind',kind:'mystery',due_on:'2026-10-29',enrollment_id:86}),
+ asg({id:6,name:'In-class quiz',kind:'quiz',due_on:'2026-10-27',enrollment_id:86}),
+ asg({id:7,name:'Exam with no class that day',kind:'exam',due_on:'2026-10-26',enrollment_id:86}),
+ asg({id:8,name:'Pitch after the second half ends',kind:'presentation',due_on:'2026-12-07',enrollment_id:87}),
+ asg({id:9,name:'Untimed memo',kind:'assignment',due_on:'2026-10-30',enrollment_id:87}),
 ];
+const etTime=iso=>new Date(iso).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'});
 // Weeks that cover a break, both 7-week halves, and the end of instruction.
 const STARTS=['2026-10-05T16:00:00Z','2026-10-12T16:00:00Z','2026-10-26T16:00:00Z','2026-11-23T16:00:00Z','2026-11-30T16:00:00Z','2026-12-07T16:00:00Z'];
 const key=s=>`${s.code}|${s.day}|${s.start}|${s.end}|${s.color}`;
@@ -37,13 +42,14 @@ test('feed sessions match the app schedule (TA sessions may only be fewer)',asyn
  }finally{app.close();}
 });
 
-test('feed deadlines match the app: title, kind label, assessment flag, color, date',async()=>{
+test('feed deadlines match the app: title, kind, assessment flag, color, date, time, TBA',async()=>{
  const app=await bootApp({terms:TERMS,enrollments:ENR,assignments:ASG,acal:ACAL});
  try{
   const f=buildFeed({now:new Date('2026-10-22T16:00:00Z'),assignments:ASG,enrollments:ENR,terms:TERMS,academic:{events:ACAL,ok:true,fetchedAt:null}});
   for(const a of ASG){
    const d=f.deadlines.find(x=>x.id===a.id),want=appDeadline(app,a);
-   assert.deepEqual({title:d.title,kindLabel:d.kindLabel,assessment:d.assessment,color:d.color,dueDate:d.dueDate},want,`item ${a.id}`);
+   assert.deepEqual({title:d.title,kindLabel:d.kindLabel,assessment:d.assessment,color:d.color,dueDate:d.dueDate,
+    time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA},want,`item ${a.id}`);
   }
  }finally{app.close();}
 });

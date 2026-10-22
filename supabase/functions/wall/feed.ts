@@ -1,8 +1,8 @@
 // Pure builder for the TV wall feed (contract 2). index.ts loads the rows and the
 // registrar calendar and calls buildFeed; tests call it with fixtures. Contract 1
 // fields keep their meaning; everything else is additive.
-import { termAcademics, meetingActiveOn, noClassOn, acalRange, acalRelevant, acalNoClass, addDays } from "../_shared/acal.ts";
-import { SCHED_COLORS, assignCourseColors, kindLabel, ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, roleOf, isTA } from "../_shared/courses.ts";
+import { termAcademics, meetingActiveOn, noClassOn, classMeetingOn, partOfMeeting, acalRange, acalRelevant, acalNoClass, addDays } from "../_shared/acal.ts";
+import { SCHED_COLORS, assignCourseColors, kindLabel, assignmentTitle, ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, roleOf, isTA } from "../_shared/courses.ts";
 
 export const TZ = "America/New_York";
 export const WINDOW_DAYS = 8;
@@ -49,19 +49,8 @@ function at(day: string, time: string) {
 const plusMin = (instant: string, min: number) => new Date(Date.parse(instant) + min * 60000).toISOString();
 const dowOf = (day: string) => { const [y, mo, d] = day.split("-").map(Number); return new Date(Date.UTC(y, mo - 1, d)).getUTCDay(); };
 const minutes = (t: string) => { const [h, m] = t.slice(0, 5).split(":").map(Number); return h * 60 + m; };
-const partOf = (m: any) => (m && (m.part === "1" || m.part === "2")) ? m.part : "full";
 const validMeeting = (m: any) => m && Array.isArray(m.days) && m.days.length && /^\d{1,2}:\d{2}/.test(m.start || "") && /^\d{1,2}:\d{2}/.test(m.end || "") && minutes(m.end) > minutes(m.start);
 const dateOnly = (v: unknown) => (v ? String(v).slice(0, 10) : "");
-
-// The app's asgTitle: the stored name, else a title composed from its parts.
-function titleOf(a: any) {
-  const name = String(a.name || "").trim(); if (name) return name;
-  const ov = String(a.override_title || "").trim(); if (ov) return ov;
-  const lead = String(a.series || "").trim() || kindLabel(a.kind);
-  const num = a.number != null && a.number !== "" ? " " + a.number : "";
-  const desc = String(a.descriptor || "").trim() ? ": " + String(a.descriptor).trim() : "";
-  return (lead + num + desc) || "Untitled";
-}
 
 export type FeedInput = {
   now: Date;
@@ -99,16 +88,6 @@ export function buildFeed(input: FeedInput) {
     for (const e of list) colorOf.set(e.id, SCHED_COLORS[idx[e.code || ("#" + e.id)] % SCHED_COLORS.length]);
   }
 
-  // The meeting a course holds on a day, if any, honoring halves and no-class days.
-  function meetingOn(e: any, day: string) {
-    const ac = e && acFor(e.term_id);
-    if (!ac || noClassOn(day, ac)) return null;
-    const dow = dowOf(day);
-    const ms = (e.meetings || []).filter((m: any) => validMeeting(m) && m.days.some((d: string) => DOW[d] === dow) && meetingActiveOn(partOf(m), day, ac));
-    ms.sort((a: any, b: any) => minutes(a.start) - minutes(b.start));
-    return ms[0] || null;
-  }
-
   const deadlines = input.assignments.map((a: any) => {
     const e: any = enrById.get(a.enrollment_id) || {};
     const role = roleOf(e);
@@ -123,7 +102,7 @@ export function buildFeed(input: FeedInput) {
       if (assessment) { durationMin = setMin ?? DEFAULT_ASSESSMENT_MIN; endISO = plusMin(dueISO, durationMin); }
     } else if (assessment) {
       // Matt's rule: an assessment with no time takes that course's class period.
-      const m = meetingOn(e, dueDate);
+      const m = e.term_id ? classMeetingOn(e.meetings, dueDate, acFor(e.term_id)) : null;
       if (m) {
         dueISO = at(dueDate, m.start); durationMin = setMin ?? (minutes(m.end) - minutes(m.start));
         endISO = plusMin(dueISO, durationMin); timeFromClass = true;
@@ -131,7 +110,7 @@ export function buildFeed(input: FeedInput) {
     } else { dueISO = at(dueDate, "23:59"); allDay = true; }
     const target = dateOnly(a.target_on);
     return {
-      id: a.id, title: titleOf(a), course: e.code || null, kind: a.kind, status: a.status, allDay, dueISO,
+      id: a.id, title: assignmentTitle(a) || "Untitled", course: e.code || null, kind: a.kind, status: a.status, allDay, dueISO,
       dueDate, kindLabel: kindLabel(a.kind), assessment, timeTBA, timeFromClass, durationMin, endISO,
       courseTitle: e.title || null, color: colorOf.get(e.id) || null, role, pending: a.status === "pending",
       workByISO: target ? at(target, a.target_time ? String(a.target_time) : "23:59") : null,
@@ -153,13 +132,13 @@ export function buildFeed(input: FeedInput) {
       if (noClassOn(day, ac)) continue;
       for (const m of e.meetings || []) {
         if (!validMeeting(m) || !m.days.some((d: string) => DOW[d] === dow)) continue;
-        if (!meetingActiveOn(partOf(m), day, ac)) continue;
+        if (!meetingActiveOn(partOfMeeting(m), day, ac)) continue;
         const role = roleOf(e);
         events.push({
           title: e.code ? `${e.code} · ${e.title}` : e.title, code: e.code,
           location: m.location || null, component: m.component || null, dest: coordsFor(m.location),
           startISO: at(day, m.start), endISO: at(day, m.end),
-          color: colorOf.get(e.id) || null, role, courseTitle: e.title || null, part: partOf(m), section: m.section || null,
+          color: colorOf.get(e.id) || null, role, courseTitle: e.title || null, part: partOfMeeting(m), section: m.section || null,
           subordinate: isTA(role), _enr: e.id,
         });
       }
