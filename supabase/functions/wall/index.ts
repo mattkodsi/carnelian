@@ -39,7 +39,7 @@ Deno.serve(async (req) => {
   const cors: Record<string, string> = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization,content-type,apikey,x-wall-key", "Content-Type": "application/json" };
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
-  if (!wallKeyAccepted(url.searchParams.get("key") ?? req.headers.get("x-wall-key"), KEYS)) return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401, headers: cors });
+  if (!(await wallKeyAccepted(url.searchParams.get("key") ?? req.headers.get("x-wall-key"), KEYS))) return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401, headers: cors });
 
   try {
     const today = etToday(new Date());
