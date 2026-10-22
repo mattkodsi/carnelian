@@ -1787,14 +1787,14 @@ function termAcademics(term){
   const ts=term&&term.starts_on?pdate(String(term.starts_on).slice(0,10)):null;
   const te=term&&term.ends_on?pdate(String(term.ends_on).slice(0,10)):null;
   const mid=(ts&&te)?new Date((ts.getTime()+te.getTime())/2):null;
-  const res={ts,te,mid,noClass:[],overlay:[],classEnd:te,half1End:null,half2Start:null,has:false};
+  const res={ts,te,mid,noClass:[],overlay:[],classEnd:te,half1End:null,half2Start:null,half2End:null,has:false};
   const evs=academicEvents(); if(!evs||!ts||!te) return res;
   let lastInstr=null;
   for(const ev of evs){ const s=acalStart(ev); if(!s) continue; const e=acalEnd(ev)||s;
     if(e<ts||s>te) continue; res.has=true;
     const title=ev.title||"", isNo=/no class/i.test(title);
     if(isNo) res.noClass.push({s,e});
-    if(/last day of instruction/i.test(title)){ if(/7\s*week\s*1/i.test(title)) res.half1End=e; else if(!/7\s*week/i.test(title)){ if(!lastInstr||e>lastInstr) lastInstr=e; } }
+    if(/last day of instruction/i.test(title)){ if(/7\s*week\s*1/i.test(title)) res.half1End=e; else if(/7\s*week\s*2/i.test(title)) res.half2End=e; else if(!/7\s*week/i.test(title)){ if(!lastInstr||e>lastInstr) lastInstr=e; } }
     if(/7\s*week\s*2/i.test(title)&&/instruction begins/i.test(title)) res.half2Start=s;
     if(isNo||acalRelevant(title)) res.overlay.push({s,e,title,noclass:isNo,time:ev.time,date:ev.date});   // suppression uses noClass; the overlay hides other-cohort notices
   }
@@ -1803,7 +1803,7 @@ function termAcademics(term){
 }
 function isNoClassDay(D,ac){ for(const iv of ac.noClass){ if(D>=iv.s&&D<=iv.e) return true; } return false; }
 function meetingActiveOn(part,D,ac){ if(ac.ts&&D<ac.ts) return false; if(ac.classEnd&&D>ac.classEnd) return false;
-  if(part==='1') return !ac.mid||D<=(ac.half1End||ac.mid); if(part==='2') return !ac.mid||D>=(ac.half2Start||ac.mid); return true; }
+  if(part==='1') return !ac.mid||D<=(ac.half1End||ac.mid); if(part==='2') return !ac.mid||(D>=(ac.half2Start||ac.mid)&&(!ac.half2End||D<=ac.half2End)); return true; }
 // Detail sheet for a day's academic-calendar events — full titles + dates + times, so the overlay
 // chips can stay compact without losing anything.
 function openAcadDay(day){

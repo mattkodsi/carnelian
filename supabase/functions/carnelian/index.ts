@@ -6,6 +6,7 @@
 // refresh/access tokens live only here (env + locked carnelian tables), never
 // in the browser.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
+import { ACAL_URL, parseAcademicCalendar, acalRelevant, termAcademics } from "../_shared/acal.ts";
 
 // Connection hygiene: this is a single-user app, so keep the per-isolate pool tiny and let idle
 // connections close quickly. Without idle_timeout, postgres.js holds up to `max` (default 10)
@@ -291,7 +292,7 @@ function buildEvent(e: any, m: any, colorId: string, ta?: any) {
   const part = (m.part === "1" || m.part === "2") ? m.part : "full";
   let ws: Date = A.ts || ts, we: Date = A.classEnd || te;
   if (part === "1") we = A.half1End || A.mid || te;
-  else if (part === "2") ws = A.half2Start || A.mid || ts;
+  else if (part === "2") { ws = A.half2Start || A.mid || ts; if (A.half2End) we = A.half2End; }
   const first = firstOccur(ws, days);
   if (!first) return null;
   const dstr = `${first.getFullYear()}-${p2(first.getMonth() + 1)}-${p2(first.getDate())}`;
@@ -551,41 +552,8 @@ async function syncDeadlines(access: string, calId: string) {
 }
 
 // ================= Cornell academic calendar (deterministic scrape) =================
-// The registrar page has no CORS headers, so the browser can't fetch it -- we do it here and parse
-// the fixed markup: <h3>Month YYYY</h3> group headers + .calendar-row-item blocks each holding a
-// .calendar-date, an optional .calendar-time, and a .calendar-date-title. Pure regex, no AI.
-const ACAL_URL = "https://registrar.cornell.edu/calendars-exams/academic-calendar";
-function acalDecode(s: string) {
-  return s
-    .replace(/&#(\d+);/g, (_m, n) => String.fromCharCode(+n))
-    .replace(/&#x([0-9a-fA-F]+);/g, (_m, n) => String.fromCharCode(parseInt(n, 16)))
-    .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&quot;/g, '"')
-    .replace(/&lt;/g, "<").replace(/&gt;/g, ">");
-}
-function acalClean(s: string) {
-  return acalDecode(String(s || "").replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
-}
-function parseAcademicCalendar(html: string) {
-  const tM = /<h1[^>]*>\s*(Academic Calendar[^<]*)</i.exec(html);
-  const title = tM ? acalClean(tM[1]) : "Academic Calendar";
-  const events: { month: string; date: string; time: string; title: string }[] = [];
-  let month = "";
-  const re = /<h3>\s*([\s\S]*?)\s*<\/h3>|<div class="calendar-row-item[\s\S]*?<span class="calendar-date">\s*([\s\S]*?)\s*<\/span>([\s\S]*?)<span class="calendar-date-title">\s*([\s\S]*?)\s*<\/span>/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(html))) {
-    if (m[1] !== undefined) {
-      const h = acalClean(m[1]);
-      if (/^[A-Z][a-z]+ \d{4}$/.test(h)) month = h;
-      continue;
-    }
-    const date = acalClean(m[2]);
-    const timeM = /<span class="calendar-time">\s*([\s\S]*?)\s*<\/span>/.exec(m[3] || "");
-    const time = timeM ? acalClean(timeM[1]) : "";
-    const t = acalClean(m[4]);
-    if (date || t) events.push({ month, date, time, title: t });
-  }
-  return { title, events };
-}
+// The registrar page has no CORS headers, so the browser can't fetch it -- we do it here. The parser
+// and the term rules live in ../_shared/acal.ts, shared with the TV wall feed.
 
 // Cache the scraped academic calendar for a warm isolate so one sync doesn't refetch the registrar.
 let ACAL_CACHE: { at: number; events: any[] } | null = null;
@@ -605,24 +573,14 @@ const ACAL_MON: Record<string, number> = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 
 function acalYear(ev: any) { const m = /(\d{4})/.exec(ev.month || ""); return m ? +m[1] : new Date().getFullYear(); }
 function acalStart(ev: any): Date | null { const m = /([A-Z][a-z]{2})\s+(\d{1,2})/.exec(ev.date || ""); if (!m) return null; const mo = ACAL_MON[m[1]]; if (mo == null) return null; return new Date(acalYear(ev), mo, +m[2]); }
 function acalEnd(ev: any): Date | null { const all = [...String(ev.date || "").matchAll(/([A-Z][a-z]{2})\s+(\d{1,2})/g)]; if (all.length < 2) return acalStart(ev); const last = all[all.length - 1]; const mo = ACAL_MON[last[1]]; const s = acalStart(ev); if (mo == null || !s) return s; let y = acalYear(ev); if (mo < s.getMonth()) y++; return new Date(y, mo, +last[2]); }
-// Hide enrollment/add-drop notices aimed at cohorts that aren't the user (Baker = Graduate/Professional + senior).
-function acalRelevant(title: string) { return !/\bfor\s+(Juniors?|Sophomores?|First[-\s]?Years?)\b/i.test(String(title || "")); }
 function acalTitleShort(t: string) { return String(t || "").replace(/^(Fall|Spring|Winter|Summer)\s+\d{4}:\s*/i, "").trim(); }
-// Server mirror of the app's termAcademics: no-class ranges, last day of instruction, 7-week bounds.
+// The app's termAcademics, as Dates for the Google sync: no-class ranges, last day of instruction,
+// and both 7-week halves (shared rules in ../_shared/acal.ts).
 function termAcademicsFor(evs: any[], ts: Date, te: Date) {
-  const mid = new Date((ts.getTime() + te.getTime()) / 2);
-  const res: any = { ts, te, mid, noClass: [] as { s: Date; e: Date }[], classEnd: te, half1End: null as Date | null, half2Start: null as Date | null };
-  let lastInstr: Date | null = null;
-  for (const ev of evs) {
-    const s = acalStart(ev); if (!s) continue; const e = acalEnd(ev) || s;
-    if (e < ts || s > te) continue;
-    const title = ev.title || "";
-    if (/no class/i.test(title)) res.noClass.push({ s, e });
-    if (/last day of instruction/i.test(title)) { if (/7\s*week\s*1/i.test(title)) res.half1End = e; else if (!/7\s*week/i.test(title)) { if (!lastInstr || e > lastInstr) lastInstr = e; } }
-    if (/7\s*week\s*2/i.test(title) && /instruction begins/i.test(title)) res.half2Start = s;
-  }
-  if (lastInstr) res.classEnd = lastInstr;
-  return res;
+  const a = termAcademics(evs, dfmt(ts), dfmt(te));
+  const d = (v: string | null) => (v ? pdate(v) : null);
+  return { ts, te, mid: d(a.mid)!, noClass: a.noClass.map((n) => ({ s: d(n.start)!, e: d(n.end)! })),
+    classEnd: d(a.classEnd)!, half1End: d(a.half1End), half2Start: d(a.half2Start), half2End: d(a.half2End) };
 }
 const dfmt = (d: Date) => `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`;
 
