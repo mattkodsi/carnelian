@@ -86,3 +86,21 @@ test("guessKind maps keywords to the app's kinds", () => {
   assert.equal(guessKind("Reading response"), "reading");
   assert.equal(guessKind("Case Write-up"), "assignment");
 });
+
+test("guessKind: 'final' alone is not an exam", () => {
+  for (const t of [
+    "Final Group Project - Fischell Band Center - Preliminary Estimate",
+    "Final Group Project - Fischell Band Center - Preliminary Schedule",
+    "Final Group Project - Fischell Band Center - Estimate (FINAL)",
+    "Final Group Project - Fischell Band Center - Schedule (FINAL)",
+    "Final Group Project - Fischell Band Center - Written Proposal (and Risk Register Bonus if submitting)",
+    "Final Project Teamwork Contract",
+  ]) assert.equal(guessKind(t), "project", t);
+  for (const t of ["Final Exam", "Midterm Exam", "CEE 5950 Prelim Exam"]) assert.equal(guessKind(t), "exam", t);
+});
+
+test("guessKind: plural presentations, and presentation or reading over project", () => {
+  assert.equal(guessKind("First 3-Minute Presentations (Group B)"), "presentation");
+  assert.equal(guessKind("Final Group Project - Fischell Band Center - Final Presentation"), "presentation");
+  assert.equal(guessKind("Reading Assessment for Project Controls - Quality"), "reading");
+});

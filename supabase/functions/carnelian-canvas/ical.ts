@@ -105,15 +105,16 @@ export function courseKeys(s: string): string[] {
 export function courseKey(s: string): string { return courseKeys(s)[0] || ""; }
 
 // Guess the assignment kind from the title. Kinds match the app's fixed set.
+// "Final" alone marks a final deliverable, not an exam ("Final Group Project").
 export function guessKind(summary: string): string {
   const t = String(summary || "").toLowerCase();
   if (/\bquiz(zes)?\b/.test(t)) return "quiz";
-  if (/\b(exam|midterm|final|prelim)\b/.test(t)) return "exam";
+  if (/\b(exams?|midterms?|prelims?)\b/.test(t)) return "exam";
   if (/\b(problem\s*set|p-?set)\b/.test(t)) return "problem_set";
   if (/\b(paper|essay)\b/.test(t)) return "paper";
-  if (/\bpresentation\b/.test(t)) return "presentation";
-  if (/\bproject\b/.test(t)) return "project";
+  if (/\bpresentations?\b/.test(t)) return "presentation";
   if (/\breading\b/.test(t)) return "reading";
+  if (/\bproject\b/.test(t)) return "project";
   if (/\bdraft\b/.test(t)) return "draft";
   if (/\bsurvey\b/.test(t)) return "survey";
   return "assignment";
