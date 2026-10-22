@@ -7,6 +7,7 @@
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 import webpush from "npm:web-push@3.6.7";
 import { parseVEvents, icalDateToET, normCode, courseKeys, guessKind, cleanSummary } from "./ical.ts";
+import { sameSecret } from "../_shared/secret.ts";
 import { reconcileCanvasSource, markCanvasMissing, agedOutOfFeed, canvasAssignmentId, completionPatch, type CanvasCompletion } from "./reconcile.ts";
 
 const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, {
@@ -22,13 +23,6 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
 
 const enc = new TextEncoder();
-// Constant-time comparison for shared secrets.
-function sameSecret(a: unknown, b: unknown) {
-  const x = enc.encode(String(a ?? "")), y = enc.encode(String(b ?? ""));
-  if (!x.length || x.length !== y.length) return false;
-  let d = 0; for (let i = 0; i < x.length; i++) d |= x[i] ^ y[i];
-  return d === 0;
-}
 async function sha256hex(s: string) {
   const d = await crypto.subtle.digest("SHA-256", enc.encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -338,7 +332,7 @@ Deno.serve(async (req) => {
     // by the pg_cron job) instead of a session token.
     if (action === "canvas_sync" && body.cron_secret) {
       const cc = await canvasCfg();
-      if (cc.cron_secret && body.cron_secret === cc.cron_secret) return json(await canvasSync());
+      if (sameSecret(body.cron_secret, cc.cron_secret)) return json(await canvasSync());
     }
     if (action === "canvas_completion") {
       const cc = await canvasCfg();

@@ -2,8 +2,9 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 import { ACAL_URL, parseAcademicCalendar } from "../_shared/acal.ts";
 import { buildFeed, etToday } from "./feed.ts";
+import { wallKeyAccepted } from "./key.ts";
 
-const ANON = Deno.env.get("SUPABASE_ANON_KEY")!;
+const KEYS = { wallKey: Deno.env.get("WALL_KEY"), anon: Deno.env.get("SUPABASE_ANON_KEY"), anonOff: Deno.env.get("WALL_ANON_OFF") };
 
 const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, { prepare: false, ssl: "require", max: 4, idle_timeout: 20, connect_timeout: 15 });
 
@@ -35,10 +36,10 @@ async function academic(): Promise<{ events: any[]; ok: boolean; fetchedAt: stri
 }
 
 Deno.serve(async (req) => {
-  const cors: Record<string, string> = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization,content-type,apikey", "Content-Type": "application/json" };
+  const cors: Record<string, string> = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization,content-type,apikey,x-wall-key", "Content-Type": "application/json" };
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   const url = new URL(req.url);
-  if (url.searchParams.get("key") !== ANON) return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401, headers: cors });
+  if (!wallKeyAccepted(url.searchParams.get("key") ?? req.headers.get("x-wall-key"), KEYS)) return new Response(JSON.stringify({ ok: false, error: "unauthorized" }), { status: 401, headers: cors });
 
   try {
     const today = etToday(new Date());
