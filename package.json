@@ -5,7 +5,7 @@
   },
   "private": true,
   "scripts": {
-    "test": "node --test tests/*.test.mjs supabase/functions/carnelian-canvas/ical.test.ts"
+    "test": "node --test tests/*.test.mjs supabase/functions/carnelian-canvas/ical.test.ts supabase/functions/carnelian-canvas/reconcile.test.ts"
   },
   "type": "module",
   "engines": {

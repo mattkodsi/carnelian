@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { reconcileCanvasSource, markCanvasMissing } from "./reconcile.ts";
+import { reconcileCanvasSource, markCanvasMissing, agedOutOfFeed } from "./reconcile.ts";
 
 const linked = {
   id: 17,
@@ -103,6 +103,19 @@ test("a removed assignment that returns is restored and marked", () => {
   assert.equal(patch.canvas_removed_at, null);
   assert.equal(patch.canvas_missing_count, 0);
   assert.deepEqual(patch.canvas_changes.removed, { from: true, to: false });
+});
+
+test("an assignment due before the feed's 30-day lookback has aged out, not been removed", () => {
+  const now = "2026-10-22T05:30:00Z";
+  assert.equal(agedOutOfFeed("2026-08-27", now), true);
+  assert.equal(agedOutOfFeed("2026-09-20", now), true);
+  assert.equal(agedOutOfFeed("2026-09-26", now), false);
+  assert.equal(agedOutOfFeed("2026-12-03", now), false);
+});
+
+test("an undated assignment never counts as aged out", () => {
+  assert.equal(agedOutOfFeed(null, "2026-10-22T05:30:00Z"), false);
+  assert.equal(agedOutOfFeed("", "2026-10-22T05:30:00Z"), false);
 });
 
 test("a source revision that returns to its reviewed value clears its marker", () => {

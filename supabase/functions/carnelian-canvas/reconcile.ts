@@ -62,6 +62,17 @@ export function reconcileCanvasSource(existing: any, incoming: CanvasIncoming, n
   };
 }
 
+// Canvas's .ics feed only carries about the last 30 days, so an assignment due
+// before that drops out of the feed without being removed from Canvas. The
+// margin keeps an item at the edge of the window from being judged either way.
+const FEED_LOOKBACK_DAYS = 28;
+export function agedOutOfFeed(dueOn: unknown, now: string) {
+  const due = plainDate(dueOn);
+  if (!due) return false;
+  const cutoff = new Date(Date.parse(now) - FEED_LOOKBACK_DAYS * 86400000).toISOString().slice(0, 10);
+  return due < cutoff;
+}
+
 // Two consecutive healthy feed snapshots must omit a linked item before it is
 // marked removed. A transient empty/partial response therefore cannot erase it.
 export function markCanvasMissing(existing: any, now: string, confirmed = false) {

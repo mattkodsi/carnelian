@@ -7,7 +7,7 @@
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 import webpush from "npm:web-push@3.6.7";
 import { parseVEvents, icalDateToET, normCode, courseKeys, guessKind, cleanSummary } from "./ical.ts";
-import { reconcileCanvasSource, markCanvasMissing } from "./reconcile.ts";
+import { reconcileCanvasSource, markCanvasMissing, agedOutOfFeed } from "./reconcile.ts";
 
 const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, {
   prepare: false, ssl: "require", max: 3, idle_timeout: 20, connect_timeout: 15,
@@ -256,9 +256,11 @@ async function canvasSync() {
 
   // Reconcile existence only after a complete, healthy parse. Missing once is
   // tolerated; missing twice marks the linked source removed without deleting
-  // the customized Carnelian assignment.
+  // the customized Carnelian assignment. Items older than the feed's lookback
+  // are simply out of view, so they are left alone.
   for (const own of linkedInScope) {
     if (feedAssignmentUids.has(own.ext_uid)) continue;
+    if (!cancelledUids.has(own.ext_uid) && agedOutOfFeed(own.canvas_due_on || own.due_on, now)) continue;
     const patch = markCanvasMissing(own, now, cancelledUids.has(own.ext_uid)); missing++;
     if (!own.canvas_removed_at && patch.canvas_removed_at) { removed++; notify.push({ kind: "removed", code: codeOf(own.enrollment_id), title: own.override_title || own.canvas_title || own.name || "" }); }
     await sql`update carnelian.assignments set canvas_missing_count = ${patch.canvas_missing_count},
@@ -268,6 +270,7 @@ async function canvasSync() {
 
   for (const own of unassignedRows as any[]) {
     if (rejected.has(own.ext_uid) || feedAssignmentUids.has(own.ext_uid)) continue;
+    if (!cancelledUids.has(own.ext_uid) && agedOutOfFeed(own.canvas_due_on, now)) continue;
     const patch = markCanvasMissing(own, now, cancelledUids.has(own.ext_uid)); missing++;
     if (!own.canvas_removed_at && patch.canvas_removed_at) removed++;
     await sql`update carnelian.canvas_unassigned set canvas_missing_count = ${patch.canvas_missing_count},
