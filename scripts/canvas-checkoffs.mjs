@@ -52,10 +52,12 @@ try{
   process.exit(1);
 }
 
-const report=items.map(it=>({assignmentId:assignmentId(it),submitted:!!it.submissions?.submitted,markedComplete:!!it.planner_override?.marked_complete}))
-  .filter(r=>Number.isFinite(Number(r.assignmentId)));
+// The planner also lists announcements and calendar events; only assignments
+// (including quizzes and graded discussions) carry an assignment id.
+const report=items.filter(it=>assignmentId(it)!=null)
+  .map(it=>({assignmentId:assignmentId(it),submitted:!!it.submissions?.submitted,markedComplete:!!it.planner_override?.marked_complete}));
 if(dryRun){
-  console.log(`${report.length} assignments from ${start} to ${end}; ${report.filter(r=>r.submitted).length} submitted, ${report.filter(r=>r.markedComplete).length} checked off.`);
+  console.log(`${report.length} assignments of ${items.length} planner items from ${start} to ${end}; ${report.filter(r=>r.submitted).length} submitted, ${report.filter(r=>r.markedComplete).length} checked off.`);
   for(const it of items)if(assignmentId(it))console.log(' ',assignmentId(it),it.submissions?.submitted?'submitted':'          ',it.planner_override?.marked_complete?'checked off':'',it.plannable?.title);
   process.exit(0);
 }
