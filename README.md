@@ -21,3 +21,19 @@ Live: **https://mattkodsi.github.io/carnelian/**
 - **Data:** an isolated `carnelian` Postgres schema (RLS-locked; reachable only through the function).
 
 Nothing sensitive lives in this repo — only the public project URL.
+
+## Canvas check-offs
+Canvas's calendar feed has no submission state, so a job on the Mac mini
+(`scripts/canvas-checkoffs.mjs`) asks Canvas's planner, through the signed-in
+canvas-agent, which items are submitted or checked off, and reports them to
+`carnelian-canvas` every 10 minutes. Those items count as done in Carnelian and
+leave the TV feed. To set it up:
+
+1. Put the job's secret (`carnelian.canvas_config.completion_secret`) in
+   `~/.config/carnelian/checkoffs.json` as `{"secret": "..."}`, mode 600.
+2. `node scripts/canvas-checkoffs.mjs --dry-run` to see what it would report.
+3. Copy `scripts/com.matt.carnelian-checkoffs.plist` to `~/Library/LaunchAgents/`
+   and `launchctl load` it. It logs to `~/Library/Logs/carnelian-checkoffs.log`.
+
+If Duo's browser trust lapses, the Canvas panel says so; run `./canvas login` in
+the canvas-agent folder once.

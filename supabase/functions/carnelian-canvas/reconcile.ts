@@ -73,6 +73,23 @@ export function agedOutOfFeed(dueOn: unknown, now: string) {
   return due < cutoff;
 }
 
+// Canvas's planner names an assignment by id. A linked row carries it in its feed
+// UID (event-assignment-<id>), or, for a section override, in its URL (#assignment_<id>).
+export function canvasAssignmentId(row: { ext_uid?: string | null; canvas_url?: string | null }) {
+  const u = /^event-assignment-(\d+)$/.exec(row.ext_uid || ""); if (u) return +u[1];
+  const m = /#assignment_(\d+)$/.exec(row.canvas_url || ""); return m ? +m[1] : null;
+}
+
+export type CanvasCompletion = { submitted: boolean; markedComplete: boolean };
+// Canvas owns these two flags; Matt's own check mark (done) is never touched. A
+// flag keeps the time it was first seen and clears when Canvas reverses it.
+export function completionPatch(existing: any, c: CanvasCompletion, now: string) {
+  return {
+    canvas_submitted_at: c.submitted ? (existing.canvas_submitted_at ?? now) : null,
+    canvas_marked_done_at: c.markedComplete ? (existing.canvas_marked_done_at ?? now) : null,
+  };
+}
+
 // Two consecutive healthy feed snapshots must omit a linked item before it is
 // marked removed. A transient empty/partial response therefore cannot erase it.
 export function markCanvasMissing(existing: any, now: string, confirmed = false) {

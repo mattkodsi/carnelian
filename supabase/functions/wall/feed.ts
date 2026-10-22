@@ -54,7 +54,7 @@ const dateOnly = (v: unknown) => (v ? String(v).slice(0, 10) : "");
 
 export type FeedInput = {
   now: Date;
-  assignments: any[];   // not done, not removed from Canvas, due today or later
+  assignments: any[];   // not removed from Canvas, due today or later
   enrollments: any[];
   terms: any[];
   academic: { events: any[]; ok: boolean; fetchedAt: string | null };
@@ -88,7 +88,9 @@ export function buildFeed(input: FeedInput) {
     for (const e of list) colorOf.set(e.id, SCHED_COLORS[idx[e.code || ("#" + e.id)] % SCHED_COLORS.length]);
   }
 
-  const deadlines = input.assignments.map((a: any) => {
+  // Submitting or checking off an item in Canvas removes it, even before the deadline.
+  const open = input.assignments.filter((a: any) => !a.done && !a.canvas_submitted_at && !a.canvas_marked_done_at);
+  const deadlines = open.map((a: any) => {
     const e: any = enrById.get(a.enrollment_id) || {};
     const role = roleOf(e);
     const assessment = ASSESSMENT_KINDS.has(a.kind);

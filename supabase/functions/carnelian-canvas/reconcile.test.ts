@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { reconcileCanvasSource, markCanvasMissing, agedOutOfFeed } from "./reconcile.ts";
+import { reconcileCanvasSource, markCanvasMissing, agedOutOfFeed, canvasAssignmentId, completionPatch } from "./reconcile.ts";
 
 const linked = {
   id: 17,
@@ -116,6 +116,22 @@ test("an assignment due before the feed's 30-day lookback has aged out, not been
 test("an undated assignment never counts as aged out", () => {
   assert.equal(agedOutOfFeed(null, "2026-10-22T05:30:00Z"), false);
   assert.equal(agedOutOfFeed("", "2026-10-22T05:30:00Z"), false);
+});
+
+test("a linked row's Canvas assignment id comes from its UID, or its URL for an override", () => {
+  assert.equal(canvasAssignmentId({ ext_uid: "event-assignment-980691" }), 980691);
+  assert.equal(canvasAssignmentId({ ext_uid: "event-assignment-override-180320",
+    canvas_url: "https://canvas.cornell.edu/calendar?include_contexts=course_91080&month=10&year=2026#assignment_1027763" }), 1027763);
+  assert.equal(canvasAssignmentId({ ext_uid: null, canvas_url: null }), null);
+});
+
+test("Canvas submission and check-off flags keep their first time and clear when reversed", () => {
+  const first = completionPatch({}, { submitted: true, markedComplete: false }, "2026-10-22T10:00:00Z");
+  assert.deepEqual(first, { canvas_submitted_at: "2026-10-22T10:00:00Z", canvas_marked_done_at: null });
+  const later = completionPatch(first, { submitted: true, markedComplete: true }, "2026-10-22T11:00:00Z");
+  assert.deepEqual(later, { canvas_submitted_at: "2026-10-22T10:00:00Z", canvas_marked_done_at: "2026-10-22T11:00:00Z" });
+  assert.deepEqual(completionPatch(later, { submitted: false, markedComplete: false }, "2026-10-22T12:00:00Z"),
+    { canvas_submitted_at: null, canvas_marked_done_at: null });
 });
 
 test("a source revision that returns to its reviewed value clears its marker", () => {

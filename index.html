@@ -1573,7 +1573,7 @@ function renderPlanner(){
       <div class="add-in" data-addwish="1">＋ add a wishlist idea</div></div></div>`;
   const auxDiv=(unschedCard||wishCard)?`<div class="aux-div">holding area</div>`:"";
   const cvStat = CANVAS.configured
-    ? `Canvas · ${CANVAS.last_sync_at ? 'synced '+relTime(CANVAS.last_sync_at) : 'not synced yet'}${CANVAS.pending ? ' · '+CANVAS.pending+' to review' : ''}`
+    ? `Canvas · ${CANVAS.last_sync_at ? 'synced '+relTime(CANVAS.last_sync_at) : 'not synced yet'}${CANVAS.pending ? ' · '+CANVAS.pending+' to review' : ''}${canvasCheckoffStat()}`
     : (CANVAS.loaded ? 'Canvas deadlines not connected' : '');
   const head=`<div class="phead"><h1>Planner</h1><div class="actions"><button id="plannerSyncBtn" class="rcheck-btn" type="button" title="Pull Canvas deadlines and check Cornell rosters">↻ Sync</button></div></div>${cvStat?`<div class="canvas-stat">${esc(cvStat)}</div>`:''}`;
   $("#planner").innerHTML=`${head}${rcheckPanelHTML()}${cards}${auxDiv}${unschedCard}${wishCard}`;
@@ -1667,7 +1667,7 @@ function updateNowLine(){
   lab.textContent=min2label(Math.floor(nm));   // floor to match the wall clock (no rounding up)
 }
 let GCAL={connected:false,email:null,count:0,syncAcademic:false,academicCount:0,syncDeadlines:false,deadlineCount:0};   // Google Calendar sync status (from gcal_status)
-let CANVAS={configured:false,last_sync_at:null,pending:0,unassigned:[],loaded:false};   // Canvas deadline sync status (from canvas_status)
+let CANVAS={configured:false,last_sync_at:null,pending:0,unassigned:[],completion_synced_at:null,completion_result:null,loaded:false};   // Canvas deadline sync status (from canvas_status)
 // Terms selectable in the Schedule tab: any term with meeting data, PLUS any term that has real
 // courses and whose Cornell roster is now published (so a future term becomes viewable the moment
 // its roster drops — its courses just show as "no meeting time" chips until you fill them).
@@ -1829,12 +1829,13 @@ function openAcadDay(day){
   let html=(day.events||[]).map(o=>{ const tm=acalTime(o.time);
     return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalFull(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
   }).join("");
-  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${a.done?' done':''}" style="border-left-color:${r.color}"><div class="acd-main" data-asgcourse="${a.enrollment_id}" data-asgfocus="${a.id}"><div class="acd-t"><span class="acd-code" style="color:${r.color}">${esc(r.code)}</span> ${esc(asgTitle(a))}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Mark done">${a.done?ICO.check:''}</button></div>`; }).join("");
+  html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${asgDone(a)?' done':''}" style="border-left-color:${r.color}"><div class="acd-main" data-asgcourse="${a.enrollment_id}" data-asgfocus="${a.id}"><div class="acd-t"><span class="acd-code" style="color:${r.color}">${esc(r.code)}</span> ${esc(asgTitle(a))}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div><button class="asg-check${asgDone(a)?' on':''}" data-done="${a.id}" aria-label="Mark done">${asgDone(a)?ICO.check:''}</button></div>`; }).join("");
   b.innerHTML=html;
   b.querySelectorAll("[data-asgcourse]").forEach(el=>el.onclick=()=>{ closeModal($("#acDayModal")); openCourseAssignments(el.dataset.asgcourse, el.dataset.asgfocus); });
   // Mark done straight from the day popup — optimistic flip, persist in the background, revert on error.
   b.querySelectorAll("[data-done]").forEach(btn=>btn.onclick=(e)=>{ e.stopPropagation();
     const a=asgById(btn.dataset.done); if(!a) return;
+    if(asgCanvasDone(a)){ toast(canvasDoneText(a)); return; }
     const nv=!a.done, item=btn.closest(".acd-item");
     const paint=v=>{ a.done=v; if(item) item.classList.toggle("done",v); btn.classList.toggle("on",v); btn.innerHTML=v?ICO.check:''; };
     paint(nv);
@@ -1849,6 +1850,15 @@ function asgTimeLabel(t){ const m=/^(\d{1,2}):(\d{2})/.exec(String(t||"")); if(!
 // Compact time for the Due-strip chips: "8:40a", "2p", "11:59p" (on-the-hour drops the minutes).
 function asgTimeShort(t){ const m=/^(\d{1,2}):(\d{2})/.exec(String(t||"")); if(!m) return ""; let h=+m[1]; const ap=h>=12?"p":"a"; h=h%12||12; return m[2]==="00"?`${h}${ap}`:`${h}:${m[2]}${ap}`; }
 function fmtAsgDate(a){ const d=asgDate(a); if(!d) return ""; const p=d.split("-"); let s=`${ACAL_MONTHS[(+p[1])-1]} ${+p[2]}`; const tm=asgDueTime(a); s+=" · "+(tm?asgTimeLabel(tm):"Time TBA"); return s; }
+// Submitting or checking off an item in Canvas counts as done. Canvas keeps its own flags, separate
+// from Matt's check mark, and clears them if the submission or check-off is reversed.
+// Status of the Mac mini job that reports Canvas submissions; says plainly when it needs a Duo approval.
+function canvasCheckoffStat(){ const r=CANVAS.completion_result;
+  if(r&&r.ok===false) return /canvas login|duo/i.test(r.error||"")?" · check-offs paused: run ./canvas login once":" · check-offs failed "+relTime(r.at);
+  return CANVAS.completion_synced_at?" · check-offs synced "+relTime(CANVAS.completion_synced_at):""; }
+function asgCanvasDone(a){ return !!(a&&(a.canvas_submitted_at||a.canvas_marked_done_at)); }
+function asgDone(a){ return !!(a&&(a.done||asgCanvasDone(a))); }
+function canvasDoneText(a){ return !a?"":a.canvas_submitted_at?"Submitted in Canvas":a.canvas_marked_done_at?"Done in Canvas":""; }
 function canvasMark(a){ if(!a||a.source!=='canvas') return ""; if(a.canvas_removed_at) return "Removed from Canvas";
   return a.canvas_changed_at?"Canvas changed":""; }
 function canvasChangeText(a){ if(!a) return ""; if(a.canvas_removed_at) return "This assignment was removed or unpublished in Canvas.";
@@ -1865,7 +1875,7 @@ async function saveAsg(row){ const saved=(await api("upsert",{table:"assignments
   if(CUR==="schedule") renderSchedule(); gcalAutoSync(); return saved; }
 async function deleteAsg(id){ await api("delete",{table:"assignments",id});
   DB.assignments=(DB.assignments||[]).filter(x=>String(x.id)!==String(id)); if(CUR==="schedule") renderSchedule(); gcalAutoSync(); }
-async function toggleAsgDone(a){ try{ await saveAsg({id:a.id, done:!a.done}); renderAsgList(a.enrollment_id); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
+async function toggleAsgDone(a){ if(asgCanvasDone(a)){ toast(canvasDoneText(a)); return; } try{ await saveAsg({id:a.id, done:!a.done}); renderAsgList(a.enrollment_id); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
 async function approveAsg(a){ try{ await saveAsg({id:a.id, status:'active'}); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
 async function rejectAsg(a){ try{ await deleteAsg(a.id); renderAsgList(a.enrollment_id); if(CUR==='planner')renderPlanner(); if(CUR==='academic')renderAssignments(); }catch(e){ toast(e.message||"Error"); } }
 
@@ -1880,10 +1890,10 @@ function openCourseAssignments(eid, focusId){ ASG_EID=eid; const en=(DB.enrollme
     row.classList.add('focus'); setTimeout(()=>row.classList.remove('focus'),1600); }); }
 function renderAsgList(eid){ const body=$("#asgListBody"); if(!body) return;
   const all=asgFor(eid); const pending=all.filter(a=>a.status==='pending');
-  const active=all.filter(a=>a.status!=='pending').sort((x,y)=> (x.done?1:0)-(y.done?1:0) || (asgDate(x)||"~").localeCompare(asgDate(y)||"~"));
+  const active=all.filter(a=>a.status!=='pending').sort((x,y)=> (asgDone(x)?1:0)-(asgDone(y)?1:0) || (asgDate(x)||"~").localeCompare(asgDate(y)||"~"));
   const prow=a=>{ const cm=canvasMark(a); return `<div class="asg-row pending${a.canvas_removed_at?' source-removed':''}" data-asgrow="${a.id}"><div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${a.source==='canvas'?' · Canvas':''}${cm?` · ${esc(cm)}`:''}</div></div>
     <div class="asg-acts"><button class="asg-mini" data-edit="${a.id}">Edit</button><button class="asg-mini ok" data-approve="${a.id}">Approve</button><button class="asg-mini no" data-reject="${a.id}">Reject</button></div></div>`; };
-  const arow=a=>{ const cm=canvasMark(a); return `<div class="asg-row${a.done?' done':''}${a.canvas_removed_at?' source-removed':''}" data-asgrow="${a.id}"><button class="asg-check${a.done?' on':''}" data-done="${a.id}" aria-label="Toggle done">${a.done?ICO.check:''}</button>
+  const arow=a=>{ const cm=canvasMark(a)||canvasDoneText(a); return `<div class="asg-row${asgDone(a)?' done':''}${a.canvas_removed_at?' source-removed':''}" data-asgrow="${a.id}"><button class="asg-check${asgDone(a)?' on':''}" data-done="${a.id}" aria-label="Toggle done">${asgDone(a)?ICO.check:''}</button>
     <div class="asg-main"><div class="asg-t">${esc(asgTitle(a))}</div><div class="asg-meta">${esc(fmtAsgDate(a))}${cm?` · ${esc(cm)}`:''}</div></div>
     <button class="asg-edit" data-edit="${a.id}">Edit</button></div>`; };
   const en=(DB.enrollments||[]).find(x=>String(x.id)===String(eid)); const pi=en?profInfo(en):null;
@@ -2081,7 +2091,7 @@ function renderSchedule(){
       const top=((b.s-gStart)/total)*100, h=((b.en-b.s)/total)*100;
       const kindLbl=((_ASG_K[a.kind]||{}).label||'').toUpperCase();
       const timeLbl=`${min2label(b.s).replace(/[ap]m$/,'')}–${min2label(b.en).replace(/[ap]m$/,'')}`;
-      return `<div class="sched-asg${a.done?' done':''}" data-asgid="${a.id}" style="--h:${b.color};top:${top}%;height:${h}%">
+      return `<div class="sched-asg${asgDone(a)?' done':''}" data-asgid="${a.id}" style="--h:${b.color};top:${top}%;height:${h}%">
         <div class="ac">${esc(kindLbl)}</div>${b.code?`<div class="acode">${esc(b.code)}</div>`:''}<div class="asg-tm">${esc(timeLbl)}</div><div class="at">${esc(asgTitle(a))}</div></div>`;
     }).join("");
     return `<div class="sched-col ${d===showToday?'today':''}">${blocks}${ablocks}</div>`;
@@ -2104,7 +2114,7 @@ function renderSchedule(){
     const items=[...evs.map(o=>({ac:true,o})), ...asgs.map(r=>({ac:false,r}))];
     let chips=items.slice(0,2).map(it=> it.ac
       ? `<div class="adchip${it.o.noclass?' noclass':''}">${esc(acalShort(it.o.title))}</div>`
-      : `<div class="adchip asg${it.r.a.done?' done':''}" style="border-left-color:${it.r.color};background:color-mix(in srgb,${it.r.color} 10%,var(--surface))"><span class="adchip-body"><span class="adchip-t">${esc(asgTitle(it.r.a))}</span>${it.r.time?`<span class="adchip-tm">${esc(asgTimeShort(it.r.time))}</span>`:(it.r.tba?'<span class="adchip-tm">TBA</span>':'')}</span></div>`).join("");
+      : `<div class="adchip asg${asgDone(it.r.a)?' done':''}" style="border-left-color:${it.r.color};background:color-mix(in srgb,${it.r.color} 10%,var(--surface))"><span class="adchip-body"><span class="adchip-t">${esc(asgTitle(it.r.a))}</span>${it.r.time?`<span class="adchip-tm">${esc(asgTimeShort(it.r.time))}</span>`:(it.r.tba?'<span class="adchip-tm">TBA</span>':'')}</span></div>`).join("");
     if(items.length>2) chips+=`<div class="adchip more">+${items.length-2} more</div>`;
     return `<div class="ad-col${isNoClassDay(D,ac)?' noclass':''}${sameDay(D,todayD)?' today':''}${items.length?' has-ev':''}" data-adcol="${di}">${chips}</div>`; }).join("");
   const hasAd=adDays.some(x=>x.events.length||x.asgs.length);
@@ -2284,19 +2294,19 @@ function renderAssignments(){
   // In-scope items with a placement date; done-in-the-past drops off (done is done).
   const items=(DB.assignments||[]).filter(a=>eids.has(String(a.enrollment_id))).map(a=>{
     const en=enById[String(a.enrollment_id)]; const on=asgWhenDate(a);
-    return {a,en,on,tm:asgWhenTime(a),tba:asgTimeTBA(a),over:!!(on&&on<t&&!a.done),pending:a.status==='pending'}; })
+    return {a,en,on,tm:asgWhenTime(a),tba:asgTimeTBA(a),over:!!(on&&on<t&&!asgDone(a)),pending:a.status==='pending'}; })
     .filter(it=>it.en && it.on && (it.on>=t || it.over));
   const overdue=items.filter(it=>it.over).sort((x,y)=> x.on.localeCompare(y.on) || cidxOf(x.en)-cidxOf(y.en));
   const upcoming=items.filter(it=>!it.over);
   const byDay={}; upcoming.forEach(it=>{ (byDay[it.on]=byDay[it.on]||[]).push(it); });
   const days=Object.keys(byDay).sort();
   const inbox=CANVAS.unassigned||[];
-  const nPend=items.filter(it=>it.pending).length, nUp=upcoming.filter(it=>!it.pending&&!it.a.done&&!it.a.canvas_removed_at).length;
+  const nPend=items.filter(it=>it.pending).length, nUp=upcoming.filter(it=>!it.pending&&!asgDone(it.a)&&!it.a.canvas_removed_at).length;
   const XICO='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>';
   const row=it=>{ const c=colorOf(it.en); const code=esc(codeLabel(it.en)); const title=esc(asgTitle(it.a));
-    const cm=canvasMark(it.a); const meta=[it.tm?esc(asgTimeShort(it.tm)):(it.tba?'Time TBA':''), it.pending?'from Canvas':'', cm?esc(cm):''].filter(Boolean).join(' · ');
+    const cm=canvasMark(it.a)||canvasDoneText(it.a); const meta=[it.tm?esc(asgTimeShort(it.tm)):(it.tba?'Time TBA':''), it.pending?'from Canvas':'', cm?esc(cm):''].filter(Boolean).join(' · ');
     if(it.pending) return `<div class="ag-row pending${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div><div class="ag-acts"><button class="ag-ic acc" data-approve="${it.a.id}" aria-label="Accept">${ICO.check}</button><button class="ag-ic rej" data-reject="${it.a.id}" aria-label="Reject">${XICO}</button></div></div>`;
-    return `<div class="ag-row${it.a.done?' done':''}${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div>${it.a.canvas_removed_at?'':`<button class="ag-check${it.a.done?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${it.a.done?ICO.check:''}</button>`}</div>`; };
+    return `<div class="ag-row${asgDone(it.a)?' done':''}${it.over?' over':''}${it.a.canvas_removed_at?' source-removed':''}" data-open="${it.a.id}" style="border-left-color:${c}"><div class="ag-main"><div class="ag-code">${code}</div><div class="ag-t">${title}</div>${meta?`<div class="ag-meta">${meta}</div>`:''}</div>${it.a.canvas_removed_at?'':`<button class="ag-check${asgDone(it.a)?' on':''}" data-done="${it.a.id}" aria-label="Toggle done">${asgDone(it.a)?ICO.check:''}</button>`}</div>`; };
   let html=`<div class="agenda"><div class="ag-head"><h1>Assignments</h1><div class="ag-actions"><button class="ag-sync" id="agNotify" hidden aria-pressed="false" aria-label="Notify me of assignment changes"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="nlbl">Notify me</span></button><button class="ag-sync" id="agSync"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.9 4.5"/><path d="M20 4v6h-6"/></svg>Sync</button></div></div>`;
   html+=`<div class="ag-count">${inbox.length?`${inbox.length} unassigned · `:''}${nPend?`${nPend} from Canvas to review · `:''}${nUp} upcoming</div>`;
   if(inbox.length){ html+=`<div class="ag-sec">Unassigned from Canvas</div>`+inbox.map(a=>{ const keys=(a.canvas_course_keys||[]).join(' / ')||'Course not matched'; const due=a.canvas_due_on?fmtAsgDate({due_on:a.canvas_due_on,due_time:a.canvas_due_time}):''; const meta=[keys,due,a.canvas_removed_at?'Removed from Canvas':''].filter(Boolean).join(' · '); return `<div class="ag-row unassigned${a.canvas_removed_at?' source-removed':''}"><div class="ag-main"><div class="ag-code">Canvas</div><div class="ag-t">${esc(a.canvas_title||'Untitled')}</div><div class="ag-meta">${esc(meta)}</div></div><div class="ag-acts"><button class="ag-ic" data-canvas-file="${esc(a.ext_uid)}" aria-label="File assignment"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7.5h6l2 2h8v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18.5z"/></svg></button><button class="ag-ic rej" data-canvas-reject="${esc(a.ext_uid)}" aria-label="Reject">${XICO}</button></div></div>`; }).join(''); }
@@ -2318,6 +2328,7 @@ function wireAgenda(el){
   el.querySelectorAll("[data-canvas-reject]").forEach(b=>b.onclick=async e=>{ e.stopPropagation(); try{ await api('canvas_reject_unassigned',{ext_uid:b.dataset.canvasReject},FN_CANVAS); CANVAS.unassigned=CANVAS.unassigned.filter(a=>a.ext_uid!==b.dataset.canvasReject); renderAssignments(); }catch(err){ toast(err.message||'Error'); } });
   el.querySelectorAll("[data-done]").forEach(b=>b.onclick=(e)=>{ e.stopPropagation();
     const a=asgById(b.dataset.done); if(!a) return;
+    if(asgCanvasDone(a)){ toast(canvasDoneText(a)); return; }
     // Optimistic: flip the visual state instantly, persist in the background, revert on error.
     const nv=!a.done, row=b.closest('.ag-row'); const paint=v=>{ a.done=v; if(row) row.classList.toggle('done',v); b.classList.toggle('on',v); b.innerHTML=v?ICO.check:''; };
     paint(nv);
@@ -3186,7 +3197,8 @@ function gcalAutoSync(){   // serialize edits and coalesce changes made during a
 /* ---- Canvas deadline sync (client side; feed URL + secret live in Supabase) ---- */
 async function canvasRefresh(){
   try{ const r=await api("canvas_status",{},FN_CANVAS);
-    CANVAS={configured:!!r.configured,last_sync_at:r.last_sync_at||null,pending:r.pending_canvas||0,unassigned:r.unassigned_canvas||[],loaded:true};
+    CANVAS={configured:!!r.configured,last_sync_at:r.last_sync_at||null,pending:r.pending_canvas||0,unassigned:r.unassigned_canvas||[],
+      completion_synced_at:r.completion_synced_at||null,completion_result:r.completion_result||null,loaded:true};
   }catch(e){ CANVAS.loaded=true; }
 }
 let CSYNC=false;
@@ -3427,9 +3439,9 @@ function buildSchedCanvas(termId, weekMon){
           roundRectPath(x,bx,yy,bw,boxH,5); x.fillStyle=surface; x.fill();
           x.strokeStyle=line; x.lineWidth=1; roundRectPath(x,bx+0.5,yy+0.5,bw-1,boxH-1,5); x.stroke();
           x.fillStyle=it.r.color; x.fillRect(bx, yy, 3, boxH);
-          x.fillStyle=a.done?ink3:ink2; x.font=`700 ${bandFont}px -apple-system,system-ui,sans-serif`;
+          x.fillStyle=asgDone(a)?ink3:ink2; x.font=`700 ${bandFont}px -apple-system,system-ui,sans-serif`;
           it.lines.forEach((ln,li)=>x.fillText(ln, bx+boxPadX+4, yy+boxPadY+li*bandLH));
-          if(a.done){ x.strokeStyle=ink3; x.lineWidth=1; const sy=yy+boxPadY+bandFont/2; x.beginPath(); x.moveTo(bx+boxPadX+4,sy); x.lineTo(bx+boxPadX+4+Math.min(x.measureText(it.lines[0]||'').width,bw-boxPadX*2-4),sy); x.stroke(); }
+          if(asgDone(a)){ x.strokeStyle=ink3; x.lineWidth=1; const sy=yy+boxPadY+bandFont/2; x.beginPath(); x.moveTo(bx+boxPadX+4,sy); x.lineTo(bx+boxPadX+4+Math.min(x.measureText(it.lines[0]||'').width,bw-boxPadX*2-4),sy); x.stroke(); }
           yy+=boxH+boxGap; continue; }
         roundRectPath(x,bx,yy,bw,boxH,5); x.fillStyle=it.o.noclass?accentSoft:surface; x.fill();
         x.strokeStyle=it.o.noclass?accentLine:line; x.lineWidth=1; roundRectPath(x,bx+0.5,yy+0.5,bw-1,boxH-1,5); x.stroke();
@@ -3467,12 +3479,12 @@ function buildSchedCanvas(termId, weekMon){
     const bx=gx0+colW*di+2, by=gy0+((b.s-gStart)/total)*gridH+1, bh=Math.max(15,((b.en-b.s)/total)*gridH-2), W2=colW-4;
     x.save();
     roundRectPath(x,bx,by,W2,bh,6); x.fillStyle=surface; x.fill();
-    x.globalAlpha=a.done?0.10:0.16; x.fillStyle=b.color; roundRectPath(x,bx,by,W2,bh,6); x.fill(); x.globalAlpha=1;
+    x.globalAlpha=asgDone(a)?0.10:0.16; x.fillStyle=b.color; roundRectPath(x,bx,by,W2,bh,6); x.fill(); x.globalAlpha=1;
     x.strokeStyle=b.color; x.lineWidth=1.4; x.setLineDash([4,3]); roundRectPath(x,bx+0.7,by+0.7,W2-1.4,bh-1.4,6); x.stroke(); x.setLineDash([]);
     roundRectPath(x,bx,by,W2,bh,6); x.clip();
     x.textAlign='center'; const tx=bx+W2/2; x.textBaseline='top';   // centred to match the on-screen assessment block
     x.fillStyle=b.color; x.font='800 9px -apple-system,system-ui,sans-serif'; x.fillText(((_ASG_K[a.kind]||{}).label||'').toUpperCase(), tx, by+5);
-    if(bh>=26){ x.fillStyle=a.done?ink3:ink; x.font='800 11px -apple-system,system-ui,sans-serif'; x.fillText(asgTitle(a), tx, by+16); }
+    if(bh>=26){ x.fillStyle=asgDone(a)?ink3:ink; x.font='800 11px -apple-system,system-ui,sans-serif'; x.fillText(asgTitle(a), tx, by+16); }
     x.restore();
   }});
   return cv;

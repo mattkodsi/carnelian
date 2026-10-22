@@ -49,6 +49,12 @@ test("a pending item is included and marked pending", () => {
   assert.equal(d.pending, true);
 });
 
+test("an item submitted or checked off in Canvas, or checked off by Matt, is left out", () => {
+  const f = feed(NOON_OCT22, [asg({ id: 1 }), asg({ id: 2, canvas_submitted_at: "2026-10-21T20:00:00Z" }),
+    asg({ id: 3, canvas_marked_done_at: "2026-10-21T20:00:00Z" }), asg({ id: 4, done: true })]);
+  assert.deepEqual(f.deadlines.map((d: any) => d.id), [1]);
+});
+
 test("a work-by target sets workByISO without moving the due time", () => {
   const [d] = feed(NOON_OCT22, [asg({ due_on: "2026-11-10", due_time: "08:00:00", target_on: "2026-11-12", target_time: "13:20:00" })]).deadlines;
   assert.equal(d.dueISO, "2026-11-10T13:00:00.000Z");
@@ -145,5 +151,6 @@ test("times stay right across the Nov 1 daylight saving change", () => {
 test("a failed registrar refresh is reported", () => {
   const f = buildFeed({ now: new Date(NOON_OCT22), assignments: [], enrollments: ENR, terms: TERMS, academic: { events: ACAL, ok: false, fetchedAt: "2026-10-20T04:00:00.000Z" } });
   assert.deepEqual(f.academicStatus, { ok: false, fetchedAt: "2026-10-20T04:00:00.000Z" });
+  assert.equal(f.canvasCompletionSyncedAt, null);
   assert.equal(f.contract, 2);
 });

@@ -7,7 +7,7 @@
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 import webpush from "npm:web-push@3.6.7";
 import { parseVEvents, icalDateToET, normCode, courseKeys, guessKind, cleanSummary } from "./ical.ts";
-import { reconcileCanvasSource, markCanvasMissing, agedOutOfFeed } from "./reconcile.ts";
+import { reconcileCanvasSource, markCanvasMissing, agedOutOfFeed, canvasAssignmentId, completionPatch, type CanvasCompletion } from "./reconcile.ts";
 
 const sql = postgres(Deno.env.get("SUPABASE_DB_URL")!, {
   prepare: false, ssl: "require", max: 3, idle_timeout: 20, connect_timeout: 15,
@@ -22,6 +22,13 @@ const json = (b: unknown, status = 200) =>
   new Response(JSON.stringify(b), { status, headers: { ...CORS, "content-type": "application/json" } });
 
 const enc = new TextEncoder();
+// Constant-time comparison for shared secrets.
+function sameSecret(a: unknown, b: unknown) {
+  const x = enc.encode(String(a ?? "")), y = enc.encode(String(b ?? ""));
+  if (!x.length || x.length !== y.length) return false;
+  let d = 0; for (let i = 0; i < x.length; i++) d |= x[i] ^ y[i];
+  return d === 0;
+}
 async function sha256hex(s: string) {
   const d = await crypto.subtle.digest("SHA-256", enc.encode(s));
   return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -284,6 +291,42 @@ async function canvasSync() {
   return { ok: true, ...result };
 }
 
+// Submissions and check-offs from Canvas's planner, posted by the local canvas-agent
+// job (the calendar feed carries no submission state). Only courses Matt takes are
+// touched: in a TA or audit course the submissions belong to students. A report
+// with an error (Duo's browser trust lapsed, say) is recorded so the app can show it.
+async function canvasCompletion(body: any) {
+  const now = new Date().toISOString();
+  if (body.error) {
+    const result = { ok: false, error: String(body.error).slice(0, 300), at: now };
+    await sql`update carnelian.canvas_config set completion_result = ${sql.json(result)} where id = 1`;
+    return result;
+  }
+  const items = new Map<number, CanvasCompletion>();
+  for (const it of Array.isArray(body.items) ? body.items : []) {
+    const id = Number(it?.assignmentId);
+    if (Number.isFinite(id)) items.set(id, { submitted: !!it.submitted, markedComplete: !!it.markedComplete });
+  }
+  const rows = await sql`select a.id, a.ext_uid, a.canvas_url, a.canvas_submitted_at, a.canvas_marked_done_at
+    from carnelian.assignments a join carnelian.enrollments e on e.id = a.enrollment_id
+    where a.source = 'canvas' and coalesce(e.role, 'course') = 'course'`;
+  let matched = 0, changed = 0;
+  for (const r of rows as any[]) {
+    const aid = canvasAssignmentId(r);
+    const c = aid != null ? items.get(aid) : undefined;
+    if (!c) continue;   // not in this report's window: leave it as it was
+    matched++;
+    const p = completionPatch(r, c, now);
+    if (!!p.canvas_submitted_at === !!r.canvas_submitted_at && !!p.canvas_marked_done_at === !!r.canvas_marked_done_at) continue;
+    await sql`update carnelian.assignments set canvas_submitted_at = ${p.canvas_submitted_at},
+      canvas_marked_done_at = ${p.canvas_marked_done_at} where id = ${r.id}`;
+    changed++;
+  }
+  const result = { ok: true, reported: items.size, matched, changed, at: now };
+  await sql`update carnelian.canvas_config set completion_synced_at = ${now}, completion_result = ${sql.json(result)} where id = 1`;
+  return result;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
@@ -296,6 +339,11 @@ Deno.serve(async (req) => {
     if (action === "canvas_sync" && body.cron_secret) {
       const cc = await canvasCfg();
       if (cc.cron_secret && body.cron_secret === cc.cron_secret) return json(await canvasSync());
+    }
+    if (action === "canvas_completion") {
+      const cc = await canvasCfg();
+      if (!sameSecret(body.completion_secret, cc.completion_secret)) return json({ error: "unauthorized" }, 401);
+      return json(await canvasCompletion(body));
     }
     if (!(await authed(body.token))) return json({ error: "unauthorized" }, 401);
     if (action === "canvas_status") {
@@ -310,6 +358,7 @@ Deno.serve(async (req) => {
         from carnelian.canvas_unassigned order by canvas_due_on, canvas_due_time, canvas_title`;
       return json({ ok: true, configured: !!c.feed_url, last_sync_at: c.last_sync_at ?? null,
         last_result: c.last_result ?? null, pending_canvas: pend,
+        completion_synced_at: c.completion_synced_at ?? null, completion_result: c.completion_result ?? null,
         changed_canvas: marked.changed, removed_canvas: marked.removed,
         unassigned_canvas: inbox });
     }

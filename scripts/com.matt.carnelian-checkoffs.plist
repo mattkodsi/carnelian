@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- Reports Canvas submissions and check-offs to Carnelian every 10 minutes.
+     Install: cp to ~/Library/LaunchAgents/ and `launchctl load` it (needs Matt's approval). -->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.matt.carnelian-checkoffs</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/Users/matt/.nvm/versions/node/v24.21.0/bin/node</string>
+		<string>/Users/matt/dev/Education/Cornell Schedule/scripts/canvas-checkoffs.mjs</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>StandardErrorPath</key>
+	<string>/Users/matt/Library/Logs/carnelian-checkoffs.log</string>
+	<key>StandardOutPath</key>
+	<string>/Users/matt/Library/Logs/carnelian-checkoffs.log</string>
+	<key>StartInterval</key>
+	<integer>600</integer>
+	<key>WorkingDirectory</key>
+	<string>/Users/matt/dev/Education/Cornell Schedule</string>
+</dict>
+</plist>
