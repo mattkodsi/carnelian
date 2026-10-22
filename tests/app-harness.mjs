@@ -10,7 +10,7 @@ export async function bootApp({terms,enrollments,assignments=[],acal=[]}){
  w.localStorage.setItem('carn_token','harness');
  w.localStorage.setItem('carn_acal',JSON.stringify({v:1,events:acal}));
  const data={terms:terms.map(t=>({name:t.id,career:'grad',sort:1,...t})),programs:[],requirements:[],requirement_options:[],
-  enrollments:enrollments.map(e=>({credits:1,tags:[],...e})),adjustments:[],assignments,satisfactions:[],settings:{}};
+  enrollments:enrollments.map(e=>({credits:1,tags:[],...e})).sort((a,b)=>a.id-b.id),adjustments:[],assignments,satisfactions:[],settings:{}};  // the load action orders enrollments by id
  w.fetch=async(url,options={})=>{if(!options.body)return {ok:true,json:async()=>({status:'success',data:{rosters:[],subjects:[],classes:[]}})};
   const b=JSON.parse(options.body);
   const r=b.action==='status'?{initialized:true}:b.action==='load'?{data}:b.action==='gcal_status'?{connected:false}:b.action==='canvas_status'?{configured:false,pending_canvas:0,unassigned_canvas:[]}:b.action==='academic_calendar'?{ok:true,events:acal}:{ok:true};
