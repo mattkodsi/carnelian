@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
         from carnelian.assignments
         where done = false and canvas_removed_at is null
           and coalesce(status, '') not in ('cancelled', 'canceled', 'removed', 'deleted') and due_on >= ${today}`,
-      sql`select id, code, title, meetings, term_id, status, role from carnelian.enrollments`,
+      sql`select id, code, title, meetings, term_id, status, role, no_class from carnelian.enrollments`,
       sql`select id, starts_on::text as starts_on, ends_on::text as ends_on from carnelian.terms`,
       academic(),
       sql`select completion_synced_at from carnelian.canvas_config where id = 1`,

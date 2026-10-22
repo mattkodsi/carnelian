@@ -1,7 +1,7 @@
 // Pure builder for the TV wall feed (contract 2). index.ts loads the rows and the
 // registrar calendar and calls buildFeed; tests call it with fixtures. Contract 1
 // fields keep their meaning; everything else is additive.
-import { termAcademics, meetingActiveOn, noClassOn, classMeetingOn, partOfMeeting, acalRange, acalRelevant, acalNoClass, addDays } from "../_shared/acal.ts";
+import { termAcademics, meetingActiveOn, noClassOn, classMeetingOn, partOfMeeting, acalRange, acalRelevant, acalNoClass, addDays, courseNoClassOn, courseNoClassTitle } from "../_shared/acal.ts";
 import { SCHED_COLORS, assignCourseColors, kindLabel, assignmentTitle, ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, roleOf, isTA } from "../_shared/courses.ts";
 
 export const TZ = "America/New_York";
@@ -103,8 +103,9 @@ export function buildFeed(input: FeedInput) {
       dueISO = at(dueDate, dueTime);
       if (assessment) { durationMin = setMin ?? DEFAULT_ASSESSMENT_MIN; endISO = plusMin(dueISO, durationMin); }
     } else if (assessment) {
-      // Matt's rule: an assessment with no time takes that course's class period.
-      const m = e.term_id ? classMeetingOn(e.meetings, dueDate, acFor(e.term_id)) : null;
+      // Matt's rule: an assessment with no time takes that course's class period (none when
+      // the course cancelled that class).
+      const m = e.term_id && !courseNoClassOn(e, dueDate) ? classMeetingOn(e.meetings, dueDate, acFor(e.term_id)) : null;
       if (m) {
         dueISO = at(dueDate, m.start); durationMin = setMin ?? (minutes(m.end) - minutes(m.start));
         endISO = plusMin(dueISO, durationMin); timeFromClass = true;
@@ -133,7 +134,7 @@ export function buildFeed(input: FeedInput) {
       if (day < dateOnly(t.starts_on) || day > dateOnly(t.ends_on)) continue;
       activeTerms.add(e.term_id);
       const ac = acFor(e.term_id);
-      if (noClassOn(day, ac)) continue;
+      if (noClassOn(day, ac) || courseNoClassOn(e, day)) continue;
       for (const m of e.meetings || []) {
         if (!validMeeting(m) || !m.days.some((d: string) => DOW[d] === dow)) continue;
         if (!meetingActiveOn(partOfMeeting(m), day, ac)) continue;
@@ -167,6 +168,16 @@ export function buildFeed(input: FeedInput) {
     const afterClasses = termAcs.some((ac: any) => r.start > ac.classEnd && r.start <= ac.te);
     if (!acalNoClass(title) && !acalRelevant(title)) continue;
     academic.push({ title, startDate: r.start, endDate: r.end, noClass: acalNoClass(title) || afterClasses });
+  }
+  // A course's own cancelled class gets a notice on the day it would have met.
+  for (const e of enrolled) {
+    const ac = e.term_id ? acFor(e.term_id) : null;
+    for (const day of days) {
+      const x = courseNoClassOn(e, day);
+      if (!x || !ac || !classMeetingOn(e.meetings, day, ac)) continue;
+      const title = courseNoClassTitle(e, x);   // two sections of one course share a notice
+      if (!academic.some((n) => n.title === title && n.startDate === day)) academic.push({ title, startDate: day, endDate: day, noClass: true, course: e.code || null });
+    }
   }
   for (const ac of termAcs) {
     const uncovered = days.filter((d) => d > ac.classEnd && d <= ac.te && !academic.some((n) => n.noClass && d >= n.startDate && d <= n.endDate));

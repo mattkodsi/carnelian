@@ -17,6 +17,18 @@ for(const layer of ['syncAll','syncAcademic','syncDeadlines'])test(`${layer} ret
  const c=backend('carnelian',sql,{fetch:async()=>new Response('{}',{status:500})}); c.fetchAcademic=async()=>[];
  try{await c[layer]('x','cal');}catch{} assert.equal(removed,false);
 });
+test("a course's cancelled class comes off its Google series and gets an all-day notice",async()=>{
+ const en={id:86,code:'REAL 6101',title:'Urban Economics',term_id:'by1fa',starts_on:'2026-08-24',ends_on:'2026-12-18',
+  meetings:[{days:['T','R'],start:'08:40',end:'09:55',part:'full'}],no_class:[{date:'2026-11-05',reason:'CREC conference'},{date:'2026-11-04',reason:'not a class day'}]};
+ const posted=[];const sql=async(strings)=>{const q=strings.join('?');return q.includes('from carnelian.enrollments e')?[en]:[];};
+ const c=backend('carnelian',sql,{fetch:async(url,o)=>{if(o&&o.method==='POST')posted.push(JSON.parse(o.body));return new Response(JSON.stringify({id:'ev'+posted.length}),{status:200});}});
+ c.fetchAcademic=async()=>[];
+ await c.syncAll('x','cal');
+ const series=posted.find(b=>b.recurrence);
+ assert.match(series.recurrence.join('\n'),/EXDATE;TZID=America\/New_York:20261105T084000$/m);
+ const notices=posted.filter(b=>b.start.date);
+ assert.deepEqual(notices.map(b=>[b.summary,b.start.date,b.end.date,b.transparency]),[['No REAL 6101 class (CREC conference)','2026-11-05','2026-11-06','transparent']]);
+});
 test('Google absent PATCH and DELETE remain recoverable',async()=>{for(const status of [404,410]){const c=backend('carnelian',()=>[],{fetch:async()=>new Response('{}',{status})});assert.equal((await c.gapi('x','PATCH','/events/a')).status,status);assert.equal((await c.gapi('x','DELETE','/events/a')).status,status);}});
 const settle=()=>new Promise(r=>setImmediate(r));
 test('edits arriving during sync coalesce into one subsequent sync',async()=>{let calls=0,release;const c=run(slice('let GSYNC=false;','/* ---- Canvas deadline sync'),{GCAL:{connected:true},api:()=>{calls++;return new Promise(r=>release=r)},gcalRefresh:()=>{},CUR:'',toast:()=>{}});c.gcalAutoSync();c.gcalAutoSync();c.gcalAutoSync();await settle();assert.equal(calls,1);release({ok:true});await settle();assert.equal(calls,2);release({ok:true});await settle();assert.equal(calls,2);});

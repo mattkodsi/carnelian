@@ -27,16 +27,24 @@ export async function bootApp({terms,enrollments,assignments=[],acal=[]}){
 const DOWS={U:0,M:1,T:2,W:3,R:4,F:5,S:6};
 // Class sessions exactly as the Schedule grid derives them (weekdays only, as the grid has no weekend).
 export function appSessions({get},term,days){
- const ac=get('termAcademics')(term),pdate=get('pdate'),isNoClassDay=get('isNoClassDay'),meetingActiveOn=get('meetingActiveOn'),partOf=get('partOf');
+ const ac=get('termAcademics')(term),pdate=get('pdate'),isNoClassDay=get('isNoClassDay'),meetingActiveOn=get('meetingActiveOn'),partOf=get('partOf'),courseNoClass=get('courseNoClass');
  const DB=get('DB'),SC=get('SCHED_COLORS'),idx=get('agColorMap')(term.id),displayStatus=get('displayStatus');
  const es=DB.enrollments.filter(e=>e.term_id===term.id&&displayStatus(e)!=='wishlist');
  const out=[];
  for(const day of days){const D=pdate(day),dow=D.getDay();if(dow===0||dow===6)continue;
   for(const e of es)for(const m of (e.meetings||[])){
    if(!(m.days||[]).some(d=>DOWS[d]===dow))continue;
-   if(isNoClassDay(D,ac)||!meetingActiveOn(partOf(m),D,ac))continue;
+   if(isNoClassDay(D,ac)||courseNoClass(e,D)||!meetingActiveOn(partOf(m),D,ac))continue;
    out.push({code:e.code,day,start:m.start,end:m.end,color:SC[idx[e.code||('#'+e.id)]],role:e.role||'course'});}}
  return out;
+}
+
+// The schedule's notices for a course's own cancelled classes, as {day, title}.
+export function appCourseNotices({get},term,days){
+ const DB=get('DB'),displayStatus=get('displayStatus'),pdate=get('pdate');
+ const es=DB.enrollments.filter(e=>e.term_id===term.id&&displayStatus(e)!=='wishlist');
+ const iso=D=>`${D.getFullYear()}-${String(D.getMonth()+1).padStart(2,'0')}-${String(D.getDate()).padStart(2,'0')}`;
+ return [...get('courseNoClassOverlay')(es,get('termAcademics')(term))].map(o=>({day:iso(o.s),title:o.title})).filter(n=>days.includes(n.day));
 }
 
 // What the app shows for one assignment: title, kind label, whether it is a timed

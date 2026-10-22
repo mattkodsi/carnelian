@@ -20,7 +20,8 @@ export const meet = (days: string[], start: string, end: string, extra: any = {}
 
 export const ENR = [
   { id: 83, code: "REAL 5560", title: "Creating the Built Environment", term_id: "by1fa", status: "in_progress", role: null, meetings: [meet(["M", "W"], "10:10", "11:25", { part: "1" })] },
-  { id: 86, code: "REAL 6101", title: "Urban Economics", term_id: "by1fa", status: "in_progress", role: null, meetings: [meet(["T", "R"], "08:40", "09:55")] },
+  { id: 86, code: "REAL 6101", title: "Urban Economics", term_id: "by1fa", status: "in_progress", role: null, meetings: [meet(["T", "R"], "08:40", "09:55")],
+    no_class: [{ date: "2026-11-05", reason: "CREC conference" }, { date: "2026-11-04", reason: "not a class day" }] },
   { id: 87, code: "REAL 5561", title: "Innovation and Strategy", term_id: "by1fa", status: "in_progress", role: null, meetings: [meet(["M", "W"], "10:10", "11:25", { part: "2" })] },
   { id: 109, code: "HADM 6205", title: "RE Financial Modeling", term_id: "by1fa", status: "in_progress", role: "ta_paid", meetings: [meet(["M", "W"], "14:55", "16:10", { section: "002" })] },
   { id: 110, code: "HADM 6205", title: "RE Financial Modeling", term_id: "by1fa", status: "in_progress", role: "ta_paid", meetings: [meet(["M", "W"], "10:10", "11:25")] },

@@ -1,7 +1,7 @@
 // The TV feed must state the same facts the app shows: same class sessions, same
 // titles, kinds, assessment flags, and course colors, for the same data.
 import {test} from 'node:test';import assert from 'node:assert/strict';
-import {bootApp,appSessions,appDeadline} from './app-harness.mjs';
+import {bootApp,appSessions,appDeadline,appCourseNotices} from './app-harness.mjs';
 import {buildFeed} from '../supabase/functions/wall/feed.ts';
 import {ACAL,TERMS,ENR,asg} from '../supabase/functions/wall/fixtures.ts';
 import {addDays} from '../supabase/functions/_shared/acal.ts';
@@ -23,7 +23,7 @@ const ASG=[
 const etDate=iso=>new Date(iso).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
 const etTime=iso=>new Date(iso).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'});
 // Weeks that cover a break, both 7-week halves, and the end of instruction.
-const STARTS=['2026-10-05T16:00:00Z','2026-10-12T16:00:00Z','2026-10-26T16:00:00Z','2026-11-23T16:00:00Z','2026-11-30T16:00:00Z','2026-12-07T16:00:00Z'];
+const STARTS=['2026-10-05T16:00:00Z','2026-10-12T16:00:00Z','2026-10-26T16:00:00Z','2026-11-02T16:00:00Z','2026-11-23T16:00:00Z','2026-11-30T16:00:00Z','2026-12-07T16:00:00Z'];
 const key=s=>`${s.code}|${s.day}|${s.start}|${s.end}|${s.color}`;
 const feedSessions=f=>f.events.map(ev=>({code:ev.code,day:ev.startISO&&new Date(ev.startISO).toLocaleDateString('en-CA',{timeZone:'America/New_York'}),
  start:new Date(ev.startISO).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'}),
@@ -42,6 +42,8 @@ test('feed sessions match the app schedule (TA sessions may only be fewer)',asyn
    assert.deepEqual(b.filter(nonTA).map(key).sort(),a.filter(nonTA).map(key).sort(),`class sessions differ for the week of ${day0}`);
    const appTA=new Set(a.filter(s=>!nonTA(s)).map(key));
    for(const s of b.filter(s=>!nonTA(s)))assert.ok(appTA.has(key(s)),`feed shows a TA session the app doesn't: ${key(s)}`);
+   const notices=f.academic.filter(n=>n.course).map(n=>({day:n.startDate,title:n.title}));
+   assert.deepEqual(notices,appCourseNotices(app,TERMS[0],days),`cancelled-class notices differ for the week of ${day0}`);
   }
  }finally{app.close();}
 });

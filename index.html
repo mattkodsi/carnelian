@@ -1764,11 +1764,25 @@ function asgWhenTime(a){ if(!a) return null; if(a.target_on&&!KIND_TIMED(a.kind)
 // an exam, quiz, or presentation with no time takes its course's class period that day, and with no class
 // that day its time is TBA (null). Nothing is written back, so a real time from Canvas or the editor wins.
 const DAY_CODE=["U","M","T","W","R","F","S"];
+// A course's own cancelled classes (enrollments.no_class: [{date, reason}]), beyond the registrar's breaks.
+function courseNoClass(e,D){ const iso=`${D.getFullYear()}-${String(D.getMonth()+1).padStart(2,"0")}-${String(D.getDate()).padStart(2,"0")}`;
+  return (Array.isArray(e&&e.no_class)?e.no_class:[]).find(x=>x&&String(x.date).slice(0,10)===iso)||null; }
+// The course's earliest meeting on a day, honoring its half of term (breaks and cancellations are the caller's).
+function meetingOnDay(e,D,ac){ return meetingsOf(e).filter(m=>(m.days||[]).includes(DAY_CODE[D.getDay()])&&hm2min(m.start)!=null&&hm2min(m.end)>hm2min(m.start)&&meetingActiveOn(partOf(m),D,ac))
+    .sort((x,y)=>hm2min(x.start)-hm2min(y.start))[0]||null; }
 function asgClassSlot(a){ if(!a||a.due_time||!KIND_TIMED(a.kind)) return null;
   const e=(DB.enrollments||[]).find(x=>String(x.id)===String(a.enrollment_id)), D=pdate(asgDate(a)); if(!e||!D) return null;
-  const ac=termAcademics(termById(e.term_id)); if(isNoClassDay(D,ac)) return null;
-  return meetingsOf(e).filter(m=>(m.days||[]).includes(DAY_CODE[D.getDay()])&&hm2min(m.start)!=null&&hm2min(m.end)>hm2min(m.start)&&meetingActiveOn(partOf(m),D,ac))
-    .sort((x,y)=>hm2min(x.start)-hm2min(y.start))[0]||null; }
+  const ac=termAcademics(termById(e.term_id)); if(isNoClassDay(D,ac)||courseNoClass(e,D)) return null;
+  return meetingOnDay(e,D,ac); }
+// Notices for a course's cancelled classes on days it would otherwise meet, in the overlay's shape, e.g.
+// "No REAL 6101 class (CREC conference)". Same wording as the TV feed and the Google sync.
+function courseNoClassOverlay(es,ac){ const out=[], seen=new Set();
+  for(const e of es) for(const x of (Array.isArray(e.no_class)?e.no_class:[])){ const D=pdate(String(x&&x.date||"").slice(0,10));
+    if(!D||isNoClassDay(D,ac)||!meetingOnDay(e,D,ac)) continue;
+    const title=`No ${e.code||e.title||"course"} class${x.reason?` (${x.reason})`:""}`;
+    if(seen.has(title+D.getTime())) continue; seen.add(title+D.getTime());   // two sections of one course share a notice
+    out.push({s:D,e:D,title,noclass:true,course:true}); }
+  return out; }
 function asgDueTime(a){ if(!a) return null; if(a.due_time) return String(a.due_time).slice(0,5); if(KIND_TIMED(a.kind)){ const m=asgClassSlot(a); return m?m.start:null; } return "23:59"; }
 function asgTimeTBA(a){ return !!a&&!a.due_time&&KIND_TIMED(a.kind)&&!asgClassSlot(a); }
 // A timed item's span on the grid, in minutes: its own time and length, or its class period.
@@ -1827,7 +1841,7 @@ function openAcadDay(day){
   const t=$("#acDayTitle"); if(t) t.textContent=day.label;
   const b=$("#acDayBody"); if(!b) return;
   let html=(day.events||[]).map(o=>{ const tm=acalTime(o.time);
-    return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalFull(o.title))}${o.noclass?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
+    return `<div class="acd-item${o.noclass?' noclass':''}"><div class="acd-t">${esc(acalFull(o.title))}${o.noclass&&!o.course?' <span class="acd-no">No classes</span>':''}</div>${(o.date||tm)?`<div class="acd-meta">${esc(o.date||'')}${o.date&&tm?' · ':''}${esc(tm)}</div>`:''}</div>`;
   }).join("");
   html+=asgs.map(r=>{ const a=r.a; return `<div class="acd-item asg${asgDone(a)?' done':''}" style="border-left-color:${r.color}"><div class="acd-main" data-asgcourse="${a.enrollment_id}" data-asgfocus="${a.id}"><div class="acd-t"><span class="acd-code" style="color:${r.color}">${esc(r.code)}</span> ${esc(asgTitle(a))}</div><div class="acd-meta">${esc(fmtAsgDate(a))}</div></div><button class="asg-check${asgDone(a)?' on':''}" data-done="${a.id}" aria-label="Mark done">${asgDone(a)?ICO.check:''}</button></div>`; }).join("");
   b.innerHTML=html;
@@ -2000,6 +2014,7 @@ function renderSchedule(){
   const weekMon=SCHED_WEEK, todayD=new Date();
   const dateOf=d=>{ const i=SDAYS.indexOf(d); return new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+i); };
   const es=DB.enrollments.filter(e=>e.term_id===SCHED_TERM&&displayStatus(e)!=="wishlist");
+  ac.overlay=ac.overlay.concat(courseNoClassOverlay(es,ac));
   // assign a distinct palette color to each course in this term (no repeats until >10 courses)
   SCHED_CIDX=assignCourseColors(es);
   const cidxOf=e=>{ const k=e.code||('#'+e.id); return SCHED_CIDX[k]!=null?SCHED_CIDX[k]:courseColorIdx(e.code); };
@@ -2015,7 +2030,7 @@ function renderSchedule(){
     const ci=cidxOf(e);
     for(const m of mtgs){ const part=partOf(m);
       for(const d of m.days){ if(!SDAYS.includes(d)) continue; const D=dateOf(d);
-        if(isNoClassDay(D,ac)||!meetingActiveOn(part,D,ac)) continue;   // break day, or the meeting's half isn't in session this week
+        if(isNoClassDay(D,ac)||courseNoClass(e,D)||!meetingActiveOn(part,D,ac)) continue;   // break day, cancelled class, or the meeting's half isn't in session
         events.push({e,ci,day:d,s:hm2min(m.start),en:hm2min(m.end),m,part}); } }
   }
   // assignments/deadlines for this week: timed (exam/quiz) → grid blocks, else → all-day chips
@@ -3313,12 +3328,13 @@ function schedImageData(termId, weekMon){
   const es=DB.enrollments.filter(e=>e.term_id===termId&&displayStatus(e)!=="wishlist");
   const cidx=assignCourseColors(es);   // same pinned colors as the schedule
   const ac=weekMon?termAcademics(term):null;
+  if(ac) ac.overlay=ac.overlay.concat(courseNoClassOverlay(es,ac));
   const dateOf=weekMon?(d=>{ const i=SDAYS.indexOf(d); return new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+i); }):null;
   const events=[];
   for(const e of es){ const ms=meetingsOf(e).filter(m=>m.days&&m.days.some(d=>SDAYS.includes(d))&&hm2min(m.start)!=null&&hm2min(m.end)!=null&&hm2min(m.end)>hm2min(m.start));
     for(const m of ms){ const part=partOf(m);
       for(const dd of m.days){ if(!SDAYS.includes(dd))continue;
-        if(weekMon){ const D=dateOf(dd); if(isNoClassDay(D,ac)||!meetingActiveOn(part,D,ac)) continue; }
+        if(weekMon){ const D=dateOf(dd); if(isNoClassDay(D,ac)||courseNoClass(e,D)||!meetingActiveOn(part,D,ac)) continue; }
         events.push({e,ci:cidx[e.code||('#'+e.id)],day:dd,s:hm2min(m.start),en:hm2min(m.end),m}); } } }
   // assignments for the snapshot week (only meaningful when weekMon is set → real dates)
   const isoOf=D=>`${D.getFullYear()}-${String(D.getMonth()+1).padStart(2,"0")}-${String(D.getDate()).padStart(2,"0")}`;

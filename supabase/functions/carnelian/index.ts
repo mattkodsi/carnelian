@@ -6,7 +6,7 @@
 // refresh/access tokens live only here (env + locked carnelian tables), never
 // in the browser.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
-import { ACAL_URL, parseAcademicCalendar, acalRelevant, termAcademics, classMeetingOn } from "../_shared/acal.ts";
+import { ACAL_URL, parseAcademicCalendar, acalRelevant, termAcademics, classMeetingOn, courseNoClassOn, courseNoClassTitle } from "../_shared/acal.ts";
 import { ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, assignmentTitle } from "../_shared/courses.ts";
 
 // Connection hygiene: this is a single-user app, so keep the per-isolate pool tiny and let idle
@@ -312,6 +312,13 @@ function buildEvent(e: any, m: any, colorId: string, ta?: any) {
       if (wanted.has(d.getDay())) ex.push(`${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}T${p2(+sh)}${p2(+sm)}00`);
     }
   }
+  // The course's own cancelled classes (enrollments.no_class) come off the series too.
+  for (const x of (Array.isArray(e.no_class) ? e.no_class : [])) {
+    const d = pdate(x?.date);
+    if (!d || d < ws || d > we || !wanted.has(d.getDay())) continue;
+    const stamp = `${d.getFullYear()}${p2(d.getMonth() + 1)}${p2(d.getDate())}T${p2(+sh)}${p2(+sm)}00`;
+    if (!ex.includes(stamp)) ex.push(stamp);
+  }
   const recurrence = [rrule];
   if (ex.length) recurrence.push(`EXDATE;TZID=${TZ}:${ex.join(",")}`);
   const desc: string[] = [];
@@ -337,7 +344,7 @@ function buildEvent(e: any, m: any, colorId: string, ta?: any) {
 async function syncAll(access: string, calId: string) {
   // All non-wishlist enrollments in current/upcoming terms, ordered like the app
   // (per term, by id) so the per-course colour index matches the weekly grid.
-  const rows = await sql`select e.id, e.code, e.title, e.meetings, e.term_id, t.starts_on::text as starts_on, t.ends_on::text as ends_on
+  const rows = await sql`select e.id, e.code, e.title, e.meetings, e.term_id, e.no_class, t.starts_on::text as starts_on, t.ends_on::text as ends_on
     from carnelian.enrollments e left join carnelian.terms t on t.id = e.term_id
     where coalesce(e.status, '') <> 'wishlist'
       and (t.ends_on is null or t.ends_on >= current_date)
@@ -365,6 +372,23 @@ async function syncAll(access: string, calId: string) {
       if (!built) { skipped++; return; }
       desired.set(`${e.id}::${i}`, { enrId: e.id, mkey: String(i), body: built.body, sig: built.sig });
     });
+  }
+  // An all-day notice where a cancelled class would have met, e.g. "No REAL 6101 class (CREC conference)".
+  const acByTerm = new Map<string, any>(), noticed = new Set<string>();
+  for (const e of rows as any[]) {
+    if (!e.starts_on || !e.ends_on) continue;
+    if (!acByTerm.has(e.term_id)) acByTerm.set(e.term_id, termAcademics(acEvents, e.starts_on.slice(0, 10), e.ends_on.slice(0, 10)));
+    for (const x of (Array.isArray(e.no_class) ? e.no_class : [])) {
+      const day = String(x?.date || "").slice(0, 10), d = pdate(day);
+      if (!d || !classMeetingOn(e.meetings, day, acByTerm.get(e.term_id))) continue;
+      const summary = courseNoClassTitle(e, x);
+      if (noticed.has(summary + day)) continue;   // two sections of one course share a notice
+      noticed.add(summary + day);
+      const colorId = colorIds.get(e.id) || "8";
+      const body = { summary, description: "Synced from Carnelian", colorId, transparency: "transparent",
+        start: { date: day }, end: { date: dfmt(new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1)) } };
+      desired.set(`${e.id}::x${day}`, { enrId: e.id, mkey: `x${day}`, body, sig: JSON.stringify([summary, "noclass", day, colorId]) });
+    }
   }
   const existing = await sql`select enrollment_id, mkey, event_id, sig from carnelian.gcal_events`;
   const exMap = new Map((existing as any[]).map((r) => [`${r.enrollment_id}::${r.mkey}`, r]));
@@ -521,7 +545,7 @@ async function syncDeadlines(access: string, calId: string) {
   const rows = await sql`select a.id, a.enrollment_id, a.name, a.override_title, a.series, a.number, a.descriptor, a.kind,
       a.due_on::text as due_on, a.due_time::text as due_time,
       a.duration_min, a.target_on::text as target_on, a.target_time::text as target_time,
-      e.code as code, e.title as title_course, e.meetings, e.term_id,
+      e.code as code, e.title as title_course, e.meetings, e.term_id, e.no_class,
       t.starts_on::text as starts_on, t.ends_on::text as ends_on
     from carnelian.assignments a
     join carnelian.enrollments e on e.id = a.enrollment_id
@@ -539,7 +563,8 @@ async function syncDeadlines(access: string, calId: string) {
     let slot = null;
     if (needsSlot(a)) {
       if (!acByTerm.has(a.term_id)) acByTerm.set(a.term_id, termAcademics(acEvents, a.starts_on.slice(0, 10), a.ends_on.slice(0, 10)));
-      slot = classMeetingOn(a.meetings, a.due_on.slice(0, 10), acByTerm.get(a.term_id));
+      const day = a.due_on.slice(0, 10);
+      slot = courseNoClassOn(a, day) ? null : classMeetingOn(a.meetings, day, acByTerm.get(a.term_id));
     }
     const built = buildDeadlineEvent(a, colorId, slot);
     if (built) desired.set(String(a.id), built);

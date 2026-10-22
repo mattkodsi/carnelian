@@ -92,6 +92,20 @@ test("a break day has no sessions and one no-class notice", () => {
   assert.equal(f.events.some((e: any) => e.code === "REAL 6101" && e.startISO.startsWith("2026-11-24")), true);
 });
 
+test("a course's own cancelled class is left out, with a notice that day", () => {
+  const f = feed("2026-11-02T16:00:00Z");           // Mon Nov 2 to Mon Nov 9
+  assert.equal(f.events.some((e: any) => e.code === "REAL 6101" && e.startISO.startsWith("2026-11-05")), false);
+  assert.equal(f.events.some((e: any) => e.code === "REAL 6101" && e.startISO.startsWith("2026-11-03")), true);
+  const n = f.academic.filter((a: any) => a.course === "REAL 6101");
+  assert.deepEqual(n, [{ title: "No REAL 6101 class (CREC conference)", startDate: "2026-11-05", endDate: "2026-11-05", noClass: true, course: "REAL 6101" }]);
+});
+
+test("an untimed exam on a cancelled class day is Time TBA", () => {
+  const [d] = feed("2026-11-02T16:00:00Z", [asg({ kind: "quiz", due_on: "2026-11-05" })]).deadlines;
+  assert.equal(d.timeTBA, true);
+  assert.equal(d.timeFromClass, false);
+});
+
 test("other cohorts' notices are left out", () => {
   const f = feed("2026-11-16T16:00:00Z");
   assert.equal(f.academic.some((a: any) => /Sophomores/.test(a.title)), false);

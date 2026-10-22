@@ -114,6 +114,18 @@ export function noClassOn(day: string, ac: TermAcademics) {
   return ac.noClass.find((iv) => day >= iv.start && day <= iv.end) || null;
 }
 
+// A course's own cancelled classes (enrollments.no_class: [{date, reason}]), on top of
+// the registrar's breaks: a guest week, a conference, a cancelled first session.
+export type CourseNoClass = { date: string; reason?: string | null };
+export function courseNoClassOn(e: { no_class?: unknown } | null | undefined, day: string): CourseNoClass | null {
+  const list = Array.isArray(e?.no_class) ? (e!.no_class as CourseNoClass[]) : [];
+  return list.find((x) => x && String(x.date).slice(0, 10) === day) || null;
+}
+// The notice shown where the class would have been, e.g. "No REAL 6101 class (CREC conference)".
+export function courseNoClassTitle(e: { code?: string | null; title?: string | null }, x: CourseNoClass) {
+  return `No ${e.code || e.title || "course"} class` + (x.reason ? ` (${x.reason})` : "");
+}
+
 export const partOfMeeting = (m: any) => (m && (m.part === "1" || m.part === "2")) ? m.part : "full";
 const DOW_CODE: Record<string, number> = { U: 0, M: 1, T: 2, W: 3, R: 4, F: 5, S: 6 };
 const hmMin = (t: string) => { const m = /^(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? +m[1] * 60 + +m[2] : -1; };

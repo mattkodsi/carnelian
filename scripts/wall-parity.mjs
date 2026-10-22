@@ -8,7 +8,7 @@
 //
 //   select json_build_object(
 //     'terms', (select json_agg(t) from (select id, starts_on::text, ends_on::text from carnelian.terms) t),
-//     'enrollments', (select json_agg(e) from (select id, code, title, meetings, term_id, status, role from carnelian.enrollments) e),
+//     'enrollments', (select json_agg(e) from (select id, code, title, meetings, term_id, status, role, no_class from carnelian.enrollments) e),
 //     'assignments', (select json_agg(a) from (select id, name, override_title, series, number, descriptor, kind,
 //        due_on::text, due_time::text, duration_min::float8, target_on::text, target_time::text, status, source,
 //        canvas_url, enrollment_id from carnelian.assignments where done = false and canvas_removed_at is null
@@ -20,7 +20,7 @@
 // TBA), and
 // exits 1 when there is any.
 import {readFileSync} from 'node:fs';
-import {bootApp,appSessions,appDeadline} from '../tests/app-harness.mjs';
+import {bootApp,appSessions,appDeadline,appCourseNotices} from '../tests/app-harness.mjs';
 import {buildFeed} from '../supabase/functions/wall/feed.ts';
 import {addDays} from '../supabase/functions/_shared/acal.ts';
 
@@ -50,6 +50,11 @@ try{
   const A=new Set(as.map(key)),F=new Set(fs.map(key));
   for(const s of as)if(!F.has(key(s))&&s.role==='course')diffs.push(`session in the app only: ${key(s)}`);
   for(const s of fs)if(!A.has(key(s)))diffs.push(`session in the feed only: ${key(s)}`);
+  // Notices for a course's own cancelled classes.
+  const nk=n=>`${n.day} ${n.title}`, fn=new Set(f.academic.filter(n=>n.course&&days.includes(n.startDate)).map(n=>nk({day:n.startDate,title:n.title})));
+  const an=new Set(terms.flatMap(t=>appCourseNotices(app,t,days)).map(nk));
+  for(const k of an)if(!fn.has(k))diffs.push(`cancelled-class notice in the app only: ${k}`);
+  for(const k of fn)if(!an.has(k))diffs.push(`cancelled-class notice in the feed only: ${k}`);
  }
  // Deadlines.
  const f=buildFeed({now,assignments:snap.assignments,enrollments:snap.enrollments,terms:snap.terms,academic:{events:acal,ok:true,fetchedAt:null}});
