@@ -55,6 +55,9 @@ try{
  const f=buildFeed({now,assignments:snap.assignments,enrollments:snap.enrollments,terms:snap.terms,academic:{events:acal,ok:true,fetchedAt:null}});
  for(const a of snap.assignments){
   const d=f.deadlines.find(x=>x.id===a.id),want=appDeadline(app,a);
+  // A TA course's assessments are left off the TV on purpose.
+  const role=(snap.enrollments.find(e=>e.id===a.enrollment_id)||{}).role;
+  if(['exam','quiz','presentation'].includes(a.kind)&&/^ta_/.test(role||'')){if(d)diffs.push(`TA assessment ${a.id} is in the feed`);continue;}
   if(!d){diffs.push(`deadline ${a.id} missing from the feed`);continue;}
   const got={title:d.title,kindLabel:d.kindLabel,assessment:d.assessment,color:d.color,dueDate:d.dueDate,
    placedOn:!d.assessment&&d.workByISO?etDay(d.workByISO):d.dueDate,time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA};

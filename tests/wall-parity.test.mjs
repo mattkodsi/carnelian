@@ -18,6 +18,7 @@ const ASG=[
  asg({id:9,name:'Untimed memo',kind:'assignment',due_on:'2026-10-30',enrollment_id:87}),
  asg({id:10,name:'Exam with a study target',kind:'exam',due_on:'2026-11-12',due_time:'08:40',target_on:'2026-11-09',enrollment_id:86}),
  asg({id:11,name:'Memo with a work-by day',kind:'assignment',due_on:'2026-11-12',target_on:'2026-11-10',target_time:'17:00',enrollment_id:86}),
+ asg({id:12,name:'HW 5',kind:'homework',due_on:'2026-10-25',due_time:'23:30',enrollment_id:109}),
 ];
 const etDate=iso=>new Date(iso).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
 const etTime=iso=>new Date(iso).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'});
@@ -51,6 +52,8 @@ test('feed deadlines match the app: title, kind, assessment flag, color, date, t
   const f=buildFeed({now:new Date('2026-10-22T16:00:00Z'),assignments:ASG,enrollments:ENR,terms:TERMS,academic:{events:ACAL,ok:true,fetchedAt:null}});
   for(const a of ASG){
    const d=f.deadlines.find(x=>x.id===a.id),want=appDeadline(app,a);
+   // A TA course's assessments are left off the TV on purpose; its other deadlines stay.
+   if(['exam','quiz','presentation'].includes(a.kind)&&ENR.find(e=>e.id===a.enrollment_id).role?.startsWith('ta_')){assert.equal(d,undefined,`item ${a.id}`);continue;}
    assert.deepEqual({title:d.title,kindLabel:d.kindLabel,assessment:d.assessment,color:d.color,dueDate:d.dueDate,
     placedOn:!d.assessment&&d.workByISO?etDate(d.workByISO):d.dueDate,time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA},want,`item ${a.id}`);
   }

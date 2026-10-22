@@ -55,6 +55,18 @@ test("an item submitted or checked off in Canvas, or checked off by Matt, is lef
   assert.deepEqual(f.deadlines.map((d: any) => d.id), [1]);
 });
 
+test("a TA course's exams stay off the TV, but its other deadlines show", () => {
+  const f = feed(NOON_OCT22, [
+    asg({ id: 1, kind: "exam", due_on: "2026-10-28", due_time: "10:10:00", duration_min: 75, enrollment_id: 110 }),
+    asg({ id: 2, kind: "quiz", due_on: "2026-10-28", enrollment_id: 109 }),
+    asg({ id: 3, kind: "homework", due_on: "2026-10-25", due_time: "23:30:00", enrollment_id: 109 }),
+    asg({ id: 4, kind: "exam", due_on: "2026-10-29", due_time: "08:40:00", enrollment_id: 86 }),
+  ]);
+  assert.deepEqual(f.deadlines.map((d: any) => d.id).sort(), [3, 4]);
+  assert.deepEqual(f.exams.map((d: any) => d.id), [4]);
+  assert.equal(f.deadlines.find((d: any) => d.id === 3).role, "ta_paid");
+});
+
 test("a work-by target sets workByISO without moving the due time", () => {
   const [d] = feed(NOON_OCT22, [asg({ due_on: "2026-11-10", due_time: "08:00:00", target_on: "2026-11-12", target_time: "13:20:00" })]).deadlines;
   assert.equal(d.dueISO, "2026-11-10T13:00:00.000Z");

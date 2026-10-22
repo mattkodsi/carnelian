@@ -118,7 +118,9 @@ export function buildFeed(input: FeedInput) {
       workByISO: target ? at(target, a.target_time ? String(a.target_time) : "23:59") : null,
       source: a.source || null, canvasUrl: a.canvas_url || null,
     };
-  }).sort((x: any, y: any) => (x.dueISO < y.dueISO ? -1 : x.dueISO > y.dueISO ? 1 : x.title.localeCompare(y.title)));
+  // Matt's call (2026-10-22): a TA course's exams, quizzes, and presentations are the
+  // students', so they stay off the TV. Its other deadlines still show.
+  }).filter((d: any) => !(d.assessment && isTA(d.role))).sort((x: any, y: any) => (x.dueISO < y.dueISO ? -1 : x.dueISO > y.dueISO ? 1 : x.title.localeCompare(y.title)));
   const exams = deadlines.filter((d: any) => d.kind === "exam");
 
   let events: any[] = [];
