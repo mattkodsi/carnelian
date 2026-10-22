@@ -40,11 +40,12 @@ export function appSessions({get},term,days){
 }
 
 // What the app shows for one assignment: title, kind label, whether it is a timed
-// assessment, the course color, its due date and time, and whether the time is TBA.
+// assessment, the course color, its due date and time, whether the time is TBA, and the day
+// the schedule places it on (the work-by day, except for assessments).
 export function appDeadline({get},a){
  const DB=get('DB'),SC=get('SCHED_COLORS');
  const e=DB.enrollments.find(x=>x.id===a.enrollment_id);
  const idx=e?get('agColorMap')(e.term_id):{};
  return {title:get('asgTitle')(a),kindLabel:get('KIND_LABEL')(a.kind),assessment:get('KIND_TIMED')(a.kind),
-  color:e?SC[idx[e.code||('#'+e.id)]]:null,dueDate:String(a.due_on).slice(0,10),time:get('asgDueTime')(a),tba:get('asgTimeTBA')(a)};
+  color:e?SC[idx[e.code||('#'+e.id)]]:null,dueDate:String(a.due_on).slice(0,10),placedOn:get('asgWhenDate')(a),time:get('asgDueTime')(a),tba:get('asgTimeTBA')(a)};
 }

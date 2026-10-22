@@ -16,7 +16,10 @@ const ASG=[
  asg({id:7,name:'Exam with no class that day',kind:'exam',due_on:'2026-10-26',enrollment_id:86}),
  asg({id:8,name:'Pitch after the second half ends',kind:'presentation',due_on:'2026-12-07',enrollment_id:87}),
  asg({id:9,name:'Untimed memo',kind:'assignment',due_on:'2026-10-30',enrollment_id:87}),
+ asg({id:10,name:'Exam with a study target',kind:'exam',due_on:'2026-11-12',due_time:'08:40',target_on:'2026-11-09',enrollment_id:86}),
+ asg({id:11,name:'Memo with a work-by day',kind:'assignment',due_on:'2026-11-12',target_on:'2026-11-10',target_time:'17:00',enrollment_id:86}),
 ];
+const etDate=iso=>new Date(iso).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
 const etTime=iso=>new Date(iso).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit'});
 // Weeks that cover a break, both 7-week halves, and the end of instruction.
 const STARTS=['2026-10-05T16:00:00Z','2026-10-12T16:00:00Z','2026-10-26T16:00:00Z','2026-11-23T16:00:00Z','2026-11-30T16:00:00Z','2026-12-07T16:00:00Z'];
@@ -49,7 +52,7 @@ test('feed deadlines match the app: title, kind, assessment flag, color, date, t
   for(const a of ASG){
    const d=f.deadlines.find(x=>x.id===a.id),want=appDeadline(app,a);
    assert.deepEqual({title:d.title,kindLabel:d.kindLabel,assessment:d.assessment,color:d.color,dueDate:d.dueDate,
-    time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA},want,`item ${a.id}`);
+    placedOn:!d.assessment&&d.workByISO?etDate(d.workByISO):d.dueDate,time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA},want,`item ${a.id}`);
   }
  }finally{app.close();}
 });

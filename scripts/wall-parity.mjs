@@ -16,7 +16,8 @@
 //     'academic', (select events from carnelian.academic_cache where id = 1));
 //
 // It prints every difference in class sessions (code, day, time, color) and in
-// deadlines (title, kind, assessment flag, course color, date, time, TBA), and
+// deadlines (title, kind, assessment flag, course color, date, placement, time,
+// TBA), and
 // exits 1 when there is any.
 import {readFileSync} from 'node:fs';
 import {bootApp,appSessions,appDeadline} from '../tests/app-harness.mjs';
@@ -55,7 +56,8 @@ try{
  for(const a of snap.assignments){
   const d=f.deadlines.find(x=>x.id===a.id),want=appDeadline(app,a);
   if(!d){diffs.push(`deadline ${a.id} missing from the feed`);continue;}
-  const got={title:d.title,kindLabel:d.kindLabel,assessment:d.assessment,color:d.color,dueDate:d.dueDate,time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA};
+  const got={title:d.title,kindLabel:d.kindLabel,assessment:d.assessment,color:d.color,dueDate:d.dueDate,
+   placedOn:!d.assessment&&d.workByISO?etDay(d.workByISO):d.dueDate,time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA};
   for(const k of Object.keys(want))if(JSON.stringify(got[k])!==JSON.stringify(want[k]))
    diffs.push(`deadline ${a.id} "${want.title}": ${k} app=${JSON.stringify(want[k])} feed=${JSON.stringify(got[k])}`);
  }

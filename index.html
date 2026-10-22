@@ -1757,8 +1757,9 @@ function courseColor(en){ if(!en) return SCHED_COLORS[0]; const k=en.code||('#'+
 function asgDate(a){ return String(a&&a.due_on||"").slice(0,10); }
 // Where the schedule PLACES a deadline: the work-by target if one is set, else the real deadline.
 // (The real deadline always lives in the editor; the strip shows what you want to act against.)
-function asgWhenDate(a){ return String((a&&(a.target_on||a.due_on))||"").slice(0,10); }
-function asgWhenTime(a){ if(!a) return null; if(a.target_on) return a.target_time?String(a.target_time).slice(0,5):"23:59"; return asgDueTime(a); }
+// An exam, quiz, or presentation happens when it happens, so it always sits on its own date and time.
+function asgWhenDate(a){ if(a&&KIND_TIMED(a.kind)) return asgDate(a); return String((a&&(a.target_on||a.due_on))||"").slice(0,10); }
+function asgWhenTime(a){ if(!a) return null; if(a.target_on&&!KIND_TIMED(a.kind)) return a.target_time?String(a.target_time).slice(0,5):"23:59"; return asgDueTime(a); }
 // Timing rules shared with the TV feed and the Google sync: a deadline with no time is due at 11:59 PM;
 // an exam, quiz, or presentation with no time takes its course's class period that day, and with no class
 // that day its time is TBA (null). Nothing is written back, so a real time from Canvas or the editor wins.
@@ -1788,7 +1789,7 @@ function asgWeek(mon){ const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1)
     const en=byId[String(a.enrollment_id)]; if(!en) continue;
     const base={a, eid:a.enrollment_id, code:en.code, en, color:courseColor(en)};
     if(KIND_TIMED(a.kind) && asgDueTime(a)){ const d=asgDate(a); if(d&&d>=s&&d<=e) blocks.push({...base, iso:d}); }
-    else { const d=asgWhenDate(a); if(d&&d>=s&&d<=e) chips.push({...base, iso:d, time:asgWhenTime(a), tba:!a.target_on&&asgTimeTBA(a)}); } }
+    else { const d=asgWhenDate(a); if(d&&d>=s&&d<=e) chips.push({...base, iso:d, time:asgWhenTime(a), tba:asgTimeTBA(a)}); } }
   return {chips, blocks}; }
 // Relevance filter for the schedule overlay: hide enrollment/add-drop notices aimed at cohorts that
 // aren't the user (he's Baker = Graduate/Professional, plus senior-year). Everything universal (breaks,
@@ -2283,7 +2284,7 @@ function renderAssignments(){
   // In-scope items with a placement date; done-in-the-past drops off (done is done).
   const items=(DB.assignments||[]).filter(a=>eids.has(String(a.enrollment_id))).map(a=>{
     const en=enById[String(a.enrollment_id)]; const on=asgWhenDate(a);
-    return {a,en,on,tm:asgWhenTime(a),tba:!a.target_on&&asgTimeTBA(a),over:!!(on&&on<t&&!a.done),pending:a.status==='pending'}; })
+    return {a,en,on,tm:asgWhenTime(a),tba:asgTimeTBA(a),over:!!(on&&on<t&&!a.done),pending:a.status==='pending'}; })
     .filter(it=>it.en && it.on && (it.on>=t || it.over));
   const overdue=items.filter(it=>it.over).sort((x,y)=> x.on.localeCompare(y.on) || cidxOf(x.en)-cidxOf(y.en));
   const upcoming=items.filter(it=>!it.over);
@@ -3298,7 +3299,7 @@ function wrapLines(x,text,maxW){
 function schedImageData(termId, weekMon){
   const term=termById(termId);
   const es=DB.enrollments.filter(e=>e.term_id===termId&&displayStatus(e)!=="wishlist");
-  const cidx={}; let ci=0; es.forEach(e=>{ const k=e.code||('#'+e.id); if(cidx[k]==null)cidx[k]=(ci++)%SCHED_COLORS.length; });
+  const cidx=assignCourseColors(es);   // same pinned colors as the schedule
   const ac=weekMon?termAcademics(term):null;
   const dateOf=weekMon?(d=>{ const i=SDAYS.indexOf(d); return new Date(weekMon.getFullYear(),weekMon.getMonth(),weekMon.getDate()+i); }):null;
   const events=[];
