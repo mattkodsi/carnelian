@@ -563,6 +563,10 @@
   .asg-preview{font-size:12.5px;font-weight:600;color:var(--ink-3);padding:8px 11px;background:var(--surface-2);border-radius:9px}
   .asg-preview b{color:var(--ink);font-weight:800}
   .asg-toggle{display:flex;align-items:center;gap:8px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+  .asg-xt{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .asg-xt-f{display:flex;align-items:center;gap:4px;font-size:12.5px;font-weight:700;color:var(--ink-2)}
+  .asg-xt-f input{font:inherit;font-size:13px;width:64px;padding:5px 8px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--ink)}
+  .asg-xt-note{font-size:11.5px;font-weight:600;color:var(--ink-3)}
   .asg-atclass{align-self:flex-start;font:inherit;font-size:11.5px;font-weight:800;color:var(--ink-2);background:var(--surface-2);border:1px solid var(--line-strong);border-radius:8px;padding:6px 11px;cursor:pointer}
   .asg-atclass:hover{border-color:var(--accent-line);color:var(--accent)}
   .asg-form .hide{display:none}
@@ -1785,9 +1789,18 @@ function courseNoClassOverlay(es,ac){ const out=[], seen=new Set();
   return out; }
 function asgDueTime(a){ if(!a) return null; if(a.due_time) return String(a.due_time).slice(0,5); if(KIND_TIMED(a.kind)){ const m=asgClassSlot(a); return m?m.start:null; } return "23:59"; }
 function asgTimeTBA(a){ return !!a&&!a.due_time&&KIND_TIMED(a.kind)&&!asgClassSlot(a); }
-// A timed item's span on the grid, in minutes: its own time and length, or its class period.
-function asgBlockSpan(a){ const m=asgClassSlot(a), s=hm2min(a.due_time?String(a.due_time).slice(0,5):(m?m.start:"")); if(s==null) return null;
-  const dur=num(a.duration_min); return {s, en:s+(dur>0?Math.max(dur,20):(m?hm2min(m.end)-s:30))}; }
+// Matt's extra time (settings.extra_time, e.g. 1.5) stretches the standard length of his exams and quizzes: same
+// rule as the TV feed and the Google sync. A TA course's exams are the students', and an item whose time is already
+// his own slot opts out (extra_time === false).
+function extraTimeSetting(){ const f=Number(DB.settings&&DB.settings.extra_time); return f>1&&f<=4?f:1; }
+function extraTimeFits(kind,eid){ const e=(DB.enrollments||[]).find(x=>String(x.id)===String(eid));
+  return (kind==='exam'||kind==='quiz')&&!(e&&['ta_paid','ta_credit'].includes(roleOf(e))); }
+function extraTimeFactor(a){ return a&&a.extra_time!==false&&extraTimeFits(a.kind,a.enrollment_id)?extraTimeSetting():1; }
+// A timed item's start and length in minutes: its own time and length, or its class period, plus any extra time.
+function asgTiming(a){ const m=asgClassSlot(a), s=hm2min(a.due_time?String(a.due_time).slice(0,5):(m?m.start:"")); if(s==null) return null;
+  const dur=num(a.duration_min); return {s, len:(dur>0?dur:(m?hm2min(m.end)-s:30))*extraTimeFactor(a), set:dur>0}; }
+// Its span on the grid, where a set length draws at least 20 minutes tall.
+function asgBlockSpan(a){ const t=asgTiming(a); return t&&{s:t.s, en:t.s+(t.set?Math.max(t.len,20):t.len)}; }
 function asgTitle(a){ return (a&&a.name)? a.name : composeAssignment(a||{}); }
 function asgFor(eid){ return (DB.assignments||[]).filter(a=>String(a.enrollment_id)===String(eid))
   .sort((x,y)=> (asgDate(x)||"~").localeCompare(asgDate(y)||"~") || (asgDueTime(x)||"~").localeCompare(asgDueTime(y)||"~")); }
@@ -1947,7 +1960,10 @@ function openAsgEditor(eid, a){ const cur=a||{kind:'homework'};
       <label class="asg-f"><span>Due</span><input id="af_date" type="date" value="${asgDate(cur)}"></label>
       <label class="asg-f"><span>Time <small>optional</small></span><input id="af_time" type="time" value="${String(cur.due_time||'').slice(0,5)}"></label>
     </div>
-    <label class="asg-f asg-dur${KIND_TIMED(cur.kind||'homework')?'':' hide'}" id="af_durwrap"><span>Duration <small>min</small></span><input id="af_dur" type="number" min="0" step="any" inputmode="decimal" value="${cur.duration_min??''}"></label>
+    <label class="asg-f asg-dur${KIND_TIMED(cur.kind||'homework')?'':' hide'}" id="af_durwrap"><span><span id="af_durlbl">Duration</span> <small>min</small></span><input id="af_dur" type="number" min="0" step="any" inputmode="decimal" value="${cur.duration_min??''}"></label>
+    <div class="asg-xt hide" id="af_xt_wrap"><label class="asg-toggle"><input type="checkbox" id="af_xt"${cur.extra_time===false?'':' checked'}> Extra time</label>
+      <label class="asg-xt-f">×<input id="af_xt_f" type="number" min="1" max="4" step="0.05" inputmode="decimal" value="${extraTimeSetting()>1?extraTimeSetting():''}" aria-label="Extra-time factor for all your exams and quizzes"></label>
+      <span class="asg-xt-note" id="af_xt_note"></span></div>
     <button type="button" class="asg-atclass" id="af_atclass">Due at class time</button>
     <label class="asg-toggle"><input type="checkbox" id="af_workby_on"${wbOn?' checked':''}> Work by an earlier target</label>
     <div class="asg-f2${wbOn?'':' hide'}" id="af_workby_wrap">
@@ -1960,10 +1976,20 @@ function openAsgEditor(eid, a){ const cur=a||{kind:'homework'};
       <button type="submit" class="btn primary" id="af_save">Save</button>
     </div></form>`;
   const upd=()=>{ const f=readAsgForm(); $("#af_preview").textContent=composeAssignment(f)||"—"; };
+  // Extra time: the Duration box holds the standard length, and the note shows Matt's own.
+  const updXt=()=>{ const fits=extraTimeFits($("#af_kind").value,eid), on=fits&&$("#af_xt").checked&&extraTimeSetting()>1, f=extraTimeSetting(), d=parseFloat($("#af_dur").value);
+    $("#af_xt_wrap").classList.toggle("hide",!fits); $("#af_durlbl").textContent=on?"Standard length":"Duration";
+    $("#af_xt_note").textContent=on?(d>0?`${+(d*f).toFixed(1)} min for you`:`${f}× the standard length`):""; };
   const onKind=()=>{ const timed=KIND_TIMED($("#af_kind").value); $("#af_durwrap").classList.toggle("hide",!timed);
-    if(timed && $("#af_dur").value==="") $("#af_dur").value=($("#af_kind").value==='exam'?75:30); upd(); };
+    if(timed && $("#af_dur").value==="") $("#af_dur").value=($("#af_kind").value==='exam'?75:30); upd(); updXt(); };
   ["af_kind","af_series","af_number","af_descriptor","af_override","af_override_on"].forEach(id=>{ const el=$("#"+id); if(el){ el.addEventListener("input",upd); el.addEventListener("change",upd); } });
   $("#af_kind").addEventListener("change",onKind);
+  ["af_dur","af_xt"].forEach(id=>{ $("#"+id).addEventListener("input",updXt); $("#"+id).addEventListener("change",updXt); });
+  // The factor is one setting for all of Matt's exams and quizzes.
+  $("#af_xt_f").addEventListener("change",async()=>{ const v=parseFloat($("#af_xt_f").value), f=(v>1&&v<=4)?Math.round(v*100)/100:null;
+    try{ await api("update_settings",{settings:{extra_time:f}}); DB.settings={...(DB.settings||{}),extra_time:f}; $("#af_xt_f").value=f??""; updXt();
+      toast(f?`Extra time ×${f} on all your exams and quizzes`:"Extra time off"); if(CUR==="schedule") renderSchedule(); gcalAutoSync(); }
+    catch(e){ toast(e.message||"Error"); } });
   $("#af_override_on").addEventListener("change",()=>$("#af_override_wrap").classList.toggle("hide",!$("#af_override_on").checked));
   $("#af_workby_on").addEventListener("change",()=>$("#af_workby_wrap").classList.toggle("hide",!$("#af_workby_on").checked));
   // "Due at class time": fill the time from the course's meeting on the chosen due date.
@@ -1978,17 +2004,18 @@ function openAsgEditor(eid, a){ const cur=a||{kind:'homework'};
   const keep=$("#af_canvas_keep"); if(keep)keep.onclick=async()=>{ try{ const n=await canvasKeep(cur); openAsgEditor(eid,n); renderAsgList(eid); if(CUR==='academic')renderAssignments(); gcalAutoSync(); }catch(e){ toast(e.message||"Error"); } };
   if(a){ $("#af_delete").onclick=()=>{ deleteAsg(a.id).then(()=>{ closeModal($("#asgEditModal")); renderAsgList(eid); if(CUR==='planner')renderPlanner(); }).catch(e=>toast(e.message||"Error")); }; }
   $("#asgForm").onsubmit=ev=>{ ev.preventDefault(); submitAsg(eid,a); };
-  upd(); openModal($("#asgEditModal"));
+  upd(); updXt(); openModal($("#asgEditModal"));
 }
 function readAsgForm(){ const kind=$("#af_kind").value; const ovOn=$("#af_override_on").checked; const wbEl=$("#af_workby_on"); const wbOn=!!(wbEl&&wbEl.checked); const td=wbOn?($("#af_target_date").value||""):"";
   return { kind, series:($("#af_series").value||"").trim(), number:($("#af_number").value||"")===""?null:parseInt($("#af_number").value,10),
     descriptor:($("#af_descriptor").value||"").trim(), override_title:ovOn?($("#af_override").value||"").trim():"",
     due_on:$("#af_date").value||null, due_time:$("#af_time").value||null,
     duration_min:(KIND_TIMED(kind)&&$("#af_dur").value!==""&&isFinite(parseFloat($("#af_dur").value)))?parseFloat($("#af_dur").value):null,
+    extra_time:(!$("#af_xt_wrap").classList.contains("hide")&&!$("#af_xt").checked)?false:null,
     target_on:td||null, target_time:(td && $("#af_target_time").value)?$("#af_target_time").value:null }; }
 async function submitAsg(eid, a){ const f=readAsgForm(); if(!f.due_on){ toast("Pick a date"); return; }
   const row={ enrollment_id:a?a.enrollment_id:eid, kind:f.kind, series:f.series||null, number:f.number, descriptor:f.descriptor||null,
-    override_title:f.override_title||null, name:composeAssignment(f), due_on:f.due_on, due_time:f.due_time, duration_min:f.duration_min,
+    override_title:f.override_title||null, name:composeAssignment(f), due_on:f.due_on, due_time:f.due_time, duration_min:f.duration_min, extra_time:f.extra_time,
     target_on:f.target_on, target_time:f.target_time };
   if(a){ row.id=a.id; } else { row.status='active'; row.source='manual'; }
   try{ await saveAsg(row); closeModal($("#asgEditModal")); renderAsgList(eid); if(CUR==='planner')renderPlanner(); }catch(e){ toast(e.message||"Error"); } }

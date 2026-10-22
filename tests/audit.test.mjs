@@ -29,6 +29,23 @@ test("a course's cancelled class comes off its Google series and gets an all-day
  const notices=posted.filter(b=>b.start.date);
  assert.deepEqual(notices.map(b=>[b.summary,b.start.date,b.end.date,b.transparency]),[['No REAL 6101 class (CREC conference)','2026-11-05','2026-11-06','transparent']]);
 });
+test('Google deadlines give Matt his extra time on exams and quizzes, but not on a TA course or his own slot',async()=>{
+ const rows=[
+  {id:1,enrollment_id:86,name:'Quiz 3',kind:'quiz',due_on:'2026-10-27',due_time:'09:25:00',duration_min:30,extra_time:null,code:'REAL 6101',role:null},
+  {id:2,enrollment_id:110,name:'Practical 2',kind:'exam',due_on:'2026-10-28',due_time:'10:10:00',duration_min:75,extra_time:null,code:'HADM 6205',role:'ta_paid'},
+  {id:3,enrollment_id:86,name:'Midterm Exam',kind:'exam',due_on:'2026-10-08',due_time:'08:00:00',duration_min:115,extra_time:false,code:'REAL 6101',role:null},
+  {id:5,enrollment_id:86,name:'Final Exam',kind:'exam',due_on:'2026-12-17',due_time:'09:00:00',duration_min:75,extra_time:null,code:'REAL 6101',role:null},
+  {id:4,enrollment_id:86,name:'Poster Session',kind:'presentation',due_on:'2026-12-03',due_time:'08:40:00',duration_min:65,extra_time:null,code:'REAL 6101',role:null}];
+ const sql=async(strings)=>{const q=strings.join('?');return q.includes('from carnelian.assignments a')?rows:q.includes('carnelian.app_config')?[{settings:{extra_time:1.5}}]:[];};
+ const posted=[];const c=backend('carnelian',sql,{fetch:async(url,o)=>{if(o&&o.method==='POST')posted.push(JSON.parse(o.body));return new Response(JSON.stringify({id:'ev'+posted.length}),{status:200});}});
+ await c.syncDeadlines('x','cal');
+ assert.deepEqual(posted.map(b=>[b.summary,b.start.dateTime,b.end.dateTime]),[
+  ['Quiz 3 (REAL 6101)','2026-10-27T09:25:00','2026-10-27T10:10:00'],
+  ['Practical 2 (HADM 6205)','2026-10-28T10:10:00','2026-10-28T11:25:00'],
+  ['Midterm Exam (REAL 6101)','2026-10-08T08:00:00','2026-10-08T09:55:00'],
+  ['Final Exam (REAL 6101)','2026-12-17T09:00:00','2026-12-17T10:52:00'],
+  ['Poster Session (REAL 6101)','2026-12-03T08:40:00','2026-12-03T09:45:00']]);
+});
 test('Google absent PATCH and DELETE remain recoverable',async()=>{for(const status of [404,410]){const c=backend('carnelian',()=>[],{fetch:async()=>new Response('{}',{status})});assert.equal((await c.gapi('x','PATCH','/events/a')).status,status);assert.equal((await c.gapi('x','DELETE','/events/a')).status,status);}});
 const settle=()=>new Promise(r=>setImmediate(r));
 test('edits arriving during sync coalesce into one subsequent sync',async()=>{let calls=0,release;const c=run(slice('let GSYNC=false;','/* ---- Canvas deadline sync'),{GCAL:{connected:true},api:()=>{calls++;return new Promise(r=>release=r)},gcalRefresh:()=>{},CUR:'',toast:()=>{}});c.gcalAutoSync();c.gcalAutoSync();c.gcalAutoSync();await settle();assert.equal(calls,1);release({ok:true});await settle();assert.equal(calls,2);release({ok:true});await settle();assert.equal(calls,2);});

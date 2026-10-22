@@ -2,7 +2,7 @@
 // registrar calendar and calls buildFeed; tests call it with fixtures. Contract 1
 // fields keep their meaning; everything else is additive.
 import { termAcademics, meetingActiveOn, noClassOn, classMeetingOn, partOfMeeting, acalRange, acalRelevant, acalNoClass, addDays, courseNoClassOn, courseNoClassTitle } from "../_shared/acal.ts";
-import { SCHED_COLORS, assignCourseColors, kindLabel, assignmentTitle, ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, roleOf, isTA } from "../_shared/courses.ts";
+import { SCHED_COLORS, assignCourseColors, kindLabel, assignmentTitle, ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, roleOf, isTA, extraTimeFactor } from "../_shared/courses.ts";
 
 export const TZ = "America/New_York";
 export const WINDOW_DAYS = 8;
@@ -59,6 +59,7 @@ export type FeedInput = {
   terms: any[];
   academic: { events: any[]; ok: boolean; fetchedAt: string | null };
   canvasCompletionSyncedAt?: string | null;
+  extraTime?: number | null;   // app_config.settings.extra_time
 };
 
 export function buildFeed(input: FeedInput) {
@@ -97,17 +98,18 @@ export function buildFeed(input: FeedInput) {
     const dueDate = dateOnly(a.due_on);
     const dueTime = a.due_time ? String(a.due_time).slice(0, 5) : null;
     const setMin = Number(a.duration_min) > 0 ? Number(a.duration_min) : null;
+    const xf = extraTimeFactor(a, role, input.extraTime);
     let dueISO: string, allDay = false, endISO: string | null = null, durationMin: number | null = null;
     let timeFromClass = false, timeTBA = false;
     if (dueTime) {
       dueISO = at(dueDate, dueTime);
-      if (assessment) { durationMin = setMin ?? DEFAULT_ASSESSMENT_MIN; endISO = plusMin(dueISO, durationMin); }
+      if (assessment) { durationMin = (setMin ?? DEFAULT_ASSESSMENT_MIN) * xf; endISO = plusMin(dueISO, durationMin); }
     } else if (assessment) {
       // Matt's rule: an assessment with no time takes that course's class period (none when
       // the course cancelled that class).
       const m = e.term_id && !courseNoClassOn(e, dueDate) ? classMeetingOn(e.meetings, dueDate, acFor(e.term_id)) : null;
       if (m) {
-        dueISO = at(dueDate, m.start); durationMin = setMin ?? (minutes(m.end) - minutes(m.start));
+        dueISO = at(dueDate, m.start); durationMin = (setMin ?? (minutes(m.end) - minutes(m.start))) * xf;
         endISO = plusMin(dueISO, durationMin); timeFromClass = true;
       } else { dueISO = at(dueDate, "23:59"); allDay = true; timeTBA = true; }
     } else { dueISO = at(dueDate, "23:59"); allDay = true; }

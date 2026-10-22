@@ -180,3 +180,29 @@ test("a failed registrar refresh is reported", () => {
   assert.equal(f.canvasCompletionSyncedAt, null);
   assert.equal(f.contract, 2);
 });
+
+test("extra time stretches Matt's exams and quizzes, and nothing else", () => {
+  const f = buildFeed({ now: new Date(NOON_OCT22), enrollments: ENR, terms: TERMS, academic: acad, extraTime: 1.5, assignments: [
+    asg({ id: 1, kind: "quiz", due_on: "2026-10-27", due_time: "09:25:00", duration_min: 30 }),
+    asg({ id: 2, kind: "exam", due_on: "2026-10-29" }),                                                    // class period, 75 min
+    asg({ id: 3, kind: "quiz", due_on: "2026-11-03", due_time: "14:55:00" }),                             // no length: 30 min
+    asg({ id: 4, kind: "exam", due_on: "2026-10-27", due_time: "08:00:00", duration_min: 115, extra_time: false }),
+    asg({ id: 5, kind: "presentation", due_on: "2026-10-28", due_time: "10:10:00", duration_min: 20, enrollment_id: 87 }),
+  ] });
+  const d = (id: number) => f.deadlines.find((x: any) => x.id === id);
+  assert.equal(d(1).durationMin, 45);
+  assert.equal(d(1).endISO, "2026-10-27T14:10:00.000Z");
+  assert.equal(d(2).durationMin, 112.5);
+  assert.equal(d(2).endISO, "2026-10-29T14:32:30.000Z");
+  assert.equal(d(3).durationMin, 45);
+  assert.equal(d(4).durationMin, 115, "an item whose time is already his own slot");
+  assert.equal(d(5).durationMin, 20, "presentations keep their length");
+});
+
+test("without the extra-time setting, lengths are the standard ones", () => {
+  for (const extraTime of [null, 1, "", 0]) {
+    const [d] = buildFeed({ now: new Date(NOON_OCT22), enrollments: ENR, terms: TERMS, academic: acad, extraTime: extraTime as any,
+      assignments: [asg({ kind: "quiz", due_on: "2026-10-27", due_time: "09:25:00", duration_min: 30 })] }).deadlines;
+    assert.equal(d.durationMin, 30, `extraTime ${JSON.stringify(extraTime)}`);
+  }
+});

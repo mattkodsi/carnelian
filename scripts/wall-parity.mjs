@@ -10,14 +10,15 @@
 //     'terms', (select json_agg(t) from (select id, starts_on::text, ends_on::text from carnelian.terms) t),
 //     'enrollments', (select json_agg(e) from (select id, code, title, meetings, term_id, status, role, no_class from carnelian.enrollments) e),
 //     'assignments', (select json_agg(a) from (select id, name, override_title, series, number, descriptor, kind,
-//        due_on::text, due_time::text, duration_min::float8, target_on::text, target_time::text, status, source,
+//        due_on::text, due_time::text, duration_min::float8, extra_time, target_on::text, target_time::text, status, source,
 //        canvas_url, enrollment_id from carnelian.assignments where done = false and canvas_removed_at is null
 //        and due_on >= (now() at time zone 'America/New_York')::date) a),
-//     'academic', (select events from carnelian.academic_cache where id = 1));
+//     'academic', (select events from carnelian.academic_cache where id = 1),
+//     'extra_time', (select settings->'extra_time' from carnelian.app_config where id = 1));
 //
 // It prints every difference in class sessions (code, day, time, color) and in
 // deadlines (title, kind, assessment flag, course color, date, placement, time,
-// TBA), and
+// TBA, end with extra time), and
 // exits 1 when there is any.
 import {readFileSync} from 'node:fs';
 import {bootApp,appSessions,appDeadline,appCourseNotices} from '../tests/app-harness.mjs';
@@ -34,7 +35,8 @@ const etTime=iso=>new Date(iso).toLocaleTimeString('en-GB',{timeZone:'America/Ne
 const isWeekday=d=>{const g=new Date(d+'T12:00:00Z').getUTCDay();return g>0&&g<6;};
 
 const diffs=[];
-const app=await bootApp({terms:snap.terms,enrollments:snap.enrollments,assignments:snap.assignments,acal});
+const extraTime=snap.extra_time??null;
+const app=await bootApp({terms:snap.terms,enrollments:snap.enrollments,assignments:snap.assignments,acal,settings:{extra_time:extraTime}});
 try{
  if(app.errors.length)diffs.push(`app reported ${app.errors.length} script error(s): ${app.errors[0]}`);
  // Sessions, one 8-day feed window at a time, against the app's grid (weekdays only).
@@ -57,7 +59,7 @@ try{
   for(const k of fn)if(!an.has(k))diffs.push(`cancelled-class notice in the feed only: ${k}`);
  }
  // Deadlines.
- const f=buildFeed({now,assignments:snap.assignments,enrollments:snap.enrollments,terms:snap.terms,academic:{events:acal,ok:true,fetchedAt:null}});
+ const f=buildFeed({now,assignments:snap.assignments,enrollments:snap.enrollments,terms:snap.terms,academic:{events:acal,ok:true,fetchedAt:null},extraTime});
  for(const a of snap.assignments){
   const d=f.deadlines.find(x=>x.id===a.id),want=appDeadline(app,a);
   // A TA course's assessments are left off the TV on purpose.
@@ -65,7 +67,7 @@ try{
   if(['exam','quiz','presentation'].includes(a.kind)&&/^ta_/.test(role||'')){if(d)diffs.push(`TA assessment ${a.id} is in the feed`);continue;}
   if(!d){diffs.push(`deadline ${a.id} missing from the feed`);continue;}
   const got={title:d.title,kindLabel:d.kindLabel,assessment:d.assessment,color:d.color,dueDate:d.dueDate,
-   placedOn:!d.assessment&&d.workByISO?etDay(d.workByISO):d.dueDate,time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA};
+   placedOn:!d.assessment&&d.workByISO?etDay(d.workByISO):d.dueDate,time:d.timeTBA?null:etTime(d.dueISO),tba:d.timeTBA,end:d.endISO?etTime(d.endISO):null};
   for(const k of Object.keys(want))if(JSON.stringify(got[k])!==JSON.stringify(want[k]))
    diffs.push(`deadline ${a.id} "${want.title}": ${k} app=${JSON.stringify(want[k])} feed=${JSON.stringify(got[k])}`);
  }

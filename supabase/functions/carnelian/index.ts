@@ -7,7 +7,7 @@
 // in the browser.
 import postgres from "https://deno.land/x/postgresjs@v3.4.5/mod.js";
 import { ACAL_URL, parseAcademicCalendar, acalRelevant, termAcademics, classMeetingOn, courseNoClassOn, courseNoClassTitle } from "../_shared/acal.ts";
-import { ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, assignmentTitle } from "../_shared/courses.ts";
+import { ASSESSMENT_KINDS, DEFAULT_ASSESSMENT_MIN, assignmentTitle, extraTimeFactor, roleOf } from "../_shared/courses.ts";
 
 // Connection hygiene: this is a single-user app, so keep the per-isolate pool tiny and let idle
 // connections close quickly. Without idle_timeout, postgres.js holds up to `max` (default 10)
@@ -100,7 +100,7 @@ const COLS: Record<string, string[]> = {
   enrollments: ["code", "title", "credits", "term_id", "status", "grade", "gpa_points", "counts_gpa", "pinned_requirement_id", "tags", "offered_terms", "notes", "analog_of", "in_as", "counts_toward", "meetings", "role"],
   terms: ["id", "name", "career", "kind", "starts_on", "ends_on", "sort"],
   adjustments: ["program_id", "type", "from_requirement_id", "to_requirement_id", "satisfies_requirement_id", "credits", "trigger_course", "note"],
-  assignments: ["enrollment_id", "name", "kind", "series", "number", "descriptor", "override_title", "due_on", "due_time", "duration_min", "target_on", "target_time", "status", "source", "done", "weight", "score", "sort"],
+  assignments: ["enrollment_id", "name", "kind", "series", "number", "descriptor", "override_title", "due_on", "due_time", "duration_min", "extra_time", "target_on", "target_time", "status", "source", "done", "weight", "score", "sort"],
   satisfactions: ["enrollment_id", "requirement_id", "note"],
   requirements: ["id", "program_id", "parent_id", "name", "kind", "credits_required", "count_required", "attribute_tag", "sort", "notes", "spec"],
   programs: ["id", "name", "kind", "status", "sort"],
@@ -480,16 +480,18 @@ const DEADLINE_MARKER_MIN = 30;
 function fmt12(t: string) { const m = /^(\d{1,2}):(\d{2})/.exec(t || ""); if (!m) return t || ""; let h = +m[1]; const ap = h >= 12 ? "PM" : "AM"; h = h % 12 || 12; return `${h}:${m[2]} ${ap}`; }
 // Shift a wall-clock time (hh:mm on YYYY-MM-DD) by delta minutes, rolling the date across midnight.
 function shiftClock(dstr: string, hh: number, mm: number, delta: number) {
-  // round to whole minutes: durations can be fractional (e.g. a 112.5-min exam), and Google needs HH:MM
-  const d = pdate(dstr)!; let total = Math.round(hh * 60 + mm + delta); const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  // whole minutes, dropping the seconds the way the app and the TV show times: durations can be fractional
+  // (a 75-minute exam with 1.5x extra time runs 112.5 minutes), and Google needs HH:MM
+  const d = pdate(dstr)!; let total = Math.floor(hh * 60 + mm + delta); const day = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   while (total < 0) { total += 1440; day.setDate(day.getDate() - 1); }
   while (total >= 1440) { total -= 1440; day.setDate(day.getDate() + 1); }
   return { date: `${day.getFullYear()}-${p2(day.getMonth() + 1)}-${p2(day.getDate())}`, h: Math.floor(total / 60), m: total % 60 };
 }
 // Same timing rules as the app and the TV feed: an exam, quiz, or presentation is a timed block (its own
 // time and length, or its course's class period that day; all-day "time TBA" when neither exists).
-// Every other deadline is a marker ending at its time, or at 11:59 PM when it has none.
-function buildDeadlineEvent(a: any, colorId: string, slot: any = null) {
+// Every other deadline is a marker ending at its time, or at 11:59 PM when it has none. xf is Matt's
+// extra-time factor for this item (1 when none applies).
+function buildDeadlineEvent(a: any, colorId: string, slot: any = null, xf = 1) {
   const dueDate = String(a.due_on || "").slice(0, 10); if (!dueDate) return null;
   const title = assignmentTitle(a) || "Assignment";
   const summary = a.code ? `${title} (${a.code})` : title;
@@ -517,7 +519,7 @@ function buildDeadlineEvent(a: any, colorId: string, slot: any = null) {
     let s, e;
     if (timed) {
       const set = (a.duration_min != null && isFinite(+a.duration_min) && +a.duration_min > 0) ? +a.duration_min : null;
-      const dur = set ?? (fromClass ? hm(fromClass.end) - hm(fromClass.start) : DEFAULT_ASSESSMENT_MIN);
+      const dur = (set ?? (fromClass ? hm(fromClass.end) - hm(fromClass.start) : DEFAULT_ASSESSMENT_MIN)) * xf;
       s = { date: placeDate, h: hh, m: mm }; e = shiftClock(placeDate, hh, mm, dur);
     } else { e = { date: placeDate, h: hh, m: mm }; s = shiftClock(placeDate, hh, mm, -DEADLINE_MARKER_MIN); }
     const startDT = `${s.date}T${p2(s.h)}:${p2(s.m)}:00`, endDT = `${e.date}T${p2(e.h)}:${p2(e.m)}:00`;
@@ -544,8 +546,8 @@ async function syncDeadlines(access: string, calId: string) {
   // Reviewed (non-pending) assignments on courses in current/upcoming terms — exactly what the app's Schedule shows.
   const rows = await sql`select a.id, a.enrollment_id, a.name, a.override_title, a.series, a.number, a.descriptor, a.kind,
       a.due_on::text as due_on, a.due_time::text as due_time,
-      a.duration_min, a.target_on::text as target_on, a.target_time::text as target_time,
-      e.code as code, e.title as title_course, e.meetings, e.term_id, e.no_class,
+      a.duration_min, a.extra_time, a.target_on::text as target_on, a.target_time::text as target_time,
+      e.code as code, e.title as title_course, e.meetings, e.term_id, e.no_class, e.role,
       t.starts_on::text as starts_on, t.ends_on::text as ends_on
     from carnelian.assignments a
     join carnelian.enrollments e on e.id = a.enrollment_id
@@ -558,6 +560,7 @@ async function syncDeadlines(access: string, calId: string) {
   const needsSlot = (a: any) => ASSESSMENT_KINDS.has(a.kind) && !a.due_time && a.starts_on && a.ends_on;
   const acEvents = (rows as any[]).some(needsSlot) ? await fetchAcademic() : [];
   const acByTerm = new Map<string, any>();
+  const extraTime = (await getConfig()).settings?.extra_time;
   for (const a of rows as any[]) {
     const colorId = colorIds.get(a.enrollment_id) || "8";
     let slot = null;
@@ -566,7 +569,7 @@ async function syncDeadlines(access: string, calId: string) {
       const day = a.due_on.slice(0, 10);
       slot = courseNoClassOn(a, day) ? null : classMeetingOn(a.meetings, day, acByTerm.get(a.term_id));
     }
-    const built = buildDeadlineEvent(a, colorId, slot);
+    const built = buildDeadlineEvent(a, colorId, slot, extraTimeFactor(a, roleOf(a), extraTime));
     if (built) desired.set(String(a.id), built);
   }
   const existing = await sql`select dkey, event_id, sig from carnelian.gcal_deadlines`;

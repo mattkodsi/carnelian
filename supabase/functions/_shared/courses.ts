@@ -45,3 +45,12 @@ export function assignmentTitle(a: any) {
 
 export const roleOf = (e: { role?: string | null }) => e.role || "course";
 export const isTA = (role: string) => role === "ta_paid" || role === "ta_credit";
+
+// Matt's extra time (settings.extra_time, e.g. 1.5) stretches the standard length of his
+// exams and quizzes. A TA course's exams are the students', and an item whose time is
+// already his own slot opts out (assignments.extra_time = false).
+export const EXTRA_TIME_KINDS = new Set(["exam", "quiz"]);
+export function extraTimeFactor(a: { kind?: string | null; extra_time?: boolean | null }, role: string, setting: unknown) {
+  const f = Number(setting);
+  return f > 1 && f <= 4 && EXTRA_TIME_KINDS.has(a.kind || "") && !isTA(role) && a.extra_time !== false ? f : 1;
+}

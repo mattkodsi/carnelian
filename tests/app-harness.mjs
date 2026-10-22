@@ -2,7 +2,7 @@
 // parity check can ask the app's own functions what it would show.
 import {readFileSync} from 'node:fs';import {JSDOM,VirtualConsole} from 'jsdom';
 
-export async function bootApp({terms,enrollments,assignments=[],acal=[]}){
+export async function bootApp({terms,enrollments,assignments=[],acal=[],settings={}}){
  const errors=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e));
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const dom=new JSDOM(html,{url:'https://carnelian.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc});const w=dom.window;
@@ -10,7 +10,7 @@ export async function bootApp({terms,enrollments,assignments=[],acal=[]}){
  w.localStorage.setItem('carn_token','harness');
  w.localStorage.setItem('carn_acal',JSON.stringify({v:1,events:acal}));
  const data={terms:terms.map(t=>({name:t.id,career:'grad',sort:1,...t})),programs:[],requirements:[],requirement_options:[],
-  enrollments:enrollments.map(e=>({credits:1,tags:[],...e})).sort((a,b)=>a.id-b.id),adjustments:[],assignments,satisfactions:[],settings:{}};  // the load action orders enrollments by id
+  enrollments:enrollments.map(e=>({credits:1,tags:[],...e})).sort((a,b)=>a.id-b.id),adjustments:[],assignments,satisfactions:[],settings};  // the load action orders enrollments by id
  w.fetch=async(url,options={})=>{if(!options.body)return {ok:true,json:async()=>({status:'success',data:{rosters:[],subjects:[],classes:[]}})};
   const b=JSON.parse(options.body);
   const r=b.action==='status'?{initialized:true}:b.action==='load'?{data}:b.action==='gcal_status'?{connected:false}:b.action==='canvas_status'?{configured:false,pending_canvas:0,unassigned_canvas:[]}:b.action==='academic_calendar'?{ok:true,events:acal}:{ok:true};
@@ -48,12 +48,14 @@ export function appCourseNotices({get},term,days){
 }
 
 // What the app shows for one assignment: title, kind label, whether it is a timed
-// assessment, the course color, its due date and time, whether the time is TBA, and the day
-// the schedule places it on (the work-by day, except for assessments).
+// assessment, the course color, its due date and time, whether the time is TBA, the day
+// the schedule places it on (the work-by day, except for assessments), and when an
+// assessment ends, extra time included.
 export function appDeadline({get},a){
  const DB=get('DB'),SC=get('SCHED_COLORS');
  const e=DB.enrollments.find(x=>x.id===a.enrollment_id);
  const idx=e?get('agColorMap')(e.term_id):{};
+ const t=get('KIND_TIMED')(a.kind)?get('asgTiming')(a):null,hhmm=m=>`${String(Math.floor(m/60)).padStart(2,'0')}:${String(Math.floor(m%60)).padStart(2,'0')}`;
  return {title:get('asgTitle')(a),kindLabel:get('KIND_LABEL')(a.kind),assessment:get('KIND_TIMED')(a.kind),
-  color:e?SC[idx[e.code||('#'+e.id)]]:null,dueDate:String(a.due_on).slice(0,10),placedOn:get('asgWhenDate')(a),time:get('asgDueTime')(a),tba:get('asgTimeTBA')(a)};
+  color:e?SC[idx[e.code||('#'+e.id)]]:null,dueDate:String(a.due_on).slice(0,10),placedOn:get('asgWhenDate')(a),time:get('asgDueTime')(a),tba:get('asgTimeTBA')(a),end:t?hhmm(t.s+t.len):null};
 }

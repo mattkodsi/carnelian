@@ -43,9 +43,9 @@ Deno.serve(async (req) => {
 
   try {
     const today = etToday(new Date());
-    const [assignments, enrollments, terms, acad, cfg] = await Promise.all([
+    const [assignments, enrollments, terms, acad, cfg, app] = await Promise.all([
       sql`select id, name, override_title, series, number, descriptor, kind, due_on::text as due_on, due_time::text as due_time,
-          duration_min::float8 as duration_min, target_on::text as target_on, target_time::text as target_time,
+          duration_min::float8 as duration_min, extra_time, target_on::text as target_on, target_time::text as target_time,
           status, source, canvas_url, enrollment_id, canvas_submitted_at, canvas_marked_done_at
         from carnelian.assignments
         where done = false and canvas_removed_at is null
@@ -54,10 +54,11 @@ Deno.serve(async (req) => {
       sql`select id, starts_on::text as starts_on, ends_on::text as ends_on from carnelian.terms`,
       academic(),
       sql`select completion_synced_at from carnelian.canvas_config where id = 1`,
+      sql`select settings->'extra_time' as extra_time from carnelian.app_config where id = 1`,
     ]);
     const synced = cfg[0]?.completion_synced_at;
     const feed = buildFeed({ now: new Date(), assignments, enrollments, terms, academic: acad,
-      canvasCompletionSyncedAt: synced ? new Date(synced).toISOString() : null });
+      canvasCompletionSyncedAt: synced ? new Date(synced).toISOString() : null, extraTime: app[0]?.extra_time ?? null });
     return new Response(JSON.stringify(feed), { headers: cors });
   } catch (e) {
     return new Response(JSON.stringify({ ok: false, error: String(e) }), { status: 500, headers: cors });
