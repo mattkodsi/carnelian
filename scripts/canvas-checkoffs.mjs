@@ -39,13 +39,16 @@ async function post(body){
 const start=etDay(-BACK_DAYS), end=etDay(AHEAD_DAYS);
 let items;
 try{
+  // CANVAS_NO_PUSH: this job runs unattended, so it must never make Duo send a push.
+  // When Duo is needed, canvas-agent fails with a plain message instead; its evening
+  // sign-in (or a chat) handles Duo at a reasonable hour.
   const {stdout}=await promisify(execFile)(`${CANVAS_AGENT}/canvas`,['api',`/planner/items?start_date=${start}&end_date=${end}&per_page=100`],
-    {cwd:CANVAS_AGENT,timeout:240000,maxBuffer:32*1024*1024});
+    {cwd:CANVAS_AGENT,timeout:240000,maxBuffer:32*1024*1024,env:{...process.env,CANVAS_NO_PUSH:'1'}});
   items=JSON.parse(stdout);
   if(!Array.isArray(items))throw new Error('Canvas planner did not return a list');
 }catch(e){
-  // canvas-agent exits with a message that says to run `./canvas login` when Duo's
-  // browser trust has lapsed; pass it on so Carnelian can show it.
+  // canvas-agent exits with a plain "needs a Duo sign-in" message when Cornell's
+  // approval has lapsed; pass it on so Carnelian can show it.
   const message=String(e.stderr||e.message||e).trim().split('\n').pop();
   console.error(stamp(),'Canvas read failed:',message);
   if(!dryRun)await post({error:message}).catch(err=>console.error(stamp(),'Could not report the failure:',err.message));
