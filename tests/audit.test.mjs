@@ -59,6 +59,47 @@ test('F contributes no earned or planned credit, requirement coverage, or course
 for(const rejected of [false,true])test(rejected?'rejected Canvas UID cannot reimport':'Canvas same-day time changes update existing deadline',async()=>{let updates=0,inserts=0;const sql=(strings)=>{if(!Array.isArray(strings)||!strings.raw)return strings;const q=strings.join('?');if(q.includes('from carnelian.canvas_config'))return [{feed_url:'https://example.test/feed'}];if(q.includes('from carnelian.enrollments'))return [{id:1,code:'REAL 6640'}];if(q.includes('from carnelian.canvas_rejections'))return rejected?[{ext_uid:'assignment-1'}]:[];if(q.includes('from carnelian.assignments'))return rejected?[]:[{id:2,enrollment_id:1,ext_uid:'assignment-1',due_on:'2099-09-08',due_time:'10:00:00',source:'canvas'}];if(q.startsWith('update carnelian.assignments'))updates++;if(q.startsWith('insert into carnelian.assignments'))inserts++;return [];};sql.json=x=>x;
  const feed='BEGIN:VEVENT\nUID:assignment-1\nDTSTART;TZID=America/New_York:20990908T113000\nSUMMARY:Homework [FA99-REAL-6640-001]\nEND:VEVENT';const c=backend('carnelian-canvas',sql,{fetch:async()=>new Response(feed)});await c.canvasSync();if(rejected)assert.equal(inserts,0);else assert.equal(updates,1);
 });
+// A Canvas item matching an item added by hand (same course, date, and title) links to it instead of adding a copy.
+for(const [label,hand,links] of [
+ ['links to the hand-added item',{due_on:'2099-10-27',name:'Tarea 1'},true],
+ ['matches the custom title too',{due_on:'2099-10-27',name:'Homework',override_title:'tarea 1'},true],
+ ['leaves a hand-added item on another date alone',{due_on:'2099-10-28',name:'Tarea 1'},false],
+ ['leaves a hand-added item with another title alone',{due_on:'2099-10-27',name:'Tarea 2'},false],
+])test(`Canvas import ${label}`,async()=>{
+ const updates=[],inserts=[];
+ const sql=(strings,...vals)=>{if(!Array.isArray(strings)||!strings.raw)return strings;const q=strings.join('?');
+  if(q.includes('from carnelian.canvas_config'))return [{feed_url:'https://example.test/feed'}];
+  if(q.includes('from carnelian.enrollments'))return [{id:1,code:'SPAN 1502'}];
+  if(q.includes('from carnelian.canvas_rejections')||q.includes('from carnelian.canvas_unassigned'))return [];
+  if(q.includes('from carnelian.assignments'))return [{id:152,enrollment_id:1,override_title:null,due_time:'10:10:00',source:'manual',ext_uid:null,...hand}];
+  if(q.startsWith('update carnelian.assignments'))updates.push({q,vals});
+  if(q.startsWith('insert into carnelian.assignments'))inserts.push({q,vals});
+  return [];};sql.json=x=>x;
+ const feed='BEGIN:VEVENT\nUID:event-assignment-1030283\nDTSTART;TZID=America/New_York:20991027T100000\nSUMMARY:Tarea 1 [FA99-SPAN-1502-101]\nEND:VEVENT';
+ const c=backend('carnelian-canvas',sql,{fetch:async()=>new Response(feed)});
+ const r=await c.canvasSync();
+ if(links){
+  assert.equal(inserts.length,0);assert.equal(r.adopted,1);
+  const u=updates.find(x=>x.q.includes("source = 'canvas', ext_uid"));
+  assert.ok(u,'the hand-added row is linked');
+  assert.equal(u.vals[0],'event-assignment-1030283');assert.equal(u.vals[1],'10:00');assert.equal(u.vals.at(-1),152);
+ }else{assert.equal(inserts.length,1);assert.equal(r.adopted,0);assert.equal(updates.length,0);}
+});
+test('one hand-added item links to only one Canvas item',async()=>{
+ const linked=[],inserts=[];
+ const sql=(strings,...vals)=>{if(!Array.isArray(strings)||!strings.raw)return strings;const q=strings.join('?');
+  if(q.includes('from carnelian.canvas_config'))return [{feed_url:'https://example.test/feed'}];
+  if(q.includes('from carnelian.enrollments'))return [{id:1,code:'SPAN 1502'}];
+  if(q.includes('from carnelian.canvas_rejections')||q.includes('from carnelian.canvas_unassigned'))return [];
+  if(q.includes('from carnelian.assignments'))return [{id:152,enrollment_id:1,name:'Tarea 1',override_title:null,due_on:'2099-10-27',due_time:'10:10:00',source:'manual',ext_uid:null}];
+  if(q.startsWith('update carnelian.assignments')&&q.includes("source = 'canvas', ext_uid"))linked.push(vals[0]);
+  if(q.startsWith('insert into carnelian.assignments'))inserts.push(vals);
+  return [];};sql.json=x=>x;
+ const ev=n=>`BEGIN:VEVENT\nUID:event-assignment-${n}\nDTSTART;TZID=America/New_York:20991027T100000\nSUMMARY:Tarea 1 [FA99-SPAN-1502-101]\nEND:VEVENT`;
+ const c=backend('carnelian-canvas',sql,{fetch:async()=>new Response(ev(1)+'\n'+ev(2))});
+ await c.canvasSync();
+ assert.deepEqual(linked,['event-assignment-1']);assert.equal(inserts.length,1);
+});
 for(const action of ['gcal_academic_toggle','gcal_deadlines_toggle','gcal_disconnect'])test(`${action} preserves calendar identifiers when Google deletion fails`,async()=>{
   let handler,forgot=false;
   const sql=async(strings)=>{const q=strings.join('?');if(q.startsWith('delete from carnelian.gcal_')||q.includes('calendar_academic = null')||q.includes('calendar_deadlines = null'))forgot=true;if(q.includes('from carnelian.gcal_config'))return [{refresh_token:'token',calendar_id:'classes',calendar_academic:'academic',calendar_deadlines:'deadlines'}];return [];};

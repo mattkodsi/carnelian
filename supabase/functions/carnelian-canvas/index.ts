@@ -146,10 +146,14 @@ async function canvasSync() {
   const unassignedByUid = new Map((unassignedRows as any[]).map((r) => [r.ext_uid, r]));
   const byUid = new Map<string, any>();
   const scrapeByKey = new Map<string, any>(); // adopt a prior scrape (no ext_uid) instead of duplicating
+  const handByKey = new Map<string, any>();   // or an item added by hand for the same course, date, and title
   const nkey = (enr: number, due: string, name: string) => `${enr}|${due}|${normTitle(name)}`;
   for (const r of existing as any[]) {
     if (r.ext_uid) byUid.set(r.ext_uid, r);
     if (r.source === "canvas" && !r.ext_uid && r.due_on) scrapeByKey.set(nkey(r.enrollment_id, r.due_on, r.name), r);
+    if (r.source === "manual" && !r.ext_uid && r.due_on) {
+      for (const t of [r.name, r.override_title]) if (t) handByKey.set(nkey(r.enrollment_id, r.due_on, t), r);
+    }
   }
 
   const now = new Date().toISOString();
@@ -243,7 +247,19 @@ async function canvasSync() {
         canvas_due_on = ${due_on}, canvas_due_time = ${due_time}, canvas_url = ${ev.url || null},
         canvas_last_seen_at = ${now}, canvas_missing_count = 0, canvas_changes = '{}'::jsonb
         where id = ${cand.id}`; byUid.set(ev.uid, { ...cand, ext_uid: ev.uid }); adopted++; continue; }
-      // 3) insert a new pending item
+      // 3) link an item added by hand at the same course+date+title (say, from the syllabus before
+      // Canvas had a date). It becomes this assignment's row: Canvas sets the real deadline and
+      // submissions, and its kind, title, and work-by stay as they were.
+      const hand = handByKey.get(nkey(enrId, due_on, title));
+      if (hand) {
+        await sql`update carnelian.assignments set source = 'canvas', ext_uid = ${ev.uid}, due_time = ${due_time},
+          canvas_title = ${title}, canvas_due_on = ${due_on}, canvas_due_time = ${due_time}, canvas_url = ${ev.url || null},
+          canvas_last_seen_at = ${now}, canvas_missing_count = 0, canvas_changes = '{}'::jsonb
+          where id = ${hand.id} and ext_uid is null`;
+        for (const [k, r] of handByKey) if (r.id === hand.id) handByKey.delete(k);
+        byUid.set(ev.uid, { ...hand, source: "canvas", ext_uid: ev.uid }); adopted++; continue;
+      }
+      // 4) insert a new pending item
       await sql`insert into carnelian.assignments (enrollment_id, name, override_title, kind, due_on, due_time, status, source, ext_uid, done,
         canvas_title, canvas_due_on, canvas_due_time, canvas_url, canvas_last_seen_at, canvas_missing_count, canvas_changes)
         values (${enrId}, ${title}, ${title}, ${guessKind(ev.summary)}, ${due_on}, ${due_time}, 'pending', 'canvas', ${ev.uid}, false,
