@@ -1,6 +1,6 @@
 // Reports Canvas submissions and check-offs to Carnelian. Runs on the Mac mini every
 // 10 minutes (scripts/com.matt.carnelian-checkoffs.plist), because only the signed-in
-// canvas-agent can read Canvas's planner; the calendar feed has no submission state.
+// cornell-agent can read Canvas's planner; the calendar feed has no submission state.
 //
 //   node scripts/canvas-checkoffs.mjs            # report
 //   node scripts/canvas-checkoffs.mjs --dry-run  # print what it would report
@@ -12,7 +12,7 @@ import {readFileSync} from 'node:fs';
 import {homedir} from 'node:os';
 import {promisify} from 'node:util';
 
-const CANVAS_AGENT='/Users/matt/dev/Education/canvas-agent';
+const CORNELL_AGENT='/Users/matt/dev/Education/cornell-agent';
 const FN='https://uhwdnmbxiopfysodydty.supabase.co/functions/v1/carnelian-canvas';
 const BACK_DAYS=14, AHEAD_DAYS=120;
 const dryRun=process.argv.includes('--dry-run');
@@ -39,15 +39,15 @@ async function post(body){
 const start=etDay(-BACK_DAYS), end=etDay(AHEAD_DAYS);
 let items;
 try{
-  // CANVAS_NO_PUSH: this job runs unattended, so it must never make Duo send a push.
-  // When Duo is needed, canvas-agent fails with a plain message instead; its evening
+  // CORNELL_NO_PUSH: this job runs unattended, so it must never make Duo send a push.
+  // When Duo is needed, cornell-agent fails with a plain message instead; its evening
   // sign-in (or a chat) handles Duo at a reasonable hour.
-  const {stdout}=await promisify(execFile)(`${CANVAS_AGENT}/canvas`,['api',`/planner/items?start_date=${start}&end_date=${end}&per_page=100`],
-    {cwd:CANVAS_AGENT,timeout:240000,maxBuffer:32*1024*1024,env:{...process.env,CANVAS_NO_PUSH:'1'}});
+  const {stdout}=await promisify(execFile)(`${CORNELL_AGENT}/cornell`,['canvas','api',`/planner/items?start_date=${start}&end_date=${end}&per_page=100`],
+    {cwd:CORNELL_AGENT,timeout:240000,maxBuffer:32*1024*1024,env:{...process.env,CORNELL_NO_PUSH:'1'}});
   items=JSON.parse(stdout);
   if(!Array.isArray(items))throw new Error('Canvas planner did not return a list');
 }catch(e){
-  // canvas-agent exits with a plain "needs a Duo sign-in" message when Cornell's
+  // cornell-agent exits with a plain "needs a Duo sign-in" message when Cornell's
   // approval has lapsed; pass it on so Carnelian can show it.
   const message=String(e.stderr||e.message||e).trim().split('\n').pop();
   console.error(stamp(),'Canvas read failed:',message);

@@ -25,7 +25,7 @@ Nothing sensitive lives in this repo — only the public project URL.
 ## Canvas check-offs
 Canvas's calendar feed has no submission state, so a job on the Mac mini
 (`scripts/canvas-checkoffs.mjs`) asks Canvas's planner, through the signed-in
-canvas-agent, which items are submitted or checked off, and reports them to
+cornell-agent, which items are submitted or checked off, and reports them to
 `carnelian-canvas` every 10 minutes. Those items count as done in Carnelian and
 leave the TV feed. To set it up:
 
@@ -35,5 +35,6 @@ leave the TV feed. To set it up:
 3. Copy `scripts/com.matt.carnelian-checkoffs.plist` to `~/Library/LaunchAgents/`
    and `launchctl load` it. It logs to `~/Library/Logs/carnelian-checkoffs.log`.
 
-If Duo's browser trust lapses, the Canvas panel says so; run `./canvas login` in
-the canvas-agent folder once.
+If Duo's browser trust lapses, the Canvas panel says so, and check-offs resume
+after the next Cornell sign-in (cornell-agent's evening sign-in, or `./cornell
+signin` from any chat).

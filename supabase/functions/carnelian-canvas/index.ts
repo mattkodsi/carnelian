@@ -301,7 +301,7 @@ async function canvasSync() {
   return { ok: true, ...result };
 }
 
-// Submissions and check-offs from Canvas's planner, posted by the local canvas-agent
+// Submissions and check-offs from Canvas's planner, posted by the local cornell-agent
 // job (the calendar feed carries no submission state). Only courses Matt takes are
 // touched: in a TA or audit course the submissions belong to students. A report
 // with an error (Duo's browser trust lapsed, say) is recorded so the app can show it.

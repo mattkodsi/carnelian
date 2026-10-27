@@ -1882,7 +1882,7 @@ function fmtAsgDate(a){ const d=asgDate(a); if(!d) return ""; const p=d.split("-
 // from Matt's check mark, and clears them if the submission or check-off is reversed.
 // Status of the Mac mini job that reports Canvas submissions; says plainly when it needs a Duo approval.
 function canvasCheckoffStat(){ const r=CANVAS.completion_result;
-  if(r&&r.ok===false) return /canvas login|duo/i.test(r.error||"")?" · check-offs paused: run ./canvas login once":" · check-offs failed "+relTime(r.at);
+  if(r&&r.ok===false) return /cornell login|duo/i.test(r.error||"")?" · check-offs paused until the Cornell sign-in":" · check-offs failed "+relTime(r.at);
   return CANVAS.completion_synced_at?" · check-offs synced "+relTime(CANVAS.completion_synced_at):""; }
 function asgCanvasDone(a){ return !!(a&&(a.canvas_submitted_at||a.canvas_marked_done_at)); }
 function asgDone(a){ return !!(a&&(a.done||asgCanvasDone(a))); }
