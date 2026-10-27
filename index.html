@@ -454,12 +454,13 @@
     .navitem:hover:not(.on){background:transparent;color:var(--ink-2)}
     .stat.tap:hover{border-color:var(--line)}
   }
-  .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 6px;max-width:100%;pointer-events:none;overflow-wrap:normal;word-break:keep-all}
+  .adchip{font-size:9.5px;font-weight:700;line-height:1.3;color:var(--ink-2);background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:3px 4px;max-width:100%;pointer-events:none;overflow-wrap:break-word}
   .adchip.noclass{color:var(--accent);border-color:var(--accent-line);background:var(--accent-soft);font-weight:800}
   .adchip.more{color:var(--ink-3);background:transparent;border-style:dashed;font-weight:800}
   .adchip.asg{color:var(--ink);background:var(--surface);border-color:var(--line-strong);border-left-width:3px;border-left-style:solid;padding-left:3px;white-space:normal;display:block}
   .adchip.asg .adchip-body{display:flex;flex-direction:column;min-width:0;line-height:1.25}
-  .adchip.asg .adchip-t{white-space:normal;overflow-wrap:normal;word-break:keep-all;min-width:0;font-size:8.5px}
+  .adchip.asg .adchip-t{white-space:normal;overflow-wrap:break-word;min-width:0;font-size:8.5px}
+  .adchip.fitting,.adchip.asg .adchip-t.fitting{overflow-wrap:normal}
   .adchip.asg .adchip-tm{font-size:9px;font-weight:800;color:var(--ink-3);margin-top:1px}
   .adchip.asg.done{opacity:.5;text-decoration:line-through}
   /* Assignments agenda (Academic tab) */
@@ -2195,6 +2196,7 @@ function renderSchedule(){
 // so nothing spills under the nav and the document height never exceeds the viewport.
 function fitSchedule(){
   const wrap=$("#schedule .sched"); if(!wrap) return;
+  fitAdChips(wrap);
   // Mobile: the whole schedule page is locked to the viewport between the fixed bars
   // via a fixed-height flex layout (.main.fit below), so the grid fills by CSS and the
   // page physically cannot scroll — no measured height needed, and none of the earlier
@@ -2206,6 +2208,17 @@ function fitSchedule(){
   wrap.style.height=Math.max(320,h)+"px";
 }
 window.addEventListener("resize",()=>{ if(CUR==="schedule") fitSchedule(); });
+// A word too wide for its box in the week's top strip (a long name, "conference)") shrinks that box's
+// text half a pixel at a time instead of spilling out or splitting. Only below 7px does it break.
+function fitAdChips(root){
+  // how far the text runs past the box's inner edge, measured exactly (scrollWidth rounds to whole pixels)
+  const past=t=>{ const r=t.getBoundingClientRect(), cs=getComputedStyle(t), edge=r.right-parseFloat(cs.paddingRight)-parseFloat(cs.borderRightWidth);
+    const g=document.createRange(); g.selectNodeContents(t); return g.getClientRects?Math.max(0,...[...g.getClientRects()].map(q=>q.right-edge)):0; };
+  root.querySelectorAll(".sched-allday .adchip:not(.more)").forEach(c=>{ const t=c.querySelector(".adchip-t")||c;
+    t.style.fontSize=""; t.classList.add("fitting"); let fs=parseFloat(getComputedStyle(t).fontSize);
+    while(past(t)>0.25&&fs>7){ fs-=0.5; t.style.fontSize=fs+"px"; }
+    t.classList.remove("fitting"); });
+}
 // read-only course info pane (from the schedule) — Edit button jumps to the full editor
 const DAY_FULL={M:"Mon",T:"Tue",W:"Wed",R:"Thu",F:"Fri",S:"Sat",U:"Sun"};
 // Shared meeting-detail block — day/time, then location, section, instructor, each on its own line
