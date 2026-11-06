@@ -1256,17 +1256,19 @@ function reqProgress(req){
   if(need.type==="flag"){ const done=(DB.settings&&DB.settings.flags&&DB.settings.flags[req.id])?1:0; return {done,cur:0,fut:0,planned:0,need:1,met:done>=1,kind:"flag",courses:[]}; }
   if(need.type==="credits"){ const scope=req.spec&&req.spec.match&&req.spec.match.scope;
     let doneCr=0, curCr=0, futCr=0, courses=[], contrib=null, splits=[];
-    if(scope){ for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist"||!earnsCredit(e)) continue;
+    // spec.creditFloor: this bucket counts only the credits BEYOND an A&S floor (the "additional" credits past
+    // the 100 in A&S): every non-A&S credit, plus A&S credits past the floor. Non-A&S credits can't fill that
+    // floor, so they never get used up on it. Floor A&S credits cumulatively (earned first, then in-progress,
+    // then planned). The real total shows even past need.n; bar3 and reqRatio already stop at 100%.
+    const floor=(req.spec&&req.spec.creditFloor)||0;
+    if(scope){ const asCr=[0,0,0], rank={done:0,cur:1,fut:2}; for(const e of DB.enrollments){ const ds=displayStatus(e); if(ds==="wishlist"||!earnsCredit(e)) continue;
         // same scoping as creditsScope: A&S credit by in_as, degree totals by countsToward
         if(scope==="as"){ if(!e.in_as) continue; } else if(scope==="grad"){ if(!countsGrad(e)) continue; } else { if(!countsUG(e)) continue; }
-        const st=progState(e), cr=num(e.credits); if(st==="done")doneCr+=cr; else if(st==="cur")curCr+=cr; else futCr+=cr; }
-      // spec.creditFloor: this bucket counts only the credits BEYOND the floor (e.g. the 20 "additional"
-      // credits past the first 100). Subtract the floor cumulatively — earned first, then in-progress, then
-      // planned — and cap each segment at need.n, so the done/cur/fut split (and bar3) stays honest.
-      const floor=(req.spec&&req.spec.creditFloor)||0;
-      if(floor){ const cap=need.n, bynd=v=>Math.max(0,v-floor);
-        const dB=Math.min(cap,bynd(doneCr)), cB=Math.min(cap-dB,bynd(doneCr+curCr)-bynd(doneCr)), fB=Math.min(cap-dB-cB,bynd(doneCr+curCr+futCr)-bynd(doneCr+curCr));
-        doneCr=dB; curCr=cB; futCr=fB; } }
+        const st=progState(e), cr=num(e.credits);
+        if(floor&&e.in_as){ asCr[rank[st]]+=cr; continue; }
+        if(st==="done")doneCr+=cr; else if(st==="cur")curCr+=cr; else futCr+=cr; }
+      if(floor){ const bynd=v=>Math.max(0,v-floor), [aD,aC,aF]=asCr;
+        doneCr+=bynd(aD); curCr+=bynd(aD+aC)-bynd(aD); futCr+=bynd(aD+aC+aF)-bynd(aD+aC); } }
     else { const cc=cappedCredits(req); doneCr=cc.done; curCr=cc.cur; futCr=cc.fut; courses=cc.kept; contrib=cc.contrib;
       const ov=overflowInto(req.id); doneCr=r1(doneCr+ov.done); curCr=r1(curCr+ov.cur); futCr=r1(futCr+ov.fut); courses=courses.concat(ov.courses); splits=ov.splits; }
     const kids=DB.requirements.filter(r=>r.parent_id===req.id).sort((a,b)=>a.sort-b.sort);
@@ -1461,13 +1463,16 @@ function courseRowHTML(e, counted){ const full=num(e.credits);
   return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${cr}</span></div>`; }
 // A single course's overflow into this bucket (e.g. the 1.5 cr of REAL 5950 beyond the 1.5-cr CST minimum).
 function splitRowHTML(s){ return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(s.e)]}"></span><span class="grow"><span class="co code" data-cid="${s.e.id}">${esc(s.e.code)}</span> <span class="ti muted">over ${esc(s.from)} minimum</span></span><span class="cc num">${crd(s.amount)}</span></div>`; }
-function coursesByTermHTML(courses, contrib){
+// `splits` (optional) = partial overflows from other requirements; they join the same term lists.
+function coursesByTermHTML(courses, contrib, splits){
+  const rows=[...courses.map(e=>({e,html:()=>courseRowHTML(e, contrib&&contrib.get(String(e.id)))})),...(splits||[]).map(s=>({e:s.e,html:()=>splitRowHTML(s)}))];
   const groups=new Map();
-  for(const e of courses){ const k=e.term_id||'~none'; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(e); }
+  for(const r of rows){ const k=r.e.term_id||'~none'; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(r); }
   const order=[...groups.keys()].map(id=>termById(id)||{id,name:'No term',sort:1e9}).sort((a,b)=>(a.sort??1e9)-(b.sort??1e9));
+  const rank={done:0,cur:1,fut:2};   // within a term: done, then underway, then planned
   return order.map(t=>{
-    const list=groups.get(t.id).slice().sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),undefined,{numeric:true}));
-    return `<div class="crow termhdr"><span class="grow">${esc(t.name||t.id)}</span></div>`+list.map(e=>courseRowHTML(e, contrib&&contrib.get(String(e.id)))).join("");
+    const list=groups.get(t.id).slice().sort((a,b)=>rank[progState(a.e)]-rank[progState(b.e)]||String(a.e.code||'').localeCompare(String(b.e.code||''),undefined,{numeric:true}));
+    return `<div class="crow termhdr"><span class="grow">${esc(t.name||t.id)}</span></div>`+list.map(r=>r.html()).join("");
   }).join("");
 }
 function reqBlocks(prog){
@@ -1487,10 +1492,11 @@ function reqBlocks(prog){
       const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits${planStr}</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex">${bar3(r)}</span></div>`;
       const note=(BAKER_VIEW==='plan'&&req.spec&&req.spec.note)?`<div class="crow waivernote"><span class="grow">${esc(req.spec.note)}</span></div>`:"";
       let detail=note;
-      if(req.spec&&req.spec.groupByTerm && r.courses&&r.courses.length){ detail=coursesByTermHTML(r.courses, r.contrib); }
+      const grouped=!!(req.spec&&req.spec.groupByTerm&&((r.courses&&r.courses.length)||(r.splits&&r.splits.length)));
+      if(grouped){ detail=coursesByTermHTML(r.courses||[], r.contrib, r.splits); }
       else if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);const kcur=!km&&kc.some(e=>displayStatus(e)==="in_progress");return `<div class="crow"><span class="cdot dot ${km?'ok':(kcur?'plan':(kc.length?'warn':'none'))}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
       else if(r.courses&&r.courses.length){ detail=r.courses.map(e=>courseRowHTML(e, r.contrib&&r.contrib.get(String(e.id)))).join(""); }
-      if(r.splits&&r.splits.length) detail+=r.splits.map(splitRowHTML).join("");   // partial overflows spilled in from other buckets
+      if(!grouped&&r.splits&&r.splits.length) detail+=r.splits.map(splitRowHTML).join("");   // partial overflows spilled in from other buckets
       // Coupled-floor gate: own credits clear the bar but a partner floor (e.g. ≥100 in A&S) isn't met yet.
       const gnote=r.gatedOnly?`<div class="crow"><span class="cdot dot warn"></span><span class="grow muted">${esc(r.gateNote)}</span></div>`:"";
       inner=bar+gnote+detail;
