@@ -1487,8 +1487,8 @@ function reqBlocks(prog){
     } else if(r.kind==="flag"){
       inner=`<div class="crow"><span class="cdot dot ${r.met?'ok':'none'}"></span><span class="grow">${r.met?'Recorded as done':'Not recorded yet'}</span></div>`;
     } else if(r.kind==="credits"){
-      const pp=[]; if((r.cur||0)>0) pp.push(`${nf(r.cur)} in progress`); if((r.fut||0)>0) pp.push(`${nf(r.fut)} planned`);
-      const planStr=pp.length?` <span class="muted">(+${pp.join(", ")})</span>`:"";
+      const pp=[]; if((r.cur||0)>0) pp.push(`+${nf(r.cur)} in progress`); if((r.fut||0)>0) pp.push(`+${nf(r.fut)} planned`);
+      const planStr=pp.length?` <span class="muted">(${pp.join(", ")})</span>`:"";
       const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits${planStr}</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex">${bar3(r)}</span></div>`;
       const note=(BAKER_VIEW==='plan'&&req.spec&&req.spec.note)?`<div class="crow waivernote"><span class="grow">${esc(req.spec.note)}</span></div>`:"";
       let detail=note;

@@ -98,3 +98,25 @@ test('A&S credits past 100 count as additional, and a short row is still short',
  const r=await additional(105,10);
  assert.deepEqual([r.done,r.met,r.shown],[15,false,'15/20']);
 });
+
+// The note beside a credit count: in-progress and planned credits both add to what is earned, so each gets its own plus.
+const creditNote=async statuses=>{
+ const app=await bootApp({terms:[{id:'past',name:'Past Term',starts_on:'2025-08-25',ends_on:'2025-12-19',sort:1},{id:'now',name:'Current Term',starts_on:'2020-01-01',ends_on:'2099-12-31',sort:2},{id:'later',name:'Later Term',starts_on:'2098-01-01',ends_on:'2098-05-01',sort:3}],
+  enrollments:statuses.map(([status,term_id,credits],i)=>({id:i+1,code:`TEST ${1000+i}`,title:`Course ${i}`,credits,term_id,status}))});
+ try{
+  const DB=app.get('DB');
+  DB.requirements.push({id:'r',program_id:'p',name:'Credits',sort:1,spec:{need:{type:'credits',n:30},match:{codes:statuses.map((_,i)=>`TEST ${1000+i}`)}}});
+  const div=app.w.document.createElement('div');div.innerHTML=app.get('reqBlocks')({id:'p'});
+  const note=div.querySelector('.crow .grow .muted');
+  return note?note.textContent:null;
+ }finally{app.close();}
+};
+
+test('in-progress and planned credits each get their own plus',async()=>{
+ assert.equal(await creditNote([['in_progress','now',9.5],['planned','later',14.5]]),'(+9.5 in progress, +14.5 planned)');
+});
+
+test('a credit note with only one kind of credit still has its plus',async()=>{
+ assert.equal(await creditNote([['in_progress','now',9.5]]),'(+9.5 in progress)');
+ assert.equal(await creditNote([['planned','later',14.5]]),'(+14.5 planned)');
+});
