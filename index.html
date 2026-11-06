@@ -2622,18 +2622,21 @@ function termRoster(t){ if(!t) return null; const nm=((t.name||'')+' '+(t.starts
 // sortable key for a roster code so we can find the newest — e.g. FA26 -> 263, SP27 -> 271
 const SEASON_ORD={WI:0,SP:1,SU:2,FA:3};
 function rosterKey(r){ return (parseInt(r.slice(2),10)||0)*10 + (SEASON_ORD[r.slice(0,2)]??9); }
-// the list of rosters Cornell has actually published (cached for the session + localStorage)
+// the list of rosters Cornell has actually published (cached for the session + a day in localStorage,
+// so a term Cornell publishes later reaches a device that already saved the list)
 let AVAIL_ROSTERS=null, AVAIL_PROMISE=null;
+const ROSTERS_TTL=24*3600*1000;
 async function availRosters(){
   if(AVAIL_ROSTERS) return AVAIL_ROSTERS;
-  try{ const raw=localStorage.getItem("carn_rosters"); if(raw){ const o=JSON.parse(raw); if(o&&Array.isArray(o.items)&&o.items.length){ AVAIL_ROSTERS=o.items; } } }catch(e){}
+  let saved=null;
+  try{ const raw=localStorage.getItem("carn_rosters"); if(raw){ const o=JSON.parse(raw); if(o&&Array.isArray(o.items)&&o.items.length){ if(o.at&&(Date.now()-o.at<ROSTERS_TTL)) AVAIL_ROSTERS=o.items; else saved=o.items; } } }catch(e){}
   if(AVAIL_ROSTERS) return AVAIL_ROSTERS;
   if(AVAIL_PROMISE) return AVAIL_PROMISE;
   AVAIL_PROMISE=(async()=>{
     try{ const j=await (await fetch("https://classes.cornell.edu/api/2.0/config/rosters.json")).json();
       if(j.status==="success"){ const items=(j.data.rosters||[]).map(r=>r.slug).filter(Boolean);
-        if(items.length){ AVAIL_ROSTERS=items; try{ localStorage.setItem("carn_rosters", JSON.stringify({items})); }catch(e){} return items; } } }catch(e){}
-    AVAIL_ROSTERS=ROSTER_FALLBACK.slice(); return AVAIL_ROSTERS;   // offline fallback
+        if(items.length){ AVAIL_ROSTERS=items; try{ localStorage.setItem("carn_rosters", JSON.stringify({at:Date.now(), items})); }catch(e){} return items; } } }catch(e){}
+    AVAIL_ROSTERS=saved||ROSTER_FALLBACK.slice(); return AVAIL_ROSTERS;   // offline: the saved list, else the fallback
   })();
   return AVAIL_PROMISE;
 }

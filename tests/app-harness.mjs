@@ -2,7 +2,7 @@
 // parity check can ask the app's own functions what it would show.
 import {readFileSync} from 'node:fs';import {JSDOM,VirtualConsole} from 'jsdom';
 
-export async function bootApp({terms,enrollments,assignments=[],acal=[],settings={}}){
+export async function bootApp({terms,enrollments,assignments=[],acal=[],settings={},prepare=null}){
  const errors=[];const vc=new VirtualConsole();vc.on('jsdomError',e=>errors.push(e));
  const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
  const dom=new JSDOM(html,{url:'https://carnelian.test/',runScripts:'outside-only',pretendToBeVisual:true,virtualConsole:vc});const w=dom.window;
@@ -15,6 +15,7 @@ export async function bootApp({terms,enrollments,assignments=[],acal=[],settings
   const b=JSON.parse(options.body);
   const r=b.action==='status'?{initialized:true}:b.action==='load'?{data}:b.action==='gcal_status'?{connected:false}:b.action==='canvas_status'?{configured:false,pending_canvas:0,unassigned_canvas:[]}:b.action==='academic_calendar'?{ok:true,events:acal}:{ok:true};
   return {ok:true,status:200,json:async()=>r};};
+ if(prepare)prepare(w);  // saved data or network behavior that must be in place before the app starts
  // Top-level const/let bindings live in each script's own scope, so each script also leaves a
  // getter that resolves a name from inside that scope.
  const getters=[];w.__carnGetters=getters;
