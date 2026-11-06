@@ -2624,9 +2624,15 @@ const SEASON_ORD={WI:0,SP:1,SU:2,FA:3};
 function rosterKey(r){ return (parseInt(r.slice(2),10)||0)*10 + (SEASON_ORD[r.slice(0,2)]??9); }
 // the list of rosters Cornell has actually published (cached for the session + a day in localStorage,
 // so a term Cornell publishes later reaches a device that already saved the list)
-let AVAIL_ROSTERS=null, AVAIL_PROMISE=null;
+let AVAIL_ROSTERS=null, AVAIL_PROMISE=null, ROSTER_MEMORY_AT=Date.now();
 const ROSTERS_TTL=24*3600*1000;
+// A tab left open for days forgets what it read from Cornell, so it asks again.
+function forgetOldRosterData(){
+  if(Date.now()-ROSTER_MEMORY_AT<ROSTERS_TTL) return;
+  ROSTER_MEMORY_AT=Date.now(); AVAIL_ROSTERS=null; AVAIL_PROMISE=null; AVAIL_SUBJECTS={}; CATALOG={}; SEARCH_CACHE={};
+}
 async function availRosters(){
+  forgetOldRosterData();
   if(AVAIL_ROSTERS) return AVAIL_ROSTERS;
   let saved=null;
   try{ const raw=localStorage.getItem("carn_rosters"); if(raw){ const o=JSON.parse(raw); if(o&&Array.isArray(o.items)&&o.items.length){ if(o.at&&(Date.now()-o.at<ROSTERS_TTL)) AVAIL_ROSTERS=o.items; else saved=o.items; } } }catch(e){}
@@ -2669,34 +2675,46 @@ let AVAIL_SUBJECTS={};
 async function availSubjects(roster){
   if(!roster) return new Set();
   if(AVAIL_SUBJECTS[roster]) return AVAIL_SUBJECTS[roster];
-  try{ const raw=localStorage.getItem("carn_subjects_"+roster); if(raw){ const a=JSON.parse(raw); if(Array.isArray(a)&&a.length){ return AVAIL_SUBJECTS[roster]=new Set(a); } } }catch(e){}
+  let saved=null;
+  try{ const raw=localStorage.getItem("carn_subjects_"+roster); if(raw){ const o=JSON.parse(raw), items=Array.isArray(o)?o:o&&o.items;   // a bare list is the older form, with no date
+    if(Array.isArray(items)&&items.length){ if(o.at&&(Date.now()-o.at<ROSTERS_TTL)) return AVAIL_SUBJECTS[roster]=new Set(items); saved=items; } } }catch(e){}
   try{ const j=await (await fetch(`https://classes.cornell.edu/api/2.0/config/subjects.json?roster=${roster}`)).json();
     if(j.status==="success"){ const subs=(j.data.subjects||[]).map(s=>s.value).filter(Boolean);
-      if(subs.length){ try{ localStorage.setItem("carn_subjects_"+roster, JSON.stringify(subs)); }catch(e){} return AVAIL_SUBJECTS[roster]=new Set(subs); } } }catch(e){}
-  return AVAIL_SUBJECTS[roster]=new Set();
+      if(subs.length){ try{ localStorage.setItem("carn_subjects_"+roster, JSON.stringify({at:Date.now(), items:subs})); }catch(e){} return AVAIL_SUBJECTS[roster]=new Set(subs); } } }catch(e){}
+  return AVAIL_SUBJECTS[roster]=new Set(saved||[]);
 }
-// Full-catalog title index for a roster: [{s:subject, n:catalogNbr, t:title, u:credits}], built once by
-// pulling every department (Cornell's API has no cross-catalog title search), cached to localStorage
-// (~7-day TTL) so later name searches are instant. Reuses getSubjectClasses' cache.
+// Full-catalog index for a roster: [{s:subject, n:catalogNbr, t:title, u:credits}], used by both name
+// searches. Cornell's API has no cross-catalog title search, so it pulls every department, and it's saved
+// in localStorage for a day. After that the saved list keeps answering while a fresh one builds behind it,
+// one department a second (Cornell's API limit). Only a complete pull is ever saved.
 let CATALOG={}, CATALOG_BUILDING={};
-const CATALOG_TTL=7*24*3600*1000;
+async function pullCatalog(roster, onProgress, paced){
+  const subs=[...await availSubjects(roster)];
+  const index=[]; let done=0, idx=0, missed=0;
+  async function worker(){ while(idx<subs.length){ const sub=subs[idx++];
+    const classes=await getSubjectClasses(sub, roster);
+    if(!classes) missed++;
+    else for(const c of classes){ const eg=(c.enrollGroups||[])[0]||{}; index.push({s:sub,n:c.catalogNbr,t:c.titleLong||"",u:eg.unitsMaximum!=null?eg.unitsMaximum:null}); }
+    done++; if(onProgress) onProgress(done, subs.length);
+    if(paced) await new Promise(r=>setTimeout(r,1000)); } }
+  await Promise.all(Array.from({length:Math.min(paced?1:8,subs.length)}, worker));
+  if(!missed&&index.length){ try{ localStorage.setItem("carn_catalog_"+roster, JSON.stringify({at:Date.now(), index})); }catch(e){} }
+  return {index, complete:!missed&&index.length>0};
+}
 async function buildCatalog(roster, onProgress){
   if(!roster) return [];
   if(CATALOG[roster]) return CATALOG[roster];
-  try{ const raw=localStorage.getItem("carn_catalog_"+roster); if(raw){ const o=JSON.parse(raw); if(o&&o.at&&(Date.now()-o.at<CATALOG_TTL)&&Array.isArray(o.index)&&o.index.length){ return CATALOG[roster]=o.index; } } }catch(e){}
+  try{ localStorage.removeItem("carn_tidx_"+roster); }catch(e){}   // the title box's old list of its own
+  let saved=null;
+  try{ const raw=localStorage.getItem("carn_catalog_"+roster); if(raw){ const o=JSON.parse(raw); if(o&&Array.isArray(o.index)&&o.index.length){ if(o.at&&(Date.now()-o.at<ROSTERS_TTL)) return CATALOG[roster]=o.index; saved=o.index; } } }catch(e){}
+  if(saved){
+    CATALOG[roster]=saved;
+    if(!CATALOG_BUILDING[roster]) CATALOG_BUILDING[roster]=pullCatalog(roster,null,true)
+      .then(({index,complete})=>{ if(complete&&CATALOG[roster]===saved) CATALOG[roster]=index; }).catch(()=>{}).finally(()=>{ delete CATALOG_BUILDING[roster]; });
+    return saved;
+  }
   if(CATALOG_BUILDING[roster]) return CATALOG_BUILDING[roster];
-  CATALOG_BUILDING[roster]=(async()=>{
-    const subs=[...await availSubjects(roster)];
-    if(!subs.length){ return CATALOG[roster]=[]; }
-    const index=[]; let done=0, idx=0; const CONC=8;
-    async function worker(){ while(idx<subs.length){ const sub=subs[idx++];
-      const classes=await getSubjectClasses(sub, roster);
-      if(classes) for(const c of classes){ const eg=(c.enrollGroups||[])[0]||{}; index.push({s:sub,n:c.catalogNbr,t:c.titleLong||"",u:eg.unitsMaximum!=null?eg.unitsMaximum:null}); }
-      done++; if(onProgress) onProgress(done, subs.length); } }
-    await Promise.all(Array.from({length:Math.min(CONC,subs.length)}, worker));
-    try{ localStorage.setItem("carn_catalog_"+roster, JSON.stringify({at:Date.now(), index})); }catch(e){}
-    return CATALOG[roster]=index;
-  })();
+  CATALOG_BUILDING[roster]=pullCatalog(roster,onProgress,false).then(({index})=>CATALOG[roster]=index);
   try{ return await CATALOG_BUILDING[roster]; } finally{ delete CATALOG_BUILDING[roster]; }
 }
 function classTags(cls){ let tags=[]; if(cls.crseAttrValueGroups&&cls.crseAttrValueGroups.length) cls.crseAttrValueGroups.forEach(g=>(g.crseAttrValues||"").split(",").forEach(v=>{const t=v.replace(/[()\s]/g,"");if(t)tags.push(t);})); else if(cls.catalogDistr) cls.catalogDistr.replace(/[()]/g," ").split(/[,\s]+/).forEach(t=>{if(t)tags.push(t);}); return tags; }
@@ -2964,44 +2982,23 @@ $("#mCredits").addEventListener("input",()=>{ const v=parseFloat($("#mCredits").
 
 /* ---- search the WHOLE roster by course name (Title box) ----
    The Cornell API requires a subject per query, so a name search needs an index of
-   every course in the term. We build a slim {subject, number, title} index once per
-   roster (~280KB, ~4.5k courses) and cache it in localStorage, so it's a one-time
-   cost; later name searches filter it instantly. Picking a result fetches just that
+   every course in the term. buildCatalog keeps a slim index (~280KB, ~4.5k courses) in
+   localStorage, so name searches filter it instantly. Picking a result fetches just that
    one subject's full data to fill sections/meeting times (same path as the Code box). */
-let TITLE_INDEX={}, TITLE_BUILDING={}, titleTimer=null, MTITLE=[];
-async function ensureTitleIndex(roster, onProgress){
-  if(TITLE_INDEX[roster]) return TITLE_INDEX[roster];
-  try{ const raw=localStorage.getItem("carn_tidx_"+roster); if(raw){ const o=JSON.parse(raw); if(o&&o.v===1&&Array.isArray(o.items)&&o.items.length){ TITLE_INDEX[roster]=o.items; return o.items; } } }catch(e){}
-  if(TITLE_BUILDING[roster]) return TITLE_BUILDING[roster];
-  TITLE_BUILDING[roster]=(async()=>{
-    let subs=[];
-    try{ const j=await (await fetch(`https://classes.cornell.edu/api/2.0/config/subjects.json?roster=${roster}`)).json(); if(j.status==="success") subs=(j.data.subjects||[]).map(s=>s.value); }catch(e){}
-    if(!subs.length){ TITLE_BUILDING[roster]=null; return null; }
-    const items=[]; let done=0, i=0;
-    async function worker(){ while(i<subs.length){ const s=subs[i++];
-      try{ const j=await (await fetch(`https://classes.cornell.edu/api/2.0/search/classes.json?roster=${roster}&subject=${s}`)).json();
-        if(j.status==="success") for(const c of (j.data.classes||[])) items.push({s, n:c.catalogNbr, t:c.titleLong||""}); }catch(e){}
-      done++; if(onProgress&&done%6===0) onProgress(done,subs.length); } }
-    await Promise.all(Array.from({length:8},()=>worker()));
-    TITLE_INDEX[roster]=items;
-    try{ localStorage.setItem("carn_tidx_"+roster, JSON.stringify({v:1,built:new Date().toISOString().slice(0,10),items})); }catch(e){}
-    TITLE_BUILDING[roster]=null; return items;
-  })();
-  return TITLE_BUILDING[roster];
-}
+let titleTimer=null, MTITLE=[];
 async function runTitleSearch(){
   const q=$("#mTitleIn").value.trim(); const res=$("#mTitleResults"), msg=$("#mTitleMsg");
   if(q.length<3){ res.classList.remove("on"); msg.textContent=""; return; }
   const {roster,recycled}=await resolveRoster(termRoster(termById($("#mTerm").value)));
   CUR_ROSTER=roster; CUR_RECYCLED=recycled;
   if(!roster){ res.classList.remove("on"); msg.textContent="Roster unavailable"; return; }
-  let idx=TITLE_INDEX[roster];
-  if(!idx){ msg.textContent="Indexing the roster (one-time)…";
-    idx=await ensureTitleIndex(roster,(d,t)=>{ if($("#mTitleIn").value.trim()===q) msg.textContent=`Indexing the roster (one-time)… ${Math.round(d/t*100)}%`; });
+  let idx=CATALOG[roster];
+  if(!idx){ msg.textContent="Indexing the roster…";
+    idx=await buildCatalog(roster,(d,t)=>{ if($("#mTitleIn").value.trim()===q) msg.textContent=`Indexing the roster… ${Math.round(d/t*100)}%`; });
     if($("#mTitleIn").value.trim()!==q) return;          // user kept typing
   }
   msg.textContent="";
-  if(!idx){ res.classList.remove("on"); return; }
+  if(!idx.length){ res.classList.remove("on"); return; }
   const ql=q.toLowerCase();
   const hits=idx.filter(x=>x.t.toLowerCase().includes(ql));
   hits.sort((a,b)=>{ const as=a.t.toLowerCase().startsWith(ql)?0:1, bs=b.t.toLowerCase().startsWith(ql)?0:1; return as-bs || a.t.localeCompare(b.t); });
