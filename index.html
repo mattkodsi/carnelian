@@ -1461,13 +1461,13 @@ function courseRowHTML(e, counted){ const full=num(e.credits);
   return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(e)]}"></span><span class="grow"><span class="co code" data-cid="${e.id}">${esc(e.code)}</span> <span class="ti">${esc(e.title||'')}</span></span><span class="cc num">${cr}</span></div>`; }
 // A single course's overflow into this bucket (e.g. the 1.5 cr of REAL 5950 beyond the 1.5-cr CST minimum).
 function splitRowHTML(s){ return `<div class="crow"><span class="cdot dot ${STATUS_CLASS[displayStatus(s.e)]}"></span><span class="grow"><span class="co code" data-cid="${s.e.id}">${esc(s.e.code)}</span> <span class="ti muted">over ${esc(s.from)} minimum</span></span><span class="cc num">${crd(s.amount)}</span></div>`; }
-function coursesByTermHTML(courses){
+function coursesByTermHTML(courses, contrib){
   const groups=new Map();
   for(const e of courses){ const k=e.term_id||'~none'; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(e); }
   const order=[...groups.keys()].map(id=>termById(id)||{id,name:'No term',sort:1e9}).sort((a,b)=>(a.sort??1e9)-(b.sort??1e9));
   return order.map(t=>{
     const list=groups.get(t.id).slice().sort((a,b)=>String(a.code||'').localeCompare(String(b.code||''),undefined,{numeric:true}));
-    return `<div class="crow termhdr"><span class="grow">${esc(t.name||t.id)}</span></div>`+list.map(courseRowHTML).join("");
+    return `<div class="crow termhdr"><span class="grow">${esc(t.name||t.id)}</span></div>`+list.map(e=>courseRowHTML(e, contrib&&contrib.get(String(e.id)))).join("");
   }).join("");
 }
 function reqBlocks(prog){
@@ -1487,7 +1487,7 @@ function reqBlocks(prog){
       const bar=`<div class="crow" style="border:0"><span class="grow"><b>${nf(r.done)}</b> of <b>${nf(r.need)}</b> credits${planStr}</span><span class="mini" style="width:90px;height:6px;border-radius:99px;background:var(--surface-3);overflow:hidden;display:flex">${bar3(r)}</span></div>`;
       const note=(BAKER_VIEW==='plan'&&req.spec&&req.spec.note)?`<div class="crow waivernote"><span class="grow">${esc(req.spec.note)}</span></div>`:"";
       let detail=note;
-      if(req.spec&&req.spec.groupByTerm && r.courses&&r.courses.length){ detail=coursesByTermHTML(r.courses); }
+      if(req.spec&&req.spec.groupByTerm && r.courses&&r.courses.length){ detail=coursesByTermHTML(r.courses, r.contrib); }
       else if(r.kids&&r.kids.length){ detail=r.kids.map(k=>{const kc=matchedFor(k);const km=kc.some(isEarned);const kcur=!km&&kc.some(e=>displayStatus(e)==="in_progress");return `<div class="crow"><span class="cdot dot ${km?'ok':(kcur?'plan':(kc.length?'warn':'none'))}"></span><span class="grow">${esc(k.name)}</span>${kc.map(courseChip).join(" ")||'<span class="pill none">open</span>'}</div>`;}).join(""); }
       else if(r.courses&&r.courses.length){ detail=r.courses.map(e=>courseRowHTML(e, r.contrib&&r.contrib.get(String(e.id)))).join(""); }
       if(r.splits&&r.splits.length) detail+=r.splits.map(splitRowHTML).join("");   // partial overflows spilled in from other buckets
