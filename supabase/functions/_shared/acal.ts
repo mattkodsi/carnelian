@@ -100,9 +100,13 @@ export function termAcademics(evs: AcalEvent[], ts: string, te: string): TermAca
     const title = ev.title || "";
     if (acalNoClass(title)) res.noClass.push({ start: r.start, end: r.end, title });
     if (/last day of instruction/i.test(title)) {
+      // Spring words "regular and 7 week 2" on one line, so one date can end both. A term's
+      // own last day falls in its second half; earlier ones belong to an overlapping winter session.
       if (/7\s*week\s*1/i.test(title)) res.half1End = r.end;
-      else if (/7\s*week\s*2/i.test(title)) res.half2End = r.end;
-      else if (!/7\s*week/i.test(title)) { if (!lastInstr || r.end > lastInstr) lastInstr = r.end; }
+      else {
+        if (/7\s*week\s*2/i.test(title)) res.half2End = r.end;
+        if ((/\bregular\b/i.test(title) || !/7\s*week/i.test(title)) && r.end >= res.mid && (!lastInstr || r.end > lastInstr)) lastInstr = r.end;
+      }
     }
     if (/7\s*week\s*2/i.test(title) && /instruction begins/i.test(title)) res.half2Start = r.start;
   }

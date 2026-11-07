@@ -1843,7 +1843,8 @@ function termAcademics(term){
     if(e<ts||s>te) continue; res.has=true;
     const title=ev.title||"", isNo=/no class/i.test(title);
     if(isNo) res.noClass.push({s,e});
-    if(/last day of instruction/i.test(title)){ if(/7\s*week\s*1/i.test(title)) res.half1End=e; else if(/7\s*week\s*2/i.test(title)) res.half2End=e; else if(!/7\s*week/i.test(title)){ if(!lastInstr||e>lastInstr) lastInstr=e; } }
+    // Spring words "regular and 7 week 2" on one line, so one date can end both. A term's own last day falls in its second half; earlier ones belong to an overlapping winter session.
+    if(/last day of instruction/i.test(title)){ if(/7\s*week\s*1/i.test(title)) res.half1End=e; else { if(/7\s*week\s*2/i.test(title)) res.half2End=e; if((/\bregular\b/i.test(title)||!/7\s*week/i.test(title))&&e>=mid&&(!lastInstr||e>lastInstr)) lastInstr=e; } }
     if(/7\s*week\s*2/i.test(title)&&/instruction begins/i.test(title)) res.half2Start=s;
     if(isNo||acalRelevant(title)) res.overlay.push({s,e,title,noclass:isNo,time:ev.time,date:ev.date});   // suppression uses noClass; the overlay hides other-cohort notices
   }
